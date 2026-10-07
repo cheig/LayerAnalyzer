@@ -1,0 +1,11 @@
+--- a/gio/gunixmounts.c
++++ b/gio/gunixmounts.c
+@@ -21,6 +21,8 @@
+  *
+  * Author: Alexander Larsson <alexl@redhat.com>
+  */
++
++#include <mntent.h>
+ 
+ /* Prologue {{{1 */
+ 

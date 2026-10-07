@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "id": "web-unavailable",
+      "version": 1,
+      "title": "网页打不开",
+      "description": "按 DNS、TCP、TLS、HTTP 顺序定位失败层。",
+      "steps": [
+        {"id":"dns","title":"DNS","filter":"dns","conclusion":"检查查询、响应码和响应时延。"},
+        {"id":"tcp","title":"TCP","filter":"tcp.flags.syn == 1 || tcp.analysis.retransmission || tcp.flags.reset == 1","conclusion":"检查建连、重传和 RST。"},
+        {"id":"tls","title":"TLS","filter":"tls","conclusion":"检查握手失败和 Alert。"},
+        {"id":"http","title":"HTTP","filter":"http","conclusion":"检查请求与响应状态码。"}
+      ]
+    },
+    {
+      "id": "slow-api",
+      "version": 1,
+      "title": "接口很慢",
+      "description": "从端点、握手和首字节时间判断网络或服务端延迟。",
+      "steps": [
+        {"id":"dns","title":"DNS 查询","filter":"dns","conclusion":"查看 DNS 响应时延。"},
+        {"id":"handshake","title":"连接握手","filter":"tcp.flags.syn == 1 || tcp.flags.syn == 1 && tcp.flags.ack == 1","conclusion":"比较 TCP 建连耗时。"},
+        {"id":"http","title":"请求响应","filter":"http.request || http.response","conclusion":"定位首字节和服务端响应。"}
+      ]
+    },
+    {
+      "id": "tcp-unstable",
+      "version": 1,
+      "title": "TCP 不稳定",
+      "description": "集中查看重传、重复 ACK、窗口和连接重置。",
+      "steps": [
+        {"id":"signals","title":"异常信号","filter":"tcp.analysis.retransmission || tcp.analysis.duplicate_ack || tcp.flags.reset == 1","conclusion":"定位受影响会话和首个异常帧。"},
+        {"id":"window","title":"窗口","filter":"tcp.window_size == 0","conclusion":"检查 Zero Window。"}
+      ]
+    },
+    {
+      "id": "dns-failure",
+      "version": 1,
+      "title": "DNS 异常",
+      "description": "查看查询、RCODE、重复查询和超时。",
+      "steps": [
+        {"id":"queries","title":"查询与响应","filter":"dns","conclusion":"按域名和服务器核对响应。"},
+        {"id":"errors","title":"失败响应","filter":"dns.flags.response == 1 && dns.flags.rcode != 0","conclusion":"定位 NXDOMAIN、SERVFAIL 等异常帧。"}
+      ]
+    },
+    {
+      "id": "sip-call-failure",
+      "version": 1,
+      "title": "SIP 呼叫失败",
+      "description": "查看注册、呼叫建立、释放和失败响应。",
+      "steps": [
+        {"id":"register","title":"注册","filter":"sip.Method == \"REGISTER\" || sip.CSeq.method == \"REGISTER\"","conclusion":"检查注册挑战和最终响应。"},
+        {"id":"invite","title":"呼叫建立","filter":"sip.Method == \"INVITE\" || sip.CSeq.method == \"INVITE\"","conclusion":"按 Call-ID 查看 INVITE 事务。"},
+        {"id":"failure","title":"失败响应","filter":"sip.Status-Code >= 300","conclusion":"定位首个失败响应码和对端。"},
+        {"id":"release","title":"释放","filter":"sip.Method == \"BYE\" || sip.Method == \"CANCEL\"","conclusion":"检查正常释放、取消或超时。"}
+      ]
+    },
+    {
+      "id": "rtp-quality",
+      "version": 1,
+      "title": "RTP 质量",
+      "description": "查看媒体方向、序号、RTCP 与 Wireshark RTP 分析信号。",
+      "steps": [
+        {"id":"rtp","title":"RTP 流","filter":"rtp","conclusion":"按 SSRC 和方向聚合媒体包。"},
+        {"id":"rtcp","title":"RTCP","filter":"rtcp","conclusion":"查看发送/接收报告和丢包反馈。"},
+        {"id":"sequence","title":"序号字段","filter":"rtp && rtp.seq","conclusion":"进入专项视图定位序号缺口、乱序和重复包。"}
+      ]
+    },
+    {
+      "id": "mobile-core-signaling",
+      "version": 1,
+      "title": "4G/5G 信令",
+      "description": "从 NAS、S1AP、NGAP、GTP、Diameter 和 PFCP 进入原始信令链。",
+      "steps": [
+        {"id":"access","title":"接入与注册","filter":"nas-eps || nas-5gs || s1ap || ngap","conclusion":"检查注册、鉴权和接入失败。"},
+        {"id":"session","title":"会话与承载","filter":"gtp || gtpv2 || pfcp","conclusion":"检查会话、承载与隧道建立。"},
+        {"id":"diameter","title":"Diameter","filter":"diameter","conclusion":"按 Session-Id 和 Result-Code 关联请求响应。"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches LightColors.background so the window background behind the
+         system bars and the display cutout matches the Compose surface. -->
+    <color name="app_background">#F9FAF8</color>
+</resources>

@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_ims_call_success",
+  "description": "Offline Mock Agent trajectory for ims_call_success.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_communication_analysis",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_communication_analysis",
+          "arguments": {
+            "domains": [
+              "sip",
+              "rtp",
+              "rtcp"
+            ],
+            "includeMessages": true,
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_communication_analysis",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {1, 4, 5, 6, 205, 206, 207, 208, 209}",
+            "limit": 9
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for ims_call_success.",
+        "findings": [
+          {
+            "id": "call-established",
+            "title": "CallEstablished",
+            "severity": "Info",
+            "confidence": "Medium",
+            "conclusion": "The visible dialog has a 200 OK, ACK, RTP in both directions, and a completed BYE.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 1,
+                "observation": "Frame 1 supports CallEstablished.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 4,
+                "observation": "Frame 4 supports CallEstablished.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 5,
+                "observation": "Frame 5 supports CallEstablished.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 208,
+                "observation": "Frame 208 establishes capture context for ims_call_success.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 209,
+                "observation": "Frame 209 establishes capture context for ims_call_success.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          },
+          {
+            "id": "bidirectional-media",
+            "title": "BidirectionalMedia",
+            "severity": "Info",
+            "confidence": "Medium",
+            "conclusion": "The visible dialog has a 200 OK, ACK, RTP in both directions, and a completed BYE.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 6,
+                "observation": "Frame 6 supports BidirectionalMedia.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 205,
+                "observation": "Frame 205 supports BidirectionalMedia.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 206,
+                "observation": "Frame 206 supports BidirectionalMedia.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 207,
+                "observation": "Frame 207 supports BidirectionalMedia.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "RTP visibility does not prove endpoint playback"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "aliases": [
+    {
+      "alias": "sip.call_id",
+      "field": "sip.Call-ID",
+      "region": "any",
+      "notes": "Common lowercase spelling of the SIP Call-ID header."
+    },
+    {
+      "alias": "sip.status_code",
+      "field": "sip.Status-Code",
+      "region": "any",
+      "notes": "Common lowercase spelling of the SIP response status code."
+    },
+    {
+      "alias": "diameter.result",
+      "field": "diameter.result-code",
+      "region": "any",
+      "notes": "Shorthand for the Diameter Result-Code AVP."
+    },
+    {
+      "alias": "pfcp.cause_value",
+      "field": "pfcp.cause",
+      "region": "any",
+      "notes": "Shorthand for the PFCP Cause IE value."
+    },
+    {
+      "alias": "gtp.teid_ul",
+      "field": "gtp.teid",
+      "region": "any",
+      "notes": "Uplink TEID mentions map to the visible GTP TEID field."
+    }
+  ]
+}

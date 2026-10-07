@@ -1,0 +1,11 @@
+--- a/gio/xdgmime/xdgmime.c
++++ b/gio/xdgmime/xdgmime.c
+@@ -228,7 +228,7 @@
+   xdg_data_dirs = getenv ("XDG_DATA_DIRS");
+ 
+   if (xdg_data_dirs == NULL)
+-    xdg_data_dirs = "/usr/local/share/:/usr/share/";
++    xdg_data_dirs = "@TERMUX_PREFIX@/local/share/:@TERMUX_PREFIX@/share/";
+ 
+   /* Work out how many dirs we’re dealing with. */
+   if (xdg_data_home != NULL || home != NULL)

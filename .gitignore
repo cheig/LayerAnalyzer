@@ -1,0 +1,86 @@
+# Gradle
+.gradle/
+build/
+app/build/
+/gradle-*-bin.zip
+
+# IDE
+.idea/
+.vscode/
+.cxx/
+.externalNativeBuild/
+
+# Local config
+local.properties
+/docs/local-development.md
+/docs/release_prompt.txt
+/.claude/
+
+# Signing credentials
+*.jks
+*.keystore
+keystore.properties
+
+# Logs and temp files
+*.log
+build_log*.txt
+build_output*.txt
+compile_output*.txt
+clean_log.txt
+gradle_error.txt
+gradle_log.txt
+gradle_version.txt
+java_pid*.hprof
+hs_err_pid*
+
+# Android packages
+*.apk
+*.aab
+*.apks
+
+# Native build: third-party sources and compiled output
+native_build/external/
+native_build/output/
+native_build/output_x86_64/
+native_build/termux-packages/
+/native_build/scripts/temp_build_*.sh
+
+# RTP host 单测的构建产物（RTP1-ARCH-03）
+native_build/verification/rtp/host_tests/build/
+
+# Prebuilt native dependencies are distributed separately
+/app/src/main/cpp/libs/
+/native-deps-*.zip
+/native-deps-*.tar.gz
+/native-deps-*.tar.zst
+
+# Packet captures may contain sensitive traffic
+*.pcap
+*.pcapng
+*.cap
+!/app/src/main/assets/test.pcap
+/device-backup-captures/
+
+# Local debugging screenshots
+/app_screen.png
+/screenshot*.png
+/run_*.png
+
+
+# Private diagnostics and Python caches
+/baselines/
+__pycache__/
+*.pyc
+
+# Reviewed synthetic test fixtures
+!/app/src/androidTest/assets/agent_golden/captures/*.pcap
+!/app/src/androidTest/assets/rtp/sip_rtp_amr_nb.pcap
+!/app/src/androidTest/assets/rtp/sip_rtp_amr_wb.pcap
+
+# Generated cross compilation configuration
+/native_build/cross_file_*.txt
+
+# Optional external media fixtures and their derivatives stay local
+/app/src/androidTest/assets/rtp/golden/*
+!/app/src/androidTest/assets/rtp/golden/sip_rtp_amr_nb.*
+!/app/src/androidTest/assets/rtp/golden/sip_rtp_amr_wb.*

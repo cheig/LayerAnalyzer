@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Three separated protocol layers, contained within the adaptive safe zone. -->
+    <path android:pathData="M29,62.5 L51.8,75.3 Q54,76.5 56.2,75.3 L79,62.5 L79,67.5 Q79,68.7 77.9,69.3 L56.2,81.5 Q54,82.7 51.8,81.5 L30.1,69.3 Q29,68.7 29,67.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="29"
+                android:startY="62"
+                android:endX="79"
+                android:endY="82"
+                android:startColor="#2CC5AE"
+                android:endColor="#138D8F" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M29,50.5 L51.8,63.3 Q54,64.5 56.2,63.3 L79,50.5 L79,55.5 Q79,56.7 77.9,57.3 L56.2,69.5 Q54,70.7 51.8,69.5 L30.1,57.3 Q29,56.7 29,55.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="29"
+                android:startY="50"
+                android:endX="79"
+                android:endY="70"
+                android:startColor="#8AF4CE"
+                android:endColor="#32C9B7" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M51.8,28.8 Q54,27.6 56.2,28.8 L78.2,41.1 Q80.4,42.3 78.2,43.5 L56.2,55.8 Q54,57 51.8,55.8 L29.8,43.5 Q27.6,42.3 29.8,41.1 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="38"
+                android:startY="29"
+                android:endX="69"
+                android:endY="57"
+                android:startColor="#F1FFF4"
+                android:endColor="#B4F7DD" />
+        </aapt:attr>
+    </path>
+    <!-- A routed packet trace follows the perspective of the top layer. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#0B514A"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M42.5,42.3 L50.2,46.6 L58,38 L65.5,42.3" />
+    <path
+        android:fillColor="#0B514A"
+        android:pathData="M45,42.3 A2.5,2.5 0,1 1,40,42.3 A2.5,2.5 0,1 1,45,42.3 Z M68,42.3 A2.5,2.5 0,1 1,63,42.3 A2.5,2.5 0,1 1,68,42.3 Z" />
+</vector>

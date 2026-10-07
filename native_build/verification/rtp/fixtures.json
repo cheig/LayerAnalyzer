@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "notice": "Wiki inputs and derivatives are temporarily withheld from distribution pending redistribution terms. Local use does not establish redistribution rights. Missing inputs fail device tests.",
+  "files": {
+    "g711u_loss_reorder.pcap": {
+      "sha256": "28f43b78d0f95a8637a69530d11a0e88a24b23026905993a1aee1c9414d9b4d3",
+      "provenance": "derived",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g711.pcap",
+      "distributed": false
+    },
+    "golden/g711u_loss_reorder.streams.json": {
+      "sha256": "5d6cc82b9b59929aad51131c76b020874f0b276f476abdf909638eed8de313fc",
+      "provenance": "derived from g711u_loss_reorder.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g711.pcap",
+      "distributed": false
+    },
+    "golden/rtp_no_signal.streams.json": {
+      "sha256": "e41c5fb0d2a81367c0bb9f28e539a0a6596ce5b7c25f9015b56f50d2d9499731",
+      "provenance": "derived from rtp_no_signal.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/RTP_L16_monaural_sample.pcapng",
+      "distributed": false
+    },
+    "golden/sip_g711a_bidirectional.streams.json": {
+      "sha256": "7737eba6b3ac0204fdc44a4b5fcaf30065963ad40ec59453d19f13554008a211",
+      "provenance": "derived from sip_g711a_bidirectional.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/SIP_DTMF2.cap",
+      "distributed": false
+    },
+    "golden/sip_rtp_amr_nb.1279351116.amr": {
+      "sha256": "ef39390ed9cd8e387954ac3d1613006a6433dcebb658ac8198741f77db3a48a6",
+      "provenance": "derived from sip_rtp_amr_nb.pcap",
+      "sourceUrl": null,
+      "distributed": true
+    },
+    "golden/sip_rtp_amr_nb.1279351116.pcm": {
+      "sha256": "bcc9d091ccf528ee4da497d81f9a6b176b68c4c59986c26482f0c4001ad55221",
+      "provenance": "derived from sip_rtp_amr_nb.pcap",
+      "sourceUrl": null,
+      "distributed": true
+    },
+    "golden/sip_rtp_amr_wb.1279351116.awb": {
+      "sha256": "6d31b8318da494e7e1f27dedb97c2cc2bdef6671ccffc6f4fb0a0e6d8d5356ea",
+      "provenance": "derived from sip_rtp_amr_wb.pcap",
+      "sourceUrl": null,
+      "distributed": true
+    },
+    "golden/sip_rtp_amr_wb.1279351116.pcm": {
+      "sha256": "f18307fff831c1238f6974bc2cfccb030edbd5a1fe27cc058eb3bafebb5b5828",
+      "provenance": "derived from sip_rtp_amr_wb.pcap",
+      "sourceUrl": null,
+      "distributed": true
+    },
+    "golden/sip_rtp_g722.71150266.pcm": {
+      "sha256": "37c59e6a5053875dbdf1e8a7bccf78949fe6930de2e8e590a1265b1bd5e02581",
+      "provenance": "derived from sip_rtp_g722.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g722.pcap",
+      "distributed": false
+    },
+    "golden/sip_rtp_g726.71150038.pcm": {
+      "sha256": "6c9240598ec17a5524e4a73589453469bdad204f701616bcbc1d3d56f793bed6",
+      "provenance": "derived from sip_rtp_g726.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g726.pcap",
+      "distributed": false
+    },
+    "golden/sip_rtp_g729.71653793.pcm": {
+      "sha256": "4d9a4889cf8717c7da2c7b1072445c1fba1985f7f85f90f8e1e5565ec0e54020",
+      "provenance": "derived from sip_rtp_g729.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g729a.pcap",
+      "distributed": false
+    },
+    "golden/sip_rtp_g729.71653793.raw": {
+      "sha256": "593876ace8023022b0179d45022d365e29b3eb6f124237e1602fb1e0cd3b9860",
+      "provenance": "derived from sip_rtp_g729.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g729a.pcap",
+      "distributed": false
+    },
+    "golden/sip_rtp_ilbc.71233447.pcm": {
+      "sha256": "59ac239bbec6154497344ec477e73e2dc03469abd5e3f94500f605e85e40faff",
+      "provenance": "derived from sip_rtp_ilbc.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-ilbc.pcap",
+      "distributed": false
+    },
+    "golden/sip_rtp_opus.71233028.pcm": {
+      "sha256": "2a8f7c0b0be7fd2851c69105e1afb06fb16a80807f150eee9589f30fc6d98fc2",
+      "provenance": "derived from sip_rtp_opus.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-opus.pcap",
+      "distributed": false
+    },
+    "golden/srtp.streams.json": {
+      "sha256": "c785abed53b76dcb68d292add05453208f0cd1e2d059674ea5cd8745f02119ca",
+      "provenance": "derived from srtp.pcap",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/Asterisk_ZFONE_XLITE.pcap",
+      "distributed": false
+    },
+    "rtp_no_signal.pcap": {
+      "sha256": "a0e83438a43dde0c87fea7be55ffa1eca305b4b3aa03de9f99d81ae880520189",
+      "provenance": "format-converted",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/RTP_L16_monaural_sample.pcapng",
+      "distributed": false
+    },
+    "sip_g711a_bidirectional.pcap": {
+      "sha256": "cda1e4673d334eea7c86546076a3e0a4427227493aef9de620d1ed2b635697a9",
+      "provenance": "downloaded",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/SIP_DTMF2.cap",
+      "distributed": false
+    },
+    "sip_rtp_amr_nb.pcap": {
+      "sha256": "4c190ff6b9bb681b794b6edfb5822db38eb530c5bf246c30e8b6c5d75807b7a0",
+      "provenance": "synthetic",
+      "sourceUrl": null,
+      "distributed": true
+    },
+    "sip_rtp_amr_wb.pcap": {
+      "sha256": "1eae7b3a42204f999592f323c5f351a21e0c48f5f51cff03001d2e024d2672ea",
+      "provenance": "synthetic",
+      "sourceUrl": null,
+      "distributed": true
+    },
+    "sip_rtp_g722.pcap": {
+      "sha256": "838639fe064df7b4076efec319ca80ee124d8d4c9118b1cc929524121c361413",
+      "provenance": "downloaded",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g722.pcap",
+      "distributed": false
+    },
+    "sip_rtp_g726.pcap": {
+      "sha256": "89282263e575cf1497342a1b38586e6fcced32cb15e21b798748a49d8dab545f",
+      "provenance": "downloaded",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g726.pcap",
+      "distributed": false
+    },
+    "sip_rtp_g729.pcap": {
+      "sha256": "8573f2f7adf019e743a8c41d9146df256c67afdd66169a64323b61edaa55476a",
+      "provenance": "downloaded",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-g729a.pcap",
+      "distributed": false
+    },
+    "sip_rtp_ilbc.pcap": {
+      "sha256": "65e313ee78429c829b9b5c7d86975812f8c1f9c7ea06dc3888c900efb013f9b8",
+      "provenance": "downloaded",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-ilbc.pcap",
+      "distributed": false
+    },
+    "sip_rtp_opus.pcap": {
+      "sha256": "c8920238edcc96188047812a05e9d2ce84a4094529a3434fea1ea3d92b713fde",
+      "provenance": "downloaded",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/sip-rtp-opus.pcap",
+      "distributed": false
+    },
+    "srtp.pcap": {
+      "sha256": "7fd332c99d68a6c99f84cc39a9f2f15b08fb360fe4e49c35cdc7e30f4d0b9833",
+      "provenance": "downloaded",
+      "sourceUrl": "https://gitlab.com/wireshark/wireshark/-/wikis/uploads/__moin_import__/attachments/SampleCaptures/Asterisk_ZFONE_XLITE.pcap",
+      "distributed": false
+    }
+  }
+}

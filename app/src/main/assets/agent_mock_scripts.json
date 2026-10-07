@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "description": "Minimal offline Agent demo scripts. Debug builds only; the Release UI exposes no entry point that reads this file.",
+  "scripts": [
+    {
+      "id": "demo_capture_overview",
+      "description": "Read the capture overview, then answer with a short report.",
+      "capabilities": {
+        "toolCalling": true,
+        "parallelToolCalls": false,
+        "structuredOutput": true,
+        "streaming": false
+      },
+      "turns": [
+        {
+          "type": "tool_calls",
+          "calls": [
+            {
+              "toolCallId": "demo-call-plan",
+              "toolName": "declare_analysis_plan",
+              "arguments": {
+                "goal": "Summarize capture health",
+                "steps": [
+                  {
+                    "tool": "get_capture_overview",
+                    "purpose": "Read bounded capture-wide health indicators"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "tool_calls",
+          "calls": [
+            {
+              "toolCallId": "demo-call-overview",
+              "toolName": "get_capture_overview",
+              "arguments": { "scope": "complete_file" }
+            }
+          ]
+        },
+        {
+          "type": "final",
+          "expect": { "toolCallId": "demo-call-overview" },
+          "report": {
+            "summary": "Offline demo: the capture overview was read locally and no data left the device.",
+            "completeness": "Partial",
+            "findings": [
+              {
+                "id": "demo-finding-overview",
+                "title": "Capture overview read",
+                "severity": "Info",
+                "confidence": "Low",
+                "conclusion": "The overview tool returned the capture's protocol hierarchy and health indicators.",
+                "evidence": [
+                  {
+                    "type": "Statistic",
+                    "observation": "The overview tool returned a protocol hierarchy for this capture.",
+                    "sourceToolCallId": "demo-call-overview",
+                    "metric": "protocolHierarchy"
+                  }
+                ]
+              }
+            ],
+            "limitations": ["This is a scripted demo response, not a real model analysis."],
+            "recommendedNextSteps": ["Configure a real model to run a full analysis."]
+          }
+        }
+      ]
+    }
+  ]
+}

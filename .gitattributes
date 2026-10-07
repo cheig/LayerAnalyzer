@@ -1,0 +1,58 @@
+* text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
+
+# Cross-platform source files
+*.kt text eol=lf
+*.kts text eol=lf
+*.gradle text eol=lf
+*.java text eol=lf
+*.c text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.cmake text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+*.md text eol=lf
+*.patch text eol=lf
+*.sh text eol=lf
+gradlew text eol=lf
+# Node tooling and JSONL fixtures compared byte-for-byte by --check scripts
+*.mjs text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+# These four payloads were signed as CRLF bytes. Preserve those exact bytes in
+# checkouts AND git archive; text/eol conversion would invalidate their hashes.
+app/src/main/assets/scenario_package/playbooks.json -text whitespace=cr-at-eol
+app/src/main/assets/scenario_package/field_aliases.json -text whitespace=cr-at-eol
+app/src/main/assets/scenario_package/thresholds.json -text whitespace=cr-at-eol
+app/src/main/assets/scenario_package/evaluation_expectations.json -text whitespace=cr-at-eol
+*.py text eol=lf
+*.pem text eol=lf
+app/src/main/assets/THIRD_PARTY_NOTICES.txt text eol=lf
+# Reviewed upstream license bytes are hashed by the runtime license manifest.
+app/src/main/assets/licenses/*.txt -text
+app/src/main/cpp/third_party/hev-socks5-tunnel/third-part/yaml/UPSTREAM-LICENSE -text
+
+# Windows command files
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary artifacts and test data
+*.a binary
+*.jar binary
+*.pcap binary
+*.pcapng binary
+*.pcm binary
+*.amr binary
+*.awb binary
+*.raw binary
+*.wav binary
+*.mp4 binary
+*.dll binary
+*.png binary
+*.so binary
+*.zip binary

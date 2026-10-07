@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "url": "https://github.com/cheig/LayerAnalyzer_libs/releases/download/wireshark-4.0.10-r1/native-sources-wireshark-4.0.10-r2.tar.gz",
+  "sha256": "a58ef11f89f6ad8c961ad0963dba92feb51d5c48f067a491a339fe1e1b647ecd",
+  "components": [
+    {
+      "name": "glib-2.80.0",
+      "upstreamArchive": "glib-2.80.0.tar.xz",
+      "upstreamSha256": "8228a92f92a412160b139ae68b6345bd28f24434a7b5af150ebe21ff587a561d",
+      "sourceFiles": 2298,
+      "modifiedFiles": [
+        "glib-2.80.0/gio/gdbusprivate.c",
+        "glib-2.80.0/gio/gkeyfilesettingsbackend.c",
+        "glib-2.80.0/gio/glib-compile-schemas.c",
+        "glib-2.80.0/gio/gnetworking.h.in",
+        "glib-2.80.0/gio/gunixmounts.c",
+        "glib-2.80.0/gio/xdgmime/xdgmime.c",
+        "glib-2.80.0/girepository/compiler/meson.build",
+        "glib-2.80.0/glib/gcharset.c",
+        "glib-2.80.0/glib/glibintl.h",
+        "glib-2.80.0/glib/gthreadprivate.h",
+        "glib-2.80.0/glib/gtimezone.c",
+        "glib-2.80.0/glib/gtypes.h",
+        "glib-2.80.0/glib/gutils.c",
+        "glib-2.80.0/glib/tests/meson.build",
+        "glib-2.80.0/meson.build"
+      ],
+      "archiveTreeSha256": "ac2cdeab83b2764d55b7a637e9bc9c4c23039ebfb8843c5bbe8179c38da8d127",
+      "archiveEntries": 2301,
+      "addedFiles": [
+        {
+          "path": "glib-2.80.0/.patched",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "name": "libffi-3.4.6",
+      "upstreamArchive": "libffi-3.4.6.tar.gz",
+      "upstreamSha256": "b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d437747843895a4e",
+      "sourceFiles": 450,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "30042c9c71390228f2c7da48fe871b77a12a4e1b99f98bac1d75237be81ab04d",
+      "archiveEntries": 450
+    },
+    {
+      "name": "libgcrypt-1.11.0",
+      "upstreamArchive": "libgcrypt-1.11.0.tar.bz2",
+      "upstreamSha256": "09120c9867ce7f2081d6aaa1775386b98c2f2f246135761aae47d81f58685b9c",
+      "sourceFiles": 596,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "3c828ae2f59d93eb71fe5bbca1ac0b1d6aa09b4e5aa6e4423b2d14f7f680a0d0",
+      "archiveEntries": 596
+    },
+    {
+      "name": "libgpg-error-1.50",
+      "upstreamArchive": "libgpg-error-1.50.tar.bz2",
+      "upstreamSha256": "69405349e0a633e444a28c5b35ce8f14484684518a508dc48a089992fe93e20a",
+      "sourceFiles": 263,
+      "modifiedFiles": [
+        "libgpg-error-1.50/configure"
+      ],
+      "archiveTreeSha256": "b7b4d3ff60aef931a349b6ef9c82b145784d153e84c1cc9ec61f3b75966195b0",
+      "archiveEntries": 269,
+      "addedFiles": [
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.aarch64-linux-android.h",
+          "sha256": "3e09e131c596fe88a2805f33819088289784b9379b8f20cc6ad9c97f1540f504"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.aarch64-unknown-linux-android.h",
+          "sha256": "3e09e131c596fe88a2805f33819088289784b9379b8f20cc6ad9c97f1540f504"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.android.h",
+          "sha256": "cf5f6c4452f72f3bfc2110e510c5e46ded6895ad6d32da81fd5b59c097ba19b1"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.linux-android.h",
+          "sha256": "cf5f6c4452f72f3bfc2110e510c5e46ded6895ad6d32da81fd5b59c097ba19b1"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.x86_64-linux-android.h",
+          "sha256": "cf5f6c4452f72f3bfc2110e510c5e46ded6895ad6d32da81fd5b59c097ba19b1"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.x86_64-pc-linux-android.h",
+          "sha256": "cf5f6c4452f72f3bfc2110e510c5e46ded6895ad6d32da81fd5b59c097ba19b1"
+        }
+      ]
+    },
+    {
+      "name": "libiconv-1.17",
+      "upstreamArchive": "libiconv-1.17.tar.gz",
+      "upstreamSha256": "8f74213b56238c85a50a5329f77e06198771e70dd9a739779f4c02f65d971313",
+      "sourceFiles": 1036,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "70627968e1d7c2fd0e6841f156429be58f111c723929f467465c14c99a431591",
+      "archiveEntries": 1036
+    },
+    {
+      "name": "pcre2-10.42",
+      "upstreamArchive": "pcre2-10.42.tar.gz",
+      "upstreamSha256": "c33b418e3b936ee3153de2c61cc638e7e4fe3156022a5c77d0711bcbb9d64f1f",
+      "sourceFiles": 423,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "1cf7cff5fa67237641587d1374b4f8487ac58109eaeaf8e29c200c53916a1969",
+      "archiveEntries": 423
+    },
+    {
+      "name": "zlib-1.3.1",
+      "upstreamArchive": "zlib-1.3.1.tar.gz",
+      "upstreamSha256": "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23",
+      "sourceFiles": 253,
+      "modifiedFiles": [
+        "zlib-1.3.1/zconf.h"
+      ],
+      "archiveTreeSha256": "72c1bb56a51dad4ed3b0e2f2ec1106cd539560a262eb9479455644826bf43c00",
+      "archiveEntries": 253
+    },
+    {
+      "name": "wireshark-4.0.10",
+      "upstreamCommit": "f5c7c25a81ebd5e2cd431f9e2d424586c6250812",
+      "sourceFiles": 6471,
+      "modifiedFiles": [
+        "wireshark-4.0.10/cmake/modules/UseLemon.cmake",
+        "wireshark-4.0.10/wsutil/ws_pipe.c"
+      ],
+      "archiveMetadata": "Git export-subst expanded from the pinned upstream revision; no Git checkout required.",
+      "archiveTreeSha256": "6544b2b3e56259c1e9d01794f44947801ed59fcb31b7aefc32d1b61736919f94",
+      "archiveEntries": 6471
+    },
+    {
+      "name": "c-ares-1.34.4",
+      "upstreamCommit": "b82840329a4081a1f1b125e6e6b760d4e1237b52",
+      "sourceFiles": 558,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "2c5ac39b9a230a653906b0fa16a73f8dcdb550fabda5df2c055dff617eaf933b",
+      "archiveEntries": 558
+    }
+  ],
+  "binaryArchiveSha256": "617468873eea9b69bd430736b1419fe684b871d0ddbe81a6d94258086b132c7d",
+  "verificationStatus": "Nine source inputs, 19 source patches and added support files verified; pinned r1 libraries match retained original build outputs and configuration. Both ABIs rebuilt from r2 with the documented build-script adjustments. Candidate replacement is not accepted: device validation findings and security-maintenance selection remain open. Byte-identical reproduction is not claimed; see verificationRecord.",
+  "rebuildAdjustments": [
+    {
+      "path": "native_build/patches/rebuild/r2-build-compatibility.patch",
+      "sha256": "1569ab7d28560f558e062ceab50cc22360dfcaf523cf3119452859a67fc72767",
+      "scope": "Build scripts only; apply once to a fresh r2 extraction before rebuilding. Fix PCRE2 CMP0057 with CMake 3.22.1 / NDK r27, retain 16 KB segment alignment for ARM64 c-ares, and avoid downloading GLib when the complete source tree is already present."
+    }
+  ],
+  "verificationRecord": "native_build/provenance/wireshark-4.0.10-r1.json"
+}

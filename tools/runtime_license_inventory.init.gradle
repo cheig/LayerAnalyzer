@@ -1,0 +1,48 @@
+import groovy.json.JsonOutput
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import java.security.MessageDigest
+
+// Run with: ./gradlew -I tools/runtime_license_inventory.init.gradle :app:exportRuntimeLicenseInventory
+// This resolves the selected configuration without changing application dependencies.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.project(':app')
+    app.tasks.register('exportRuntimeLicenseInventory') {
+        group = 'verification'
+        description = 'Export exact runtime components and artifact hashes for license review.'
+        doLast {
+            def name = app.findProperty('licenseConfiguration') ?: 'releaseRuntimeClasspath'
+            def configuration = app.configurations.getByName(name)
+            def artifacts = configuration.resolvedConfiguration.resolvedArtifacts
+            def components = configuration.incoming.resolutionResult.allComponents
+                .findAll { it.id instanceof ModuleComponentIdentifier }
+                .sort { it.id.displayName }
+                .collect { component ->
+                    def id = component.id
+                    [coordinate: "${id.group}:${id.module}:${id.version}",
+                     artifacts: artifacts.findAll {
+                         it.moduleVersion.id.group == id.group &&
+                         it.moduleVersion.id.name == id.module &&
+                         it.moduleVersion.id.version == id.version
+                     }.collect { it.file }.unique().sort { it.name }.collect { file ->
+                         [file: file.name,
+                          sha256: MessageDigest.getInstance('SHA-256')
+                              .digest(file.bytes).encodeHex().toString()]
+                     }]
+                }
+            def output = app.rootProject.layout.buildDirectory
+                .file("license-audit/${name}.json").get().asFile
+            output.parentFile.mkdirs()
+            output.setText(JsonOutput.prettyPrint(JsonOutput.toJson([
+                configuration: name, components: components,
+                build: [applicationId: app.android.defaultConfig.applicationId,
+                        versionName: app.android.defaultConfig.versionName,
+                        versionCode: app.android.defaultConfig.versionCode,
+                        ndkVersion: app.android.ndkVersion,
+                        abis: app.android.buildTypes.release.ndk.abiFilters.sort(),
+                        g729: (app.findProperty('layanalyzerEnableG729') ?: 'true').toBoolean(),
+                        ilbc: (app.findProperty('layanalyzerEnableIlbc') ?: 'false').toBoolean()]
+            ])) + '\n', 'UTF-8')
+            logger.lifecycle("Exported ${components.size()} components to ${output}")
+        }
+    }
+}

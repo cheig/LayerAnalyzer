@@ -1,0 +1,13 @@
+--- a/gio/gdbusprivate.c
++++ b/gio/gdbusprivate.c
+@@ -2449,8 +2449,9 @@
+ 
+   /* Copy what dbus.git does: allow the /var/lib path to be configurable at
+    * build time, but hard-code the system-wide machine ID path in /etc. */
++  /* Note that LOCALSTATEDIR is defined as "@TERMUX_PREFIX@/var". */
+   const gchar *var_lib_path = LOCALSTATEDIR "/lib/dbus/machine-id";
+-  const gchar *etc_path = "/etc/machine-id";
++  const gchar *etc_path = "@TERMUX_PREFIX@/etc/machine-id";
+ 
+   if (!g_file_get_contents (var_lib_path,
+                             &ret,

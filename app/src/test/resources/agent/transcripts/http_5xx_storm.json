@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_http_5xx_storm",
+  "description": "Offline Mock Agent trajectory for http_5xx_storm.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "http",
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {5, 7, 9, 11}",
+            "limit": 4
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for http_5xx_storm.",
+        "findings": [
+          {
+            "id": "http-server-error-storm",
+            "title": "HttpServerError",
+            "severity": "Error",
+            "confidence": "Medium",
+            "conclusion": "Four GETs sent over one keep-alive connection are each answered with an HTTP 503 or 500 error body while the TCP connection opens and closes normally, so the failures are returned by the application, not lost on the path.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 5,
+                "observation": "Frame 5 supports HttpServerError.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 7,
+                "observation": "Frame 7 supports HttpServerError.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 9,
+                "observation": "Frame 9 supports HttpServerError.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 11,
+                "observation": "Frame 11 supports HttpServerError.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "the http status codes are visible",
+          "the server-side cause behind the 5xx responses is not visible"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

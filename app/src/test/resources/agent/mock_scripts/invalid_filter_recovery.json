@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "invalid_filter_recovery_json",
+  "description": "The model proposes a filter the engine rejects, then corrects it.",
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": ["validate_display_filter"]
+      },
+      "calls": [
+        {
+          "toolCallId": "call-bad-filter",
+          "toolName": "validate_display_filter",
+          "arguments": { "filter": "tcp.portt == 443" }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "validate_display_filter",
+        "toolCallId": "call-bad-filter"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-good-filter",
+          "toolName": "validate_display_filter",
+          "arguments": { "filter": "tcp.port == 443" }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "validate_display_filter",
+        "toolCallId": "call-good-filter"
+      },
+      "report": {
+        "summary": "The corrected filter tcp.port == 443 compiles.",
+        "completeness": "Partial",
+        "findings": [
+          {
+            "id": "finding-filter-corrected",
+            "title": "Display filter corrected",
+            "severity": "Info",
+            "confidence": "Low",
+            "conclusion": "tcp.port == 443 is the valid form of the intended filter.",
+            "evidence": [
+              {
+                "type": "DisplayFilter",
+                "observation": "The engine accepted tcp.port == 443.",
+                "sourceToolCallId": "call-good-filter",
+                "displayFilter": "tcp.port == 443"
+              }
+            ]
+          }
+        ],
+        "limitations": ["No packets were read; only filter syntax was checked."],
+        "recommendedNextSteps": ["Apply tcp.port == 443 to inspect the TLS traffic."]
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "ims_call_success",
+  "captureFile": "ims_call_success.pcap",
+  "captureSha256": "2e5f96c5bbffb0c568843929bfed88ef5106e2bf56b79e2090aaa8ee768a11ae",
+  "captureFrameCount": 209,
+  "question": "Did the INVITE establish a healthy two-way call and release normally?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "call-established",
+      "kind": "CallEstablished",
+      "severity": "Info",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        1,
+        4,
+        5
+      ]
+    },
+    {
+      "id": "bidirectional-media",
+      "kind": "BidirectionalMedia",
+      "severity": "Info",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        6,
+        205,
+        206,
+        207
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    1,
+    4,
+    5,
+    6,
+    205,
+    206,
+    207,
+    208,
+    209
+  ],
+  "allowedAlternativeConclusions": [
+    "The visible dialog has a 200 OK, ACK, RTP in both directions, and a completed BYE."
+  ],
+  "forbiddenConclusions": [
+    "audio quality is guaranteed",
+    "the endpoints heard audio",
+    "there was no packet loss anywhere"
+  ],
+  "expectedLimitations": [
+    "RTP visibility does not prove endpoint playback"
+  ],
+  "maximumToolCalls": 5
+}

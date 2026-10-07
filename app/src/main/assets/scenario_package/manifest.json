@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "packageId": "com.layanalyzer.scenarios.core",
+  "version": 1,
+  "minimumAppVersion": "1.0",
+  "nativeBuildRange": {
+    "minimum": "4.0.0",
+    "maximumExclusive": "5.0.0"
+  },
+  "supportedAbis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "supportedProtocols": [
+    "dns",
+    "tcp",
+    "tls",
+    "http",
+    "sip",
+    "sdp",
+    "rtp",
+    "rtcp",
+    "diameter",
+    "pfcp",
+    "gtp",
+    "gtpv2",
+    "ngap",
+    "s1ap",
+    "nas",
+    "radio"
+  ],
+  "regions": [
+    "any"
+  ],
+  "layers": [
+    {
+      "id": "general-facts",
+      "description": "通用事实规则：DNS、TCP、TLS、HTTP、SIP、RTP/RTCP、Diameter、PFCP、GTP 的确定性检查。"
+    },
+    {
+      "id": "professional-scenarios",
+      "description": "专业场景规则：IMS 注册、呼叫建立/释放、重邀请、EPS Fallback、VoNR、移动性。"
+    },
+    {
+      "id": "operator-device",
+      "description": "运营商/设备规则：阈值、字段别名与候选解释。只能补充候选，不能覆盖宿主安全边界。"
+    }
+  ],
+  "changes": [
+    {
+      "version": 1,
+      "summary": "Initial versioned package: IMS/core-network playbooks promoted from agent_playbooks.json plus general-facts layer aliases and review thresholds.",
+      "publishedAt": "2026-08-05T00:00:00Z"
+    }
+  ],
+  "parentVersion": null,
+  "rollbackVersion": null,
+  "publishedAt": "2026-08-05T00:00:00Z",
+  "expiresAt": null,
+  "files": {
+    "playbooks.json": "99c4a1dbf0ac7ffd97df2592fc380881c1b72f21cb281f725e2a1d79f8061d3f",
+    "field_aliases.json": "22823962f65a363f15ba160f08126750969496e31949a59c62347b2f8e750dae",
+    "thresholds.json": "096cabb19152f6e0634a3950f130dcdd33e728962d5280c22290317436f12117",
+    "evaluation_expectations.json": "637cfa04a36164fab3957a457a4d36cf3d97fe5f4b4b4d673d243b97b762989c"
+  },
+  "signature": {
+    "algorithm": "SHA256withRSA",
+    "keyId": "layanalyzer-scenario-package-dev",
+    "value": "GqRWAUZ3x5eLfRMEDZqI0siGf2HOkMPneLjjtGp1Tu95AJVQ66kHq61/1PHyMXKHYycmKyDYDxU27ISOuTzmkrhVwFOfpFCXUfp+oJwU789R4MMHXXjxfiFcC9Ntt6UCSYPHADH/7I0INBElIf6Op15FeDORdSvAK/A6bXtmL8EOWGB0ShpkX4rt95vKuMjy+NSOMhJ5IVFrpGa6CO6Vl7UpGALyjPy+qLNoM2sfebrrUax5lE8QkIxuslO3nOUY5q+cj/YrgVEu1z5y4BJyD4LhqzhM6ppHV816m1QBIf58VznE5iO4K6dBCaO0s5rWNDLRhQVeAGWeJb4Im50CdrUb3U4KLYdxD31iMq+pHc+saGQ1TQVHPeP2vUAJ3DWPEQc9CTExo4uG41eM7+aLEqeZBSX8d3PvAVMiJJZAmKjAdFeXmLst+/dlTC8D9MVwA40KPIcfj2KoyIy0s3peAYhXE4VojHeLp5X8Qfl4RmzfD5BL5zx9pwRRLvsa9ffj"
+  }
+}

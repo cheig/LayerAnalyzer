@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "cancellation_json",
+  "description": "Delays every response so cancellation can be exercised from a test.",
+  "turns": [
+    {
+      "type": "tool_calls",
+      "delayMillis": 5000,
+      "calls": [
+        {
+          "toolCallId": "call-overview",
+          "toolName": "get_capture_overview",
+          "arguments": { "scope": "complete_file" }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "delayMillis": 5000,
+      "reportJson": "{\"schema\":\"AgentReport\",\"schemaVersion\":1,\"summary\":\"Reached only if the run was never cancelled.\",\"completeness\":\"Partial\",\"findings\":[],\"limitations\":[],\"recommendedNextSteps\":[]}"
+    }
+  ]
+}

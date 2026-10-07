@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_ims_register_forbidden",
+  "description": "Offline Mock Agent trajectory for ims_register_forbidden.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_communication_analysis",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_communication_analysis",
+          "arguments": {
+            "domains": [
+              "sip",
+              "rtp",
+              "rtcp"
+            ],
+            "includeMessages": true,
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_communication_analysis",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {1, 2, 3, 4}",
+            "limit": 4
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for ims_register_forbidden.",
+        "findings": [
+          {
+            "id": "registration-forbidden",
+            "title": "RegistrationForbidden",
+            "severity": "Error",
+            "confidence": "Medium",
+            "conclusion": "The server rejected the authenticated REGISTER with 403.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 1,
+                "observation": "Frame 1 supports RegistrationForbidden.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 2,
+                "observation": "Frame 2 supports RegistrationForbidden.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 3,
+                "observation": "Frame 3 supports RegistrationForbidden.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 4,
+                "observation": "Frame 4 supports RegistrationForbidden.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "403 is an observed signaling outcome",
+          "operator policy is not visible"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

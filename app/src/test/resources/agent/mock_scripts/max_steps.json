@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "max_steps_json",
+  "description": "Asks for a tool on every turn and never returns a final report.",
+  "turns": [
+    {
+      "type": "tool_calls",
+      "calls": [
+        { "toolCallId": "call-overview-0", "toolName": "get_capture_overview" }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "calls": [
+        { "toolCallId": "call-overview-1", "toolName": "get_capture_overview" }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "calls": [
+        { "toolCallId": "call-overview-2", "toolName": "get_capture_overview" }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "calls": [
+        { "toolCallId": "call-overview-3", "toolName": "get_capture_overview" }
+      ]
+    }
+  ]
+}

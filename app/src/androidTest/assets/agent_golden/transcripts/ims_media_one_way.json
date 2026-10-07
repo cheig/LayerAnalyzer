@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_ims_media_one_way",
+  "description": "Offline Mock Agent trajectory for ims_media_one_way.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_communication_analysis",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_communication_analysis",
+          "arguments": {
+            "domains": [
+              "sip",
+              "rtp",
+              "rtcp"
+            ],
+            "includeMessages": true,
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_communication_analysis",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {1, 4, 5, 6, 105, 106, 107, 108}",
+            "limit": 8
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for ims_media_one_way.",
+        "findings": [
+          {
+            "id": "one-way-media",
+            "title": "OneWayMedia",
+            "severity": "Critical",
+            "confidence": "Medium",
+            "conclusion": "SDP advertises sendrecv while the capture contains RTP only from the offerer side.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 6,
+                "observation": "Frame 6 supports OneWayMedia.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 105,
+                "observation": "Frame 105 supports OneWayMedia.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 1,
+                "observation": "Frame 1 establishes capture context for ims_media_one_way.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 4,
+                "observation": "Frame 4 establishes capture context for ims_media_one_way.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 5,
+                "observation": "Frame 5 establishes capture context for ims_media_one_way.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 106,
+                "observation": "Frame 106 establishes capture context for ims_media_one_way.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 107,
+                "observation": "Frame 107 establishes capture context for ims_media_one_way.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 108,
+                "observation": "Frame 108 establishes capture context for ims_media_one_way.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "capture point visibility cannot prove endpoint playback",
+          "the absent direction may be outside the observation point"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

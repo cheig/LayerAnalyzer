@@ -1,0 +1,14 @@
+nlohmann/json 3.11.3 — notices retained from the bundled single header
+Source: https://github.com/nlohmann/json/blob/v3.11.3/single_include/nlohmann/json.hpp
+
+SPDX-FileCopyrightText: 2008-2009 Björn Hoehrmann <bjoern@hoehrmann.de>
+SPDX-FileCopyrightText: 2009 Florian Loitsch <https://florian.loitsch.com/>
+SPDX-FileCopyrightText: 2013-2023 Niels Lohmann <https://nlohmann.me>
+SPDX-FileCopyrightText: 2016-2021 Evan Nemerson <evan@nemerson.com>
+SPDX-FileCopyrightText: 2018 The Abseil Authors
+SPDX-License-Identifier: MIT
+
+The upstream LICENSE.MIT is retained unchanged in nlohmann-json.txt, including
+its 2013-2022 date. The statements above additionally retain the notices in
+the 3.11.3 header. The C++11 index_sequence helper credits Google Abseil
+(Apache-2.0); the complete Apache license is also included.

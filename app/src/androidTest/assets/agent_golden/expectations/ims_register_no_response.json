@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "ims_register_no_response",
+  "captureFile": "ims_register_no_response.pcap",
+  "captureSha256": "e8c0803e483465e43cdaeaac262a936fa008c134fff82720e7be9e36add4d0e6",
+  "captureFrameCount": 8,
+  "question": "What is the failure stage in this unanswered IMS registration?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "registration-no-response",
+      "kind": "RegistrationTransportFailure",
+      "severity": "Error",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    1,
+    2,
+    3,
+    4,
+    8
+  ],
+  "allowedAlternativeConclusions": [
+    "The TCP handshake completed, but REGISTER data was retransmitted without a SIP response."
+  ],
+  "forbiddenConclusions": [
+    "the server returned 4xx",
+    "the credentials were rejected",
+    "the server is down"
+  ],
+  "expectedLimitations": [
+    "no SIP response is visible",
+    "packet loss or a path outside the capture cannot be excluded"
+  ],
+  "maximumToolCalls": 5
+}

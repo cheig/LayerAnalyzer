@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_tcp_zero_window",
+  "description": "Offline Mock Agent trajectory for tcp_zero_window.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_expert_info",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_expert_info",
+          "arguments": {
+            "filter": "tcp.analysis.flags",
+            "mode": "items",
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_expert_info",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {6, 7, 8}",
+            "limit": 3
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for tcp_zero_window.",
+        "findings": [
+          {
+            "id": "tcp-zero-window-stall",
+            "title": "TcpZeroWindow",
+            "severity": "Critical",
+            "confidence": "Medium",
+            "conclusion": "The server acknowledges normal data and then advertises a zero receive window, the client sends a zero window probe, and the transfer resumes after a non-zero window update.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 6,
+                "observation": "Frame 6 supports TcpZeroWindow.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 7,
+                "observation": "Frame 7 supports TcpZeroWindow.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 8,
+                "observation": "Frame 8 supports TcpZeroWindow.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "the advertised window value is visible",
+          "the receive-buffer state inside the peer is not visible"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

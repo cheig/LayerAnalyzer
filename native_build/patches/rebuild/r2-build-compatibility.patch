@@ -1,0 +1,19 @@
+--- a/native_build/scripts/build_basic_libs_x86_64.sh
++++ b/native_build/scripts/build_basic_libs_x86_64.sh
+@@ -42,2 +42,3 @@
+   -DANDROID_PLATFORM=android-$ANDROID_API \
++  -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
+   -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
+--- a/native_build/scripts/build_glib.sh
++++ b/native_build/scripts/build_glib.sh
+@@ -40,3 +40,3 @@
+ cd "$EXTERNAL_DIR"
+-if [ ! -f "$GLIB_TAR" ]; then
++if [ ! -d "glib-${GLIB_VERSION}" ] && [ ! -f "$GLIB_TAR" ]; then
+     echo "Downloading GLib $GLIB_VERSION..."
+--- a/native_build/scripts/build_c_ares.sh
++++ b/native_build/scripts/build_c_ares.sh
+@@ -27,2 +27,3 @@
+     -DCMAKE_BUILD_TYPE=Release \
++    -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384" \
+     -DCARES_STATIC=OFF \

@@ -1,0 +1,179 @@
+name: Android CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python tools/check_source_checkout.py
+      - run: python -m unittest discover -s tools/tests -p 'test_release*.py' -v
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: '12266719'
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
+      - run: chmod +x gradlew
+      - run: ./gradlew testDebugUnitTest --stacktrace
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: unit-test-reports
+          path: app/build/reports/tests/
+
+  native-tests:
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: node tools/golden_capture/generate_golden_captures.mjs --check
+      - run: node tools/agent_metrics/summarize.mjs --check
+      - run: cmake -S native_build/verification/rtp/host_tests -B build/rtp-host -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build/rtp-host --parallel 2
+      - run: ./build/rtp-host/rtp_host_tests
+
+  build:
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: '12266719'
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python tools/fetch_native_deps.py
+      - run: chmod +x gradlew
+      - run: ./gradlew lintDebug assembleDebug assembleEmulator compileDebugAndroidTestKotlin assembleDebugAndroidTest --stacktrace
+
+  package:
+    # Use pinned Wireshark 4.0.10; upgrades/backports are follow-up maintenance.
+    # Build a signed candidate; device validation precedes publishing the draft.
+    if: github.event_name == 'push' && github.event.deleted != true && startsWith(github.ref, 'refs/tags/v') && vars.ENABLE_APK_PACKAGING == 'true'
+    needs: [unit-tests, native-tests, build]
+    runs-on: ubuntu-24.04
+    env:
+      LAYERANALYZER_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      LAYERANALYZER_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      LAYERANALYZER_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: '12266719'
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python tools/fetch_native_deps.py
+      - name: Restore release signing key
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_KEYSTORE_BASE64"
+          test -n "$LAYERANALYZER_KEYSTORE_PASSWORD"
+          test -n "$LAYERANALYZER_KEY_ALIAS"
+          test -n "$LAYERANALYZER_KEY_PASSWORD"
+          umask 077
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "LAYERANALYZER_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - run: chmod +x gradlew
+      - name: Check, build APK and export resolved runtime inputs
+        run: ./gradlew -I tools/runtime_license_inventory.init.gradle testReleaseUnitTest lintRelease assembleRelease :app:exportRuntimeLicenseInventory --stacktrace
+      - name: Verify release identity, signing and APK alignment
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          python tools/verify_release_apk.py
+          --apk app/build/outputs/apk/release/app-release.apk
+          --inventory build/license-audit/releaseRuntimeClasspath.json
+          --tag "$RELEASE_TAG"
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+      - name: Preserve Release test reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-test-reports
+          path: |
+            app/build/reports/tests/testReleaseUnitTest/
+            app/build/test-results/testReleaseUnitTest/*.xml
+          if-no-files-found: ignore
+      - name: Stage APK and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/stage_release.py create-apk --staging build/release-staging \
+            --inventory build/license-audit/releaseRuntimeClasspath.json \
+            --apk app/build/outputs/apk/release/app-release.apk
+          python tools/stage_release.py verify-apk --staging build/release-staging
+          (cd build/release-staging && sha256sum -c SHA256SUMS)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: layeranalyzer-${{ github.ref_name }}
+          path: build/release-staging/*
+          if-no-files-found: error
+
+  release-draft:
+    if: github.event_name == 'push' && github.event.deleted != true && startsWith(github.ref, 'refs/tags/v') && vars.ENABLE_APK_PACKAGING == 'true'
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: release-draft-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v8
+        with:
+          name: layeranalyzer-${{ github.ref_name }}
+          path: build/release-staging
+      - name: Create and verify draft attachments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          python tools/create_release_draft.py
+          --staging build/release-staging
+          --repo "$GITHUB_REPOSITORY"
+          --tag "$RELEASE_TAG"
+          --commit "$GITHUB_SHA"

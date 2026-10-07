@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_ims_register_no_response",
+  "description": "Offline Mock Agent trajectory for ims_register_no_response.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_communication_analysis",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_communication_analysis",
+          "arguments": {
+            "domains": [
+              "sip",
+              "rtp",
+              "rtcp"
+            ],
+            "includeMessages": true,
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_communication_analysis",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {1, 2, 3, 4, 5, 6, 7, 8}",
+            "limit": 8
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for ims_register_no_response.",
+        "findings": [
+          {
+            "id": "registration-no-response",
+            "title": "RegistrationTransportFailure",
+            "severity": "Error",
+            "confidence": "Medium",
+            "conclusion": "The TCP handshake completed, but REGISTER data was retransmitted without a SIP response.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 4,
+                "observation": "Frame 4 supports RegistrationTransportFailure.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 5,
+                "observation": "Frame 5 supports RegistrationTransportFailure.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 6,
+                "observation": "Frame 6 supports RegistrationTransportFailure.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 7,
+                "observation": "Frame 7 supports RegistrationTransportFailure.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 8,
+                "observation": "Frame 8 supports RegistrationTransportFailure.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 1,
+                "observation": "Frame 1 establishes capture context for ims_register_no_response.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 2,
+                "observation": "Frame 2 establishes capture context for ims_register_no_response.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 3,
+                "observation": "Frame 3 establishes capture context for ims_register_no_response.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "no SIP response is visible",
+          "packet loss or a path outside the capture cannot be excluded"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

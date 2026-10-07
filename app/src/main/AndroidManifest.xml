@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application
+        android:name="com.example.layanalyzer.LayerAnalyzerApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:enableOnBackInvokedCallback="true"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.LayAnalyzer"
+        tools:targetApi="31">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.LayAnalyzer">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.tcpdump.pcap" />
+                <data android:mimeType="application/x-pcap" />
+                <data android:mimeType="application/x-pcapng" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.tcpdump.pcap" />
+                <data android:mimeType="application/x-pcap" />
+                <data android:mimeType="application/x-pcapng" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <!--
+              MIME matching alone does not cover .pcapng: Android's MIME table maps
+              "pcap" but has no entry for "pcapng", so senders like WeChat hand the
+              file over without a type (or with a generic one) and the filters above
+              never match. Content URIs preserve the file name, so also associate by
+              path suffix. A path filter needs scheme + host or the framework skips
+              the path check entirely, and ".*" is lazy with no backtracking, so a
+              literal dot is written "\\." and one pattern is needed per number of
+              dots in the path (e.g. a versioned "capture.2026.09.11.pcapng").
+              These two filters differ only in whether a MIME type is declared: a
+              filter with types only matches intents that carry a type, a filter
+              without types only matches intents that do not.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:host="*" android:mimeType="*/*" android:pathPattern=".*\\.pcapng" />
+                <data android:scheme="content" android:host="*" android:mimeType="*/*" android:pathPattern=".*\\..*\\.pcapng" />
+                <data android:scheme="content" android:host="*" android:mimeType="*/*" android:pathPattern=".*\\..*\\..*\\.pcapng" />
+                <data android:scheme="content" android:host="*" android:mimeType="*/*" android:pathPattern=".*\\..*\\..*\\..*\\.pcapng" />
+                <data android:scheme="content" android:host="*" android:mimeType="*/*" android:pathPattern=".*\\.pcap" />
+                <data android:scheme="content" android:host="*" android:mimeType="*/*" android:pathPattern=".*\\..*\\.pcap" />
+                <data android:scheme="content" android:host="*" android:mimeType="*/*" android:pathPattern=".*\\..*\\..*\\.pcap" />
+                <data android:scheme="content" android:host="*" android:mimeType="*/*" android:pathPattern=".*\\..*\\..*\\..*\\.pcap" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\.pcapng" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\..*\\.pcapng" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\..*\\..*\\.pcapng" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\..*\\..*\\..*\\.pcapng" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\.pcap" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\..*\\.pcap" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\..*\\..*\\.pcap" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\..*\\..*\\..*\\.pcap" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <service
+            android:name=".capture.LiveCaptureVpnService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Packet capture through Android VpnService" />
+        </service>
+
+        <!--
+          Process priority only for a running AI analysis. The run itself is
+          owned by the Application-scoped AgentRunCoordinator; this service is
+          started while a run is active and stopped when it ends, and holds no
+          run state of its own.
+        -->
+        <service
+            android:name=".ai.background.AgentAnalysisService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+    </application>
+
+</manifest>

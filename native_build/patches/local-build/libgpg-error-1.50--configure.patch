@@ -1,0 +1,11 @@
+--- a/configure
++++ b/configure
+@@ -18649,7 +18649,7 @@
+           else
+             if case "$gl_cv_have_weak" in *yes) true;; *) false;; esac; then
+ 
+-printf "%s\n" "#define USE_POSIX_THREADS_WEAK 1" >>confdefs.h
++printf "%s\n" "#define DONT_DONT_DONT_USE_POSIX_THREADS_WEAK 1" >>confdefs.h
+ 
+               LIBTHREAD= LTLIBTHREAD=
+             else

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "ims_call_failure_486",
+  "captureFile": "ims_call_failure_486.pcap",
+  "captureSha256": "6c5d5c7f6fc6c62c063987c759f15cf8f02e26b1c3064fff976f4e79b9c5341c",
+  "captureFrameCount": 5,
+  "question": "Why did the INVITE fail in the call setup phase?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "call-rejected-486",
+      "kind": "CallSetupFailure",
+      "severity": "Error",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        1,
+        3,
+        4,
+        5
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "allowedAlternativeConclusions": [
+    "The far end returned 486 Busy Here after provisional responses."
+  ],
+  "forbiddenConclusions": [
+    "the user rejected the call",
+    "the network is congested",
+    "the endpoint was definitely busy"
+  ],
+  "expectedLimitations": [
+    "486 is an observed response code",
+    "the remote policy behind the response is not visible"
+  ],
+  "maximumToolCalls": 4
+}

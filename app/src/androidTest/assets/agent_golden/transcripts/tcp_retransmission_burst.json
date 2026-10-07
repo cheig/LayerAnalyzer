@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_tcp_retransmission_burst",
+  "description": "Offline Mock Agent trajectory for tcp_retransmission_burst.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_expert_info",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_expert_info",
+          "arguments": {
+            "filter": "tcp.analysis.flags",
+            "mode": "items",
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_expert_info",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {7, 8, 9, 10}",
+            "limit": 4
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for tcp_retransmission_burst.",
+        "findings": [
+          {
+            "id": "tcp-retransmission-burst",
+            "title": "TcpRetransmission",
+            "severity": "Warning",
+            "confidence": "Medium",
+            "conclusion": "After one request chunk is acknowledged normally, the next chunk is retransmitted four times with growing gaps and no intervening acknowledgement, and the peer finally acknowledges it.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 7,
+                "observation": "Frame 7 supports TcpRetransmission.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 8,
+                "observation": "Frame 8 supports TcpRetransmission.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 9,
+                "observation": "Frame 9 supports TcpRetransmission.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 10,
+                "observation": "Frame 10 supports TcpRetransmission.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "retransmissions are counted at the capture point",
+          "the cause of the missing acknowledgements is not visible"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

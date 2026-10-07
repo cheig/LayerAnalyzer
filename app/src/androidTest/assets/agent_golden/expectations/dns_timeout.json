@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "dns_timeout",
+  "captureFile": "dns_timeout.pcap",
+  "captureSha256": "49de0e4bf01c68ad60bc284765dd5bfd94a1cd44b5e3ccec671cba49594ebe0c",
+  "captureFrameCount": 9,
+  "question": "Why does the connection to the API endpoint never start in this capture?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "dns-queries-unanswered",
+      "kind": "Dns",
+      "severity": "Error",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "allowedAlternativeConclusions": [
+    "DNS queries for two names are each sent three times and none is ever answered, and the later direct TCP connection attempts also stay unanswered."
+  ],
+  "forbiddenConclusions": [
+    "nxdomain",
+    "the dns server returned refuse",
+    "the name resolved to an address",
+    "the api server refused the connection"
+  ],
+  "expectedLimitations": [
+    "no dns response is visible in the capture",
+    "the resolver or the authority behind it is outside the observation point"
+  ],
+  "maximumToolCalls": 5,
+  "attributionRubric": {
+    "requiredRootCause": "no DNS response arrived, so the hostname never resolved and the TCP connection could not be started",
+    "disallowedRootCauses": [
+      "the dns server returned nxdomain",
+      "the dns server refused the query",
+      "the name resolved to an address",
+      "the api server refused the connection"
+    ]
+  }
+}

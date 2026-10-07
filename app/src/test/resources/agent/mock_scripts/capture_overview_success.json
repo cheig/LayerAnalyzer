@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "id": "capture_overview_success_json",
+  "description": "Data-authored form of the overview -> expert -> report happy path.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": ["get_capture_overview", "get_expert_info"],
+        "requiresResponseSchema": true,
+        "minMessageCount": 1
+      },
+      "calls": [
+        {
+          "toolCallId": "call-overview",
+          "toolName": "get_capture_overview",
+          "arguments": { "scope": "complete_file", "statisticsBucketSeconds": 1.0 }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_capture_overview",
+        "toolCallId": "call-overview"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-expert",
+          "toolName": "get_expert_info",
+          "arguments": { "severities": ["error", "warning"], "limit": 20 }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "get_expert_info",
+        "toolCallId": "call-expert"
+      },
+      "report": {
+        "summary": "TCP dominates the capture and Expert Info reports retransmissions.",
+        "completeness": "Complete",
+        "findings": [
+          {
+            "id": "finding-retransmissions",
+            "title": "TCP retransmissions present",
+            "severity": "Warning",
+            "confidence": "Medium",
+            "conclusion": "Expert Info reports TCP retransmissions.",
+            "evidence": [
+              {
+                "type": "ExpertInfo",
+                "observation": "Expert Info lists TCP retransmission entries.",
+                "sourceToolCallId": "call-expert",
+                "displayFilter": "tcp.analysis.retransmission"
+              }
+            ],
+            "recommendations": ["Review the affected TCP streams."]
+          }
+        ],
+        "limitations": [],
+        "recommendedNextSteps": ["Inspect the retransmitted TCP streams."]
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "tcp_out_of_order",
+  "captureFile": "tcp_out_of_order.pcap",
+  "captureSha256": "504692c87510464c5f3081fae1287264bd7c8ee03fcd05b5b301bbb971d2a9b1",
+  "captureFrameCount": 11,
+  "question": "Is this stream losing and retransmitting segments, or are segments just arriving out of order?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "tcp-out-of-order-arrival",
+      "kind": "TcpAnomaly",
+      "severity": "Warning",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        5,
+        9
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    5,
+    9
+  ],
+  "allowedAlternativeConclusions": [
+    "Two segments are captured ahead of earlier ones and every byte range is sent exactly once, so the stream is reordered rather than retransmitted."
+  ],
+  "forbiddenConclusions": [
+    "packet loss occurred",
+    "segments were retransmitted",
+    "segments were duplicated"
+  ],
+  "expectedLimitations": [
+    "the capture shows arrival order, not wire order",
+    "the cause of the reordering is not visible"
+  ],
+  "maximumToolCalls": 5,
+  "attributionRubric": {
+    "requiredRootCause": "TCP segments were reordered in transit while every byte range was still transmitted exactly once",
+    "disallowedRootCauses": [
+      "packet loss occurred",
+      "segments were retransmitted",
+      "segments were duplicated"
+    ]
+  }
+}

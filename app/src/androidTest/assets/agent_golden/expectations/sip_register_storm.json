@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "sip_register_storm",
+  "captureFile": "sip_register_storm.pcap",
+  "captureSha256": "5c1ec8408ebce273408bfee648a47a085b5c64bc76f7ca23cdcf024568bca205",
+  "captureFrameCount": 12,
+  "question": "Does the UE complete IMS registration in this capture, and what pattern do the REGISTER requests show?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "registration-storm",
+      "kind": "RegistrationStorm",
+      "severity": "Error",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        1,
+        3,
+        5,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    1,
+    3,
+    5,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "allowedAlternativeConclusions": [
+    "Nine unauthenticated REGISTER requests across three transactions repeat within seconds, each transaction is only ever answered by 401 challenges, and no authenticated attempt or 200 OK appears."
+  ],
+  "forbiddenConclusions": [
+    "registration succeeded",
+    "the server is permanently down",
+    "the network dropped the register requests"
+  ],
+  "expectedLimitations": [
+    "the REGISTER and 401 messages are visible",
+    "the client behaviour behind the repeated REGISTER requests is not visible"
+  ],
+  "maximumToolCalls": 4,
+  "attributionRubric": {
+    "requiredRootCause": "the client kept retransmitting unauthenticated REGISTER requests that were only ever answered with 401 challenges, so registration never completed",
+    "disallowedRootCauses": [
+      "registration succeeded",
+      "the server is permanently down",
+      "the network dropped the register requests"
+    ]
+  }
+}

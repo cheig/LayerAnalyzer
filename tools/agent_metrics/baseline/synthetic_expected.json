@@ -1,0 +1,681 @@
+{
+  "schema": "agent-metrics-summary",
+  "schemaVersion": 1,
+  "input": "tools/agent_metrics/samples",
+  "parse": {
+    "files": [
+      "agent-diagnostics-1757000000000.jsonl",
+      "agent-diagnostics.jsonl"
+    ],
+    "totalLines": 15,
+    "blankLines": 2,
+    "malformedLines": 0,
+    "runSchemaLines": 0,
+    "skippedOtherSchema": 0,
+    "eventsWithoutRunId": 0,
+    "unexpectedSchemaVersions": {}
+  },
+  "runs": {
+    "distinctRunIds": 5,
+    "withRunMetrics": 5,
+    "legacyWithoutQualityAttributes": 1,
+    "duplicateRunMetricsEvents": 0,
+    "terminalStatusCounts": {
+      "failed": 1,
+      "completed": 4
+    }
+  },
+  "metrics": {
+    "citationRejectionRate": {
+      "kind": "rate",
+      "source": "OPT-EVAL-04-01",
+      "note": "rejected / submitted citations across all validation rounds of the run; 0 when nothing was submitted",
+      "unit": null,
+      "reported": 4,
+      "missing": 1,
+      "invalid": 0,
+      "count": 4,
+      "mean": 0.21875,
+      "min": 0,
+      "max": 0.5,
+      "median": 0.1875
+    },
+    "revisionTriggered": {
+      "kind": "flag",
+      "source": "OPT-EVAL-04-01",
+      "note": "validator rejections ever bought a revision turn",
+      "unit": null,
+      "reported": 4,
+      "missing": 1,
+      "invalid": 0,
+      "triggered": 2,
+      "rate": 0.5
+    },
+    "confidenceDistribution": {
+      "kind": "histogram",
+      "source": "OPT-EVAL-04-01",
+      "note": "findings per confidence level in the final (or most recent) validated report",
+      "unit": null,
+      "reported": 4,
+      "missing": 1,
+      "invalid": 0,
+      "buckets": {
+        "High": 4,
+        "Medium": 4,
+        "Low": 1,
+        "Unknown": 1
+      },
+      "total": 10
+    },
+    "negativePolarityDeclared": {
+      "kind": "int",
+      "source": "OPT-VAL-04-03",
+      "note": "findings that declared polarity=Negative, summed across the run's validation rounds",
+      "unit": "findings",
+      "reported": 4,
+      "missing": 1,
+      "invalid": 0,
+      "count": 4,
+      "mean": 2,
+      "min": 1,
+      "max": 3,
+      "sum": 8
+    },
+    "negativePolarityConflict": {
+      "kind": "int",
+      "source": "OPT-VAL-04-03",
+      "note": "polarity_claim_conflict rejections raised when a Positive/Neutral declaration met an absence-claiming observation, summed across rounds",
+      "unit": "rejections",
+      "reported": 4,
+      "missing": 1,
+      "invalid": 0,
+      "count": 4,
+      "mean": 0.5,
+      "min": 0,
+      "max": 1,
+      "sum": 2
+    },
+    "planCoverageGaps": {
+      "kind": "int",
+      "source": "OPT-VAL-01-02",
+      "note": "playbook checks still uncovered when the run's report was accepted (incl. the unattributable degrade-to-limitation path); 0 on gated runs without gaps and on valve-off runs",
+      "unit": "checks",
+      "reported": 4,
+      "missing": 1,
+      "invalid": 0,
+      "count": 4,
+      "mean": 1,
+      "min": 0,
+      "max": 2,
+      "sum": 4
+    },
+    "signalCoverageGaps": {
+      "kind": "int",
+      "source": "OPT-VAL-02-03",
+      "note": "host-enumerated baseline signals still unaddressed when the run's report was accepted (incl. the limitations-only degradation path); 0 when the rule did not run (valve off, no signals enumerated, or no submit accepted)",
+      "unit": "signals",
+      "reported": 4,
+      "missing": 1,
+      "invalid": 0,
+      "count": 4,
+      "mean": 0.75,
+      "min": 0,
+      "max": 2,
+      "sum": 3
+    },
+    "historyCompactedAtEntry": {
+      "kind": "flag",
+      "source": "pre-EVAL-04",
+      "note": "replayed history was compacted before the first model call",
+      "unit": null,
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "triggered": 1,
+      "rate": 0.2
+    },
+    "bootstrapToolCount": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "bootstrap tool calls",
+      "unit": "calls",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 1.8,
+      "min": 1,
+      "max": 3,
+      "sum": 9
+    },
+    "bootstrapResultBytes": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "bootstrap result size",
+      "unit": "bytes",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 1966.8,
+      "min": 1024,
+      "max": 3072,
+      "sum": 9834
+    },
+    "bootstrapDurationMillis": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "bootstrap phase duration",
+      "unit": "ms",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 1020,
+      "min": 700,
+      "max": 1500,
+      "sum": 5100
+    },
+    "modelRequestsBeforeFirstEvidence": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "model requests until first evidence",
+      "unit": "calls",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 1.4,
+      "min": 1,
+      "max": 2,
+      "sum": 7
+    },
+    "modelRequestCount": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "provider calls incl. retries",
+      "unit": "calls",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 4.4,
+      "min": 3,
+      "max": 6,
+      "sum": 22
+    },
+    "logicalModelRequestCount": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "logical model calls, retries excluded",
+      "unit": "calls",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 3.8,
+      "min": 3,
+      "max": 5,
+      "sum": 19
+    },
+    "planStepsCompleted": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "declared plan steps executed",
+      "unit": "steps",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 1.4,
+      "min": 0,
+      "max": 3,
+      "sum": 7
+    },
+    "planStepsTotal": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "declared plan steps (0 = no plan)",
+      "unit": "steps",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 2,
+      "min": 0,
+      "max": 4,
+      "sum": 10
+    },
+    "runElapsedMillis": {
+      "kind": "int",
+      "source": "pre-EVAL-04",
+      "note": "wall time of the run",
+      "unit": "ms",
+      "reported": 5,
+      "missing": 0,
+      "invalid": 0,
+      "count": 5,
+      "mean": 186800,
+      "min": 90000,
+      "max": 300000,
+      "sum": 934000
+    }
+  },
+  "derived": {
+    "planStepCompletionRate": {
+      "completed": 7,
+      "declared": 10,
+      "rate": 0.7
+    },
+    "polarityConflictRate": {
+      "conflict": 2,
+      "declared": 8,
+      "rate": 0.25
+    }
+  },
+  "perRun": [
+    {
+      "runHash": "440c9a5b84",
+      "status": "completed",
+      "values": {
+        "citationRejectionRate": {
+          "raw": "0.5000",
+          "parsed": 0.5
+        },
+        "revisionTriggered": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "confidenceDistribution": {
+          "raw": "High:0,Medium:1,Low:0,Unknown:0",
+          "parsed": {
+            "buckets": {
+              "High": 0,
+              "Medium": 1,
+              "Low": 0,
+              "Unknown": 0
+            },
+            "other": {},
+            "total": 1
+          }
+        },
+        "negativePolarityDeclared": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "negativePolarityConflict": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "planCoverageGaps": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "signalCoverageGaps": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "historyCompactedAtEntry": {
+          "raw": "false",
+          "parsed": 0
+        },
+        "bootstrapToolCount": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "bootstrapResultBytes": {
+          "raw": "1490",
+          "parsed": 1490
+        },
+        "bootstrapDurationMillis": {
+          "raw": "1200",
+          "parsed": 1200
+        },
+        "modelRequestsBeforeFirstEvidence": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "modelRequestCount": {
+          "raw": "4",
+          "parsed": 4
+        },
+        "logicalModelRequestCount": {
+          "raw": "3",
+          "parsed": 3
+        },
+        "planStepsCompleted": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "planStepsTotal": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "runElapsedMillis": {
+          "raw": "184000",
+          "parsed": 184000
+        }
+      }
+    },
+    {
+      "runHash": "50d4d074ef",
+      "status": "failed",
+      "values": {
+        "citationRejectionRate": {
+          "parsed": null
+        },
+        "revisionTriggered": {
+          "parsed": null
+        },
+        "confidenceDistribution": {
+          "parsed": null
+        },
+        "negativePolarityDeclared": {
+          "parsed": null
+        },
+        "negativePolarityConflict": {
+          "parsed": null
+        },
+        "planCoverageGaps": {
+          "parsed": null
+        },
+        "signalCoverageGaps": {
+          "parsed": null
+        },
+        "historyCompactedAtEntry": {
+          "raw": "true",
+          "parsed": 1
+        },
+        "bootstrapToolCount": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "bootstrapResultBytes": {
+          "raw": "2048",
+          "parsed": 2048
+        },
+        "bootstrapDurationMillis": {
+          "raw": "800",
+          "parsed": 800
+        },
+        "modelRequestsBeforeFirstEvidence": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "modelRequestCount": {
+          "raw": "6",
+          "parsed": 6
+        },
+        "logicalModelRequestCount": {
+          "raw": "5",
+          "parsed": 5
+        },
+        "planStepsCompleted": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "planStepsTotal": {
+          "raw": "3",
+          "parsed": 3
+        },
+        "runElapsedMillis": {
+          "raw": "300000",
+          "parsed": 300000
+        }
+      }
+    },
+    {
+      "runHash": "5344cc4079",
+      "status": "completed",
+      "values": {
+        "citationRejectionRate": {
+          "raw": 0.125,
+          "parsed": 0.125
+        },
+        "revisionTriggered": {
+          "raw": 0,
+          "parsed": 0
+        },
+        "confidenceDistribution": {
+          "raw": "High:1,Medium:2,Low:0,Unknown:1",
+          "parsed": {
+            "buckets": {
+              "High": 1,
+              "Medium": 2,
+              "Low": 0,
+              "Unknown": 1
+            },
+            "other": {},
+            "total": 4
+          }
+        },
+        "negativePolarityDeclared": {
+          "raw": 2,
+          "parsed": 2
+        },
+        "negativePolarityConflict": {
+          "raw": 0,
+          "parsed": 0
+        },
+        "planCoverageGaps": {
+          "raw": 1,
+          "parsed": 1
+        },
+        "signalCoverageGaps": {
+          "raw": 0,
+          "parsed": 0
+        },
+        "historyCompactedAtEntry": {
+          "raw": "false",
+          "parsed": 0
+        },
+        "bootstrapToolCount": {
+          "raw": "3",
+          "parsed": 3
+        },
+        "bootstrapResultBytes": {
+          "raw": "3072",
+          "parsed": 3072
+        },
+        "bootstrapDurationMillis": {
+          "raw": "1500",
+          "parsed": 1500
+        },
+        "modelRequestsBeforeFirstEvidence": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "modelRequestCount": {
+          "raw": "4",
+          "parsed": 4
+        },
+        "logicalModelRequestCount": {
+          "raw": "4",
+          "parsed": 4
+        },
+        "planStepsCompleted": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "planStepsTotal": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "runElapsedMillis": {
+          "raw": "90000",
+          "parsed": 90000
+        }
+      }
+    },
+    {
+      "runHash": "8179d53a90",
+      "status": "completed",
+      "values": {
+        "citationRejectionRate": {
+          "raw": "0.0000",
+          "parsed": 0
+        },
+        "revisionTriggered": {
+          "raw": "0",
+          "parsed": 0
+        },
+        "confidenceDistribution": {
+          "raw": "High:1,Medium:0,Low:0,Unknown:0",
+          "parsed": {
+            "buckets": {
+              "High": 1,
+              "Medium": 0,
+              "Low": 0,
+              "Unknown": 0
+            },
+            "other": {},
+            "total": 1
+          }
+        },
+        "negativePolarityDeclared": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "negativePolarityConflict": {
+          "raw": "0",
+          "parsed": 0
+        },
+        "planCoverageGaps": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "signalCoverageGaps": {
+          "raw": "0",
+          "parsed": 0
+        },
+        "historyCompactedAtEntry": {
+          "raw": "false",
+          "parsed": 0
+        },
+        "bootstrapToolCount": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "bootstrapResultBytes": {
+          "raw": "2200",
+          "parsed": 2200
+        },
+        "bootstrapDurationMillis": {
+          "raw": "900",
+          "parsed": 900
+        },
+        "modelRequestsBeforeFirstEvidence": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "modelRequestCount": {
+          "raw": "3",
+          "parsed": 3
+        },
+        "logicalModelRequestCount": {
+          "raw": "3",
+          "parsed": 3
+        },
+        "planStepsCompleted": {
+          "raw": "0",
+          "parsed": 0
+        },
+        "planStepsTotal": {
+          "raw": "0",
+          "parsed": 0
+        },
+        "runElapsedMillis": {
+          "raw": "120000",
+          "parsed": 120000
+        }
+      }
+    },
+    {
+      "runHash": "910b6ae1a5",
+      "status": "completed",
+      "values": {
+        "citationRejectionRate": {
+          "raw": "0.2500",
+          "parsed": 0.25
+        },
+        "revisionTriggered": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "confidenceDistribution": {
+          "raw": "High:2,Medium:1,Low:1,Unknown:0",
+          "parsed": {
+            "buckets": {
+              "High": 2,
+              "Medium": 1,
+              "Low": 1,
+              "Unknown": 0
+            },
+            "other": {},
+            "total": 4
+          }
+        },
+        "negativePolarityDeclared": {
+          "raw": "3",
+          "parsed": 3
+        },
+        "negativePolarityConflict": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "planCoverageGaps": {
+          "raw": "0",
+          "parsed": 0
+        },
+        "signalCoverageGaps": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "historyCompactedAtEntry": {
+          "raw": "false",
+          "parsed": 0
+        },
+        "bootstrapToolCount": {
+          "raw": "1",
+          "parsed": 1
+        },
+        "bootstrapResultBytes": {
+          "raw": "1024",
+          "parsed": 1024
+        },
+        "bootstrapDurationMillis": {
+          "raw": "700",
+          "parsed": 700
+        },
+        "modelRequestsBeforeFirstEvidence": {
+          "raw": "2",
+          "parsed": 2
+        },
+        "modelRequestCount": {
+          "raw": "5",
+          "parsed": 5
+        },
+        "logicalModelRequestCount": {
+          "raw": "4",
+          "parsed": 4
+        },
+        "planStepsCompleted": {
+          "raw": "3",
+          "parsed": 3
+        },
+        "planStepsTotal": {
+          "raw": "4",
+          "parsed": 4
+        },
+        "runElapsedMillis": {
+          "raw": "240000",
+          "parsed": 240000
+        }
+      }
+    }
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "JVM mock-run synthetic fixtures; not a real-device baseline"
+  }
+}

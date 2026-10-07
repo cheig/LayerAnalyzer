@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "tcp_retransmission_burst",
+  "captureFile": "tcp_retransmission_burst.pcap",
+  "captureSha256": "965fc1ea0ea9f97f1db0ecc5c2f230dec3cec7d84a504d85ac2697e22f1ab885",
+  "captureFrameCount": 11,
+  "question": "Does this HTTP-over-TCP request suffer from retransmissions, and does the transfer complete?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "tcp-retransmission-burst",
+      "kind": "TcpRetransmission",
+      "severity": "Warning",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        7,
+        8,
+        9,
+        10
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    7,
+    8,
+    9,
+    10
+  ],
+  "allowedAlternativeConclusions": [
+    "After one request chunk is acknowledged normally, the next chunk is retransmitted four times with growing gaps and no intervening acknowledgement, and the peer finally acknowledges it."
+  ],
+  "forbiddenConclusions": [
+    "the server is down",
+    "the connection was reset",
+    "the data was never delivered"
+  ],
+  "expectedLimitations": [
+    "retransmissions are counted at the capture point",
+    "the cause of the missing acknowledgements is not visible"
+  ],
+  "maximumToolCalls": 5
+}

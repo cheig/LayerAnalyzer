@@ -1,0 +1,34 @@
+--- a/cmake/modules/UseLemon.cmake
++++ b/cmake/modules/UseLemon.cmake
+@@ -1,6 +1,15 @@
+ #
+ MACRO(ADD_LEMON_FILES _source _generated)
+     set(_lemonpardir ${CMAKE_SOURCE_DIR}/tools/lemon)
++
++    IF(LEMON_EXECUTABLE)
++        SET(_lemon_cmd ${LEMON_EXECUTABLE})
++        SET(_lemon_depends)
++    ELSE()
++        SET(_lemon_cmd $<TARGET_FILE:lemon>)
++        SET(_lemon_depends lemon)
++    ENDIF()
++
+     FOREACH (_current_FILE ${ARGN})
+       GET_FILENAME_COMPONENT(_in ${_current_FILE} ABSOLUTE)
+       GET_FILENAME_COMPONENT(_basename ${_current_FILE} NAME_WE)
+@@ -13,13 +22,13 @@
+           # These files are generated as side-effect
+           ${_out}.h
+           ${_out}.out
+-         COMMAND $<TARGET_FILE:lemon>
++         COMMAND ${_lemon_cmd}
+            -T${_lemonpardir}/lempar.c
+            -d.
+            ${_in}
+          DEPENDS
+            ${_in}
+-           lemon
++           ${_lemon_depends}
+            ${_lemonpardir}/lempar.c
+       )
+ 

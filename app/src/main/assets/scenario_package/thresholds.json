@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "thresholds": [
+    {
+      "id": "sip.call-setup.attentionmillis",
+      "playbookId": "ims-call-setup-delay",
+      "value": 3000,
+      "unit": "milliseconds",
+      "region": "any",
+      "notes": "Review signal only: a stage above this value is worth a closer look. It is not a network- or operator-specific root-cause timer."
+    },
+    {
+      "id": "rtcp.loss.fraction.attentionpercent",
+      "playbookId": "rtp-quality",
+      "value": 5,
+      "unit": "percent",
+      "region": "any",
+      "notes": "Review signal only: RTCP-reported loss above this fraction deserves evidence review; it does not prove endpoint media quality."
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="18 18 72 72">
+<title>LayerAnalyzer</title>
+<desc>Three mint protocol layers with a routed packet trace on a deep teal field.</desc>
+<defs><linearGradient id="background-0" gradientUnits="userSpaceOnUse" x1="18" y1="18" x2="90" y2="102"><stop offset="0" stop-color="#123E3A"/><stop offset="0.5" stop-color="#092C2B"/><stop offset="1" stop-color="#041B20"/></linearGradient>
+<linearGradient id="foreground-0" gradientUnits="userSpaceOnUse" x1="29" y1="62" x2="79" y2="82"><stop offset="0" stop-color="#2CC5AE"/><stop offset="1" stop-color="#138D8F"/></linearGradient>
+<linearGradient id="foreground-1" gradientUnits="userSpaceOnUse" x1="29" y1="50" x2="79" y2="70"><stop offset="0" stop-color="#8AF4CE"/><stop offset="1" stop-color="#32C9B7"/></linearGradient>
+<linearGradient id="foreground-2" gradientUnits="userSpaceOnUse" x1="38" y1="29" x2="69" y2="57"><stop offset="0" stop-color="#F1FFF4"/><stop offset="1" stop-color="#B4F7DD"/></linearGradient></defs>
+<path d="M0,0h108v108h-108z" fill="url(#background-0)" />
+<path d="M29,62.5 L51.8,75.3 Q54,76.5 56.2,75.3 L79,62.5 L79,67.5 Q79,68.7 77.9,69.3 L56.2,81.5 Q54,82.7 51.8,81.5 L30.1,69.3 Q29,68.7 29,67.5 Z" fill="url(#foreground-0)" />
+<path d="M29,50.5 L51.8,63.3 Q54,64.5 56.2,63.3 L79,50.5 L79,55.5 Q79,56.7 77.9,57.3 L56.2,69.5 Q54,70.7 51.8,69.5 L30.1,57.3 Q29,56.7 29,55.5 Z" fill="url(#foreground-1)" />
+<path d="M51.8,28.8 Q54,27.6 56.2,28.8 L78.2,41.1 Q80.4,42.3 78.2,43.5 L56.2,55.8 Q54,57 51.8,55.8 L29.8,43.5 Q27.6,42.3 29.8,41.1 Z" fill="url(#foreground-2)" />
+<path fill="none" stroke="#0B514A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M42.5,42.3 L50.2,46.6 L58,38 L65.5,42.3" />
+<path fill="#0B514A" d="M45,42.3 A2.5,2.5 0,1 1,40,42.3 A2.5,2.5 0,1 1,45,42.3 Z M68,42.3 A2.5,2.5 0,1 1,63,42.3 A2.5,2.5 0,1 1,68,42.3 Z" />
+</svg>

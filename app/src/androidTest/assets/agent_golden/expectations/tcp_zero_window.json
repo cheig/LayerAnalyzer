@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "tcp_zero_window",
+  "captureFile": "tcp_zero_window.pcap",
+  "captureSha256": "b715911048daaf67fa309ef798a9cb591b2dae50e92a212f6bb40ecd20408fab",
+  "captureFrameCount": 10,
+  "question": "Why does the upload stall mid-transfer even though the TCP connection stays open?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "tcp-zero-window-stall",
+      "kind": "TcpZeroWindow",
+      "severity": "High",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        6,
+        7,
+        8
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    6,
+    7,
+    8
+  ],
+  "allowedAlternativeConclusions": [
+    "The server acknowledges normal data and then advertises a zero receive window, the client sends a zero window probe, and the transfer resumes after a non-zero window update."
+  ],
+  "forbiddenConclusions": [
+    "the link went down",
+    "the bandwidth is insufficient",
+    "the connection was reset",
+    "the server crashed"
+  ],
+  "expectedLimitations": [
+    "the advertised window value is visible",
+    "the receive-buffer state inside the peer is not visible"
+  ],
+  "maximumToolCalls": 5
+}

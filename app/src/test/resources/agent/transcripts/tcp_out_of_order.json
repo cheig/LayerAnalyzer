@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_tcp_out_of_order",
+  "description": "Offline Mock Agent trajectory for tcp_out_of_order.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_expert_info",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_expert_info",
+          "arguments": {
+            "filter": "tcp.analysis.flags",
+            "mode": "items",
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_expert_info",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {5, 9}",
+            "limit": 2
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for tcp_out_of_order.",
+        "findings": [
+          {
+            "id": "tcp-out-of-order-arrival",
+            "title": "TcpAnomaly",
+            "severity": "Warning",
+            "confidence": "Medium",
+            "conclusion": "Two segments are captured ahead of earlier ones and every byte range is sent exactly once, so the stream is reordered rather than retransmitted.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 5,
+                "observation": "Frame 5 supports TcpAnomaly.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 9,
+                "observation": "Frame 9 supports TcpAnomaly.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "the capture shows arrival order, not wire order",
+          "the cause of the reordering is not visible"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

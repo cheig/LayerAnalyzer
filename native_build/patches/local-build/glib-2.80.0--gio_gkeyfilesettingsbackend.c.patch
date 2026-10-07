@@ -1,0 +1,11 @@
+--- a/gio/gkeyfilesettingsbackend.c
++++ b/gio/gkeyfilesettingsbackend.c
+@@ -664,7 +664,7 @@
+ load_system_settings (GKeyfileSettingsBackend *kfsb)
+ {
+   GError *error = NULL;
+-  const char *dir = "/etc/glib-2.0/settings";
++  const char *dir = "@TERMUX_PREFIX@/etc/glib-2.0/settings";
+   char *path;
+   char *contents;
+ 

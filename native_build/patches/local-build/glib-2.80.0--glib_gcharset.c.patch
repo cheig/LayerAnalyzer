@@ -1,0 +1,11 @@
+--- a/glib/gcharset.c
++++ b/glib/gcharset.c
+@@ -503,7 +503,7 @@
+   if (g_once_init_enter_pointer (&alias_table))
+     {
+       GHashTable *table = g_hash_table_new (g_str_hash, g_str_equal);
+-      read_aliases ("/usr/share/locale/locale.alias", table);
++      read_aliases ("@TERMUX_PREFIX@/share/locale/locale.alias", table);
+       g_once_init_leave_pointer (&alias_table, table);
+     }
+ 

@@ -1,0 +1,11 @@
+--- a/glib/glibintl.h
++++ b/glib/glibintl.h
+@@ -11,7 +11,7 @@
+ const gchar * glib_pgettext (const gchar *msgctxtid,
+                              gsize        msgidoffset) G_GNUC_FORMAT(1);
+ 
+-#ifdef ENABLE_NLS
++#if ENABLE_NLS
+ 
+ #include <libintl.h>
+ #define _(String) glib_gettext(String)

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_capture_truncated_start",
+  "description": "Offline Mock Agent trajectory for capture_truncated_start.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_communication_analysis",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_communication_analysis",
+          "arguments": {
+            "domains": [
+              "sip",
+              "rtp",
+              "rtcp"
+            ],
+            "includeMessages": true,
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_communication_analysis",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {121, 122}",
+            "limit": 2
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for capture_truncated_start.",
+        "findings": [
+          {
+            "id": "capture-start-incomplete",
+            "title": "CaptureIncomplete",
+            "severity": "Warning",
+            "confidence": "Low",
+            "conclusion": "The capture shows mid-dialog RTP and BYE, but not the setup or SDP exchange.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 121,
+                "observation": "Frame 121 supports CaptureIncomplete.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 122,
+                "observation": "Frame 122 supports CaptureIncomplete.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "capture starts after call setup",
+          "absence of setup evidence is not proof of absence"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

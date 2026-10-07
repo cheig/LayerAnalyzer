@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_tls_handshake_failure",
+  "description": "Offline Mock Agent trajectory for tls_handshake_failure.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "tls",
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {4, 6}",
+            "limit": 2
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for tls_handshake_failure.",
+        "findings": [
+          {
+            "id": "tls-handshake-failure",
+            "title": "TlsHandshakeFailure",
+            "severity": "Error",
+            "confidence": "Medium",
+            "conclusion": "The TCP handshake completes and the ClientHello is acknowledged, but the server aborts the negotiation with a fatal TLS alert, description handshake_failure, and the connection closes without a session being established.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 4,
+                "observation": "Frame 4 supports TlsHandshakeFailure.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 6,
+                "observation": "Frame 6 supports TlsHandshakeFailure.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "the alert description is visible",
+          "why the server rejected the handshake is not visible"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

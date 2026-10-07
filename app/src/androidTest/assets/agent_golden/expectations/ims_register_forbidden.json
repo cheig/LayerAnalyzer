@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "ims_register_forbidden",
+  "captureFile": "ims_register_forbidden.pcap",
+  "captureSha256": "6cc560d29f5ee135308ec110167e812fab1aa3439e23a5588c7cb01da680980a",
+  "captureFrameCount": 4,
+  "question": "Why did the IMS registration attempt end in a forbidden response?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "registration-forbidden",
+      "kind": "RegistrationForbidden",
+      "severity": "Error",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "allowedAlternativeConclusions": [
+    "The server rejected the authenticated REGISTER with 403."
+  ],
+  "forbiddenConclusions": [
+    "the password is wrong",
+    "the subscriber is barred",
+    "registration succeeded"
+  ],
+  "expectedLimitations": [
+    "403 is an observed signaling outcome",
+    "operator policy is not visible"
+  ],
+  "maximumToolCalls": 4
+}

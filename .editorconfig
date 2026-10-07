@@ -1,0 +1,17 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{kt,kts,java,c,cpp,h,cmake,xml,md}]
+indent_style = space
+indent_size = 4
+
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
+
+# Preserve the exact payload bytes pinned by the signed scenario manifest.
+[app/src/main/assets/scenario_package/{playbooks,field_aliases,thresholds,evaluation_expectations}.json]
+end_of_line = crlf

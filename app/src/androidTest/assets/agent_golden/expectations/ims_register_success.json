@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "ims_register_success",
+  "captureFile": "ims_register_success.pcap",
+  "captureSha256": "550e853f30fda03414142c74a192c1e3e77e0c14ee65f40e2ee53a6ad9a28739",
+  "captureFrameCount": 4,
+  "question": "Did IMS registration complete after the authentication challenge?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "registration-challenge-accepted",
+      "kind": "RegistrationSuccess",
+      "severity": "Info",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "allowedAlternativeConclusions": [
+    "The capture shows a successful REGISTER transaction after a 401 challenge."
+  ],
+  "forbiddenConclusions": [
+    "registration failed",
+    "credentials are valid",
+    "subscriber identity is verified"
+  ],
+  "expectedLimitations": [
+    "signaling outcome is visible",
+    "credential validity is not established"
+  ],
+  "maximumToolCalls": 4
+}

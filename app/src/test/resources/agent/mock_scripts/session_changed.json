@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "session_changed_json",
+  "description": "A tool call issued after the capture session changed underneath the run.",
+  "turns": [
+    {
+      "type": "tool_calls",
+      "calls": [
+        { "toolCallId": "call-overview", "toolName": "get_capture_overview" }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": { "toolCallId": "call-overview" },
+      "calls": [
+        { "toolCallId": "call-expert", "toolName": "get_expert_info" }
+      ]
+    },
+    {
+      "type": "failure",
+      "error": {
+        "code": "SESSION_CHANGED",
+        "userMessage": "The capture changed while the analysis was running.",
+        "retryable": false,
+        "details": { "reason": "session_changed" }
+      }
+    }
+  ]
+}

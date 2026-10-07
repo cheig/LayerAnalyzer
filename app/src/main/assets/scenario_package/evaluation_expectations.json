@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "expectations": [
+    {
+      "playbookId": "general-capture-health",
+      "goldenScenarioIds": [
+        "capture_truncated_start"
+      ],
+      "notes": "The truncated-capture scenario pins the no-evidence-no-conclusion boundary.",
+      "syntheticOnly": false
+    },
+    {
+      "playbookId": "ims-registration-failure",
+      "goldenScenarioIds": [
+        "ims_register_success",
+        "ims_register_forbidden",
+        "ims_register_no_response"
+      ],
+      "syntheticOnly": false,
+      "notes": "Deterministic checks for ims-registration-failure are pinned by the playbook and host regression suite."
+    },
+    {
+      "playbookId": "ims-call-setup-failure",
+      "goldenScenarioIds": [
+        "ims_call_failure_486",
+        "ims_call_success"
+      ],
+      "syntheticOnly": false,
+      "notes": "Deterministic checks for ims-call-setup-failure are pinned by the playbook and host regression suite."
+    },
+    {
+      "playbookId": "ims-call-setup-delay",
+      "goldenScenarioIds": [
+        "ims_call_success"
+      ],
+      "syntheticOnly": false,
+      "notes": "Deterministic checks for ims-call-setup-delay are pinned by the playbook and host regression suite."
+    },
+    {
+      "playbookId": "ims-call-release",
+      "goldenScenarioIds": [
+        "ims_call_success"
+      ],
+      "syntheticOnly": false,
+      "notes": "Deterministic checks for ims-call-release are pinned by the playbook and host regression suite."
+    },
+    {
+      "playbookId": "ims-one-way-audio",
+      "goldenScenarioIds": [
+        "ims_media_one_way"
+      ],
+      "syntheticOnly": false,
+      "notes": "Deterministic checks for ims-one-way-audio are pinned by the playbook and host regression suite."
+    },
+    {
+      "playbookId": "rtp-quality",
+      "goldenScenarioIds": [
+        "ims_media_loss"
+      ],
+      "syntheticOnly": false,
+      "notes": "Deterministic checks for rtp-quality are pinned by the playbook and host regression suite."
+    },
+    {
+      "playbookId": "mobile-core-registration",
+      "goldenScenarioIds": [],
+      "syntheticOnly": true,
+      "notes": "No golden core-network capture is bundled yet; the release gate treats this playbook as covered by synthetic deterministic checks only."
+    },
+    {
+      "playbookId": "eps-fallback",
+      "goldenScenarioIds": [],
+      "syntheticOnly": true,
+      "notes": "Radio-source scenarios are covered by synthetic timeline checks; no golden capture yet."
+    },
+    {
+      "playbookId": "vonr-call-setup",
+      "goldenScenarioIds": [],
+      "syntheticOnly": true,
+      "notes": "Radio-source scenarios are covered by synthetic timeline checks; no golden capture yet."
+    },
+    {
+      "playbookId": "mobility-interruption",
+      "goldenScenarioIds": [],
+      "syntheticOnly": true,
+      "notes": "Radio-source scenarios are covered by synthetic timeline checks; no golden capture yet."
+    },
+    {
+      "playbookId": "radio-signal-degradation",
+      "goldenScenarioIds": [],
+      "syntheticOnly": true,
+      "notes": "Radio-source scenarios are covered by synthetic timeline checks; no golden capture yet."
+    }
+  ]
+}

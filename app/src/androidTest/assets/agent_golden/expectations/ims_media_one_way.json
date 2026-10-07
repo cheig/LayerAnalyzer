@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "ims_media_one_way",
+  "captureFile": "ims_media_one_way.pcap",
+  "captureSha256": "2fc5ba2ddfed4bb32b38b17a229a6060d8930910be816db0371dc3b4f07f8800",
+  "captureFrameCount": 108,
+  "question": "Why is only one RTP direction visible after SDP negotiation?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "one-way-media",
+      "kind": "OneWayMedia",
+      "severity": "High",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        6,
+        105
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    1,
+    4,
+    5,
+    6,
+    105,
+    106,
+    107,
+    108
+  ],
+  "allowedAlternativeConclusions": [
+    "SDP advertises sendrecv while the capture contains RTP only from the offerer side."
+  ],
+  "forbiddenConclusions": [
+    "the far endpoint definitely produced no audio",
+    "NAT is proven",
+    "the endpoint speaker is broken"
+  ],
+  "expectedLimitations": [
+    "capture point visibility cannot prove endpoint playback",
+    "the absent direction may be outside the observation point"
+  ],
+  "maximumToolCalls": 5
+}

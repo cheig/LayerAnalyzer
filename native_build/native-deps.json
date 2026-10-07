@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "url": "https://github.com/cheig/LayerAnalyzer_libs/releases/download/wireshark-4.0.10-r1/native-deps-wireshark-4.0.10-r1.zip",
+  "sha256": "617468873eea9b69bd430736b1419fe684b871d0ddbe81a6d94258086b132c7d",
+  "wiresharkVersion": "4.0.10",
+  "abis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "files": {
+    "arm64-v8a/libcares.so": "9ac20a6666e4b95969bdfdd8cd4ddf21a117f0f7beb650de652a931decafc206",
+    "arm64-v8a/libffi.a": "ea17acbcfc77b74ee5906a6c02046d2df4378392d58384683ab6482022dd1892",
+    "arm64-v8a/libgcrypt.so": "4507961c0681ffb20366f62bb61079eb38c5939e130d6815d74b0fa3bde63562",
+    "arm64-v8a/libglib-2.0.so": "a0004240188c7516e3a3e3b8a4ef26216e92d9604ad85fe9f10143aa37ad6546",
+    "arm64-v8a/libgmodule-2.0.so": "bdc3d08384c5021506fb17f962adeef7613dd642ec851c2bf327e3722a6c32c8",
+    "arm64-v8a/libgobject-2.0.so": "0bcacf8f21dde366f70102efaa2953e1949d93001ae752d46eb44f8e620797a2",
+    "arm64-v8a/libgpg-error.so": "8f9bc17b3599ff544666a192b378d080c9d7484eaac9101ded4617c64799f77e",
+    "arm64-v8a/libgthread-2.0.so": "0abdae36355d5d4d53fef6651909966d8964161cf0fa59fdc9e71d48119fb0f1",
+    "arm64-v8a/libiconv.a": "cd8eb99210558851dc831da216922535a43b03aab7ea6e158d9b61787297e609",
+    "arm64-v8a/libpcre2-8.a": "d208616ad9c1bb3cf7c37eb3ea2ea7be95c72b9984a4e58117c3cd9416224d66",
+    "arm64-v8a/libwireshark.so": "9a9a84f73b5b7e4df6be10236ff58ba5102ecdcd5fecb9596adb9d1d344dd618",
+    "arm64-v8a/libwiretap.so": "ef43390e2bcfb4356c26ce9f183fdf06d1ecfc2b17efad65bb6078984efb2328",
+    "arm64-v8a/libwsutil.so": "0bdeac6d987049aa02b2f9574d48a4453cc2c74b2754b34bfa29fbaa97274abd",
+    "arm64-v8a/libz.a": "8d759de5c349a2e43b702a3f0f1a04c3ef2a6314ac40e93c173facfc560d4849",
+    "x86_64/libcares.so": "a29ec0bb05ff9fc2c31ec657c6334756eea2aebcacd3a16aaf7198e602b6a153",
+    "x86_64/libffi.a": "286ec27ecc69ce240faa816ecbc216c44286d2d33c4c603219df3bd87a158832",
+    "x86_64/libgcrypt.so": "ee7e12bbd1dfd6f1e0c4ab6580b44db972e16a25052448c0ec369a2994a63b1a",
+    "x86_64/libglib-2.0.so": "26bac37a46cc629c1f3f8b9b4cf503e7ab4ae1741b991ac532dc4b0cde9b9315",
+    "x86_64/libgmodule-2.0.so": "1e43c351fd949a260b27e416fc87f9781636157cb4a00a089b9b0ba5f88030d4",
+    "x86_64/libgobject-2.0.so": "7796264621d5b75c8d8d87bd19dff2ba1710434ef929c61c6849dfb8e5f7b269",
+    "x86_64/libgpg-error.so": "f318e00ac966078d5e83257ab932fc89219f7f0ccc82a89bd2e938a1abfe6750",
+    "x86_64/libgthread-2.0.so": "4ca71f00e2b960a4daa4444e482e43fb9f6818c4f5533b2a9a64690e620b0687",
+    "x86_64/libiconv.a": "8041ca925e65304c2f51b99a61a7fe50d75c3cdaeeb3881f0e188ae976bdccb8",
+    "x86_64/libpcre2-8.a": "abfcd6aaa4642eafd95389b528ea9b6ce0bc77486107049c741f856945d410c8",
+    "x86_64/libwireshark.so": "b9562df10c3caddb79ff10e110c9cd0a21d3e47a35a46cfd29a7342ee55cd1a3",
+    "x86_64/libwiretap.so": "c9bcfbfbf43881b60e140f9b1ebd1b8fa73edb60426c448c9073aba6089c4cbc",
+    "x86_64/libwsutil.so": "92bf3cbbb9b3fbf5cdeebc8b231ce8a1769959fd31ead53e6964e3903c93fcc7",
+    "x86_64/libz.a": "17e9cc984608fc10999222cf711607b6df3cb74e97739aa7f29623bd9fb67969"
+  }
+}

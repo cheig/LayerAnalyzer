@@ -1,0 +1,1042 @@
+{
+  "schemaVersion": 2,
+  "playbooks": [
+    {
+      "id": "general-capture-health",
+      "version": 1,
+      "title": "General capture health",
+      "intentHints": [
+        "main problem",
+        "capture health",
+        "what is wrong",
+        "analyze capture",
+        "主要问题",
+        "分析这份抓包",
+        "抓包分析"
+      ],
+      "protocols": [
+        "any"
+      ],
+      "initialTools": [
+        "get_capture_overview"
+      ],
+      "requiredFields": [],
+      "checks": [
+        {
+          "id": "health",
+          "description": "Use health and Expert counts to choose the next aggregate query",
+          "recommendedTools": [
+            "get_statistics",
+            "get_expert_info",
+            "get_communication_analysis"
+          ]
+        }
+      ],
+      "successPath": [
+        "Read the overview first",
+        "Query aggregate evidence before packet detail",
+        "Use packet summaries and fields only to locate evidence"
+      ],
+      "failureBranches": [
+        {
+          "condition": "A source is truncated or a query fails",
+          "recommendedTools": [],
+          "limitation": "State the incomplete coverage and do not infer an absence."
+        }
+      ],
+      "requiredLimitations": [
+        "Conclusions require tool evidence.",
+        "Truncated or failed sources limit negative conclusions."
+      ],
+      "outputSections": [
+        "summary",
+        "major_anomalies",
+        "excluded_causes",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "ims-registration-failure",
+      "version": 2,
+      "title": "IMS registration failure",
+      "intentHints": [
+        "ims registration",
+        "ims register",
+        "register failure",
+        "ims 注册",
+        "注册失败"
+      ],
+      "protocols": [
+        "sip",
+        "ipsec",
+        "diameter"
+      ],
+      "initialTools": [
+        "get_capture_overview",
+        "get_communication_analysis"
+      ],
+      "requiredFields": [
+        "sip.Call-ID",
+        "sip.CSeq.seq",
+        "sip.CSeq.method",
+        "sip.via.branch",
+        "sip.Status-Code",
+        "sip.Authorization.present"
+      ],
+      "checks": [
+        {
+          "id": "register-flow",
+          "description": "Read the SIP registrationAnalyses projection to locate the initial REGISTER, challenge, authenticated retry, final response, selected attempt, and alternate candidates",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        },
+        {
+          "id": "transport-evidence",
+          "description": "Check the same registration window for TCP retransmission, RST, Zero Window, ICMP, and Expert evidence",
+          "recommendedTools": [
+            "get_statistics",
+            "get_expert_info",
+            "query_packet_summaries",
+            "get_packet_fields"
+          ]
+        }
+      ],
+      "successPath": [
+        "Call get_capture_overview first",
+        "Call get_communication_analysis with domains=[sip] and protocol=register",
+        "Confirm a final 2xx REGISTER response",
+        "Report the correlated request, challenge, authenticated retry, and response frames",
+        "Use get_statistics for the selected time window when transport evidence is needed"
+      ],
+      "failureBranches": [
+        {
+          "condition": "SIP is absent or protected by IPsec",
+          "recommendedTools": [
+            "get_capture_overview",
+            "get_statistics"
+          ],
+          "limitation": "State that SIP registration signaling is not visible; do not infer registration success or failure."
+        },
+        {
+          "condition": "The SIP source is truncated or no final response is visible",
+          "recommendedTools": [
+            "get_statistics",
+            "query_packet_summaries",
+            "get_packet_fields"
+          ],
+          "limitation": "State the observed signaling gap and coverage limit; call it a timeout only when the local projection reports complete negative evidence."
+        }
+      ],
+      "requiredLimitations": [
+        "Authorization values are never available; only presence and scheme may be used.",
+        "A missing encrypted or truncated signaling path limits negative conclusions.",
+        "Network response codes describe observed signaling, not an absolute operator-specific root cause."
+      ],
+      "outputSections": [
+        "registration_timeline",
+        "failure_evidence",
+        "authentication_state",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "ims-call-setup-failure",
+      "version": 1,
+      "title": "IMS call setup failure",
+      "intentHints": [
+        "call setup failure",
+        "invite failure",
+        "ims call failed",
+        "呼叫建立失败",
+        "invite失败"
+      ],
+      "protocols": [
+        "sip",
+        "sdp",
+        "rtp"
+      ],
+      "initialTools": [
+        "get_capture_overview",
+        "get_communication_analysis"
+      ],
+      "requiredFields": [
+        "sip.Call-ID",
+        "sip.CSeq.seq",
+        "sip.CSeq.method",
+        "sip.via.branch",
+        "sip.Status-Code",
+        "sip.from.tag",
+        "sip.to.tag"
+      ],
+      "checks": [
+        {
+          "id": "call-setup-analysis",
+          "description": "Read callSetupAnalysis to select exactly one INVITE and cite each derived stage boundary, final response, ACK state, and alternate candidates",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        },
+        {
+          "id": "failure-cause",
+          "description": "Inspect the response frame and only transport evidence already correlated by call time window and endpoints",
+          "recommendedTools": [
+            "get_packet_fields",
+            "get_expert_info"
+          ]
+        }
+      ],
+      "successPath": [
+        "Call get_capture_overview first",
+        "Call get_communication_analysis with domains=[sip]",
+        "Use callSetupAnalysis rather than mixing dialogs",
+        "Confirm INVITE, provisional responses, final response, and ACK evidence",
+        "Report stage boundary frames and exact observed durations"
+      ],
+      "failureBranches": [
+        {
+          "condition": "A final non-2xx response is present",
+          "recommendedTools": [
+            "get_packet_fields"
+          ],
+          "limitation": "Report the response code as evidence without inferring operator-specific policy."
+        },
+        {
+          "condition": "No response or ACK is visible",
+          "recommendedTools": [
+            "query_packet_summaries",
+            "get_expert_info"
+          ],
+          "limitation": "Describe the observed signaling gap and the local completeness flag; packet loss or encrypted routing may be outside the capture."
+        },
+        {
+          "condition": "callSetupAnalysis requiresUserSelection is true",
+          "recommendedTools": [],
+          "limitation": "Ask the user to select a Call-ID or INVITE frame; never combine candidate dialogs."
+        }
+      ],
+      "requiredLimitations": [
+        "Forked INVITEs must remain separated by Via branch.",
+        "A SIP response code alone does not establish an operator-specific root cause.",
+        "Without a correlated core-network event, do not infer a bearer or session root cause."
+      ],
+      "outputSections": [
+        "call_setup_timeline",
+        "failure_evidence",
+        "transaction_delays",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "ims-call-setup-delay",
+      "version": 2,
+      "title": "IMS call setup delay",
+      "intentHints": [
+        "call setup delay",
+        "slow call setup",
+        "ringing delay",
+        "呼叫建立慢",
+        "呼叫延迟"
+      ],
+      "protocols": [
+        "sip",
+        "sdp",
+        "rtp"
+      ],
+      "initialTools": [
+        "get_communication_analysis",
+        "get_statistics"
+      ],
+      "requiredFields": [
+        "sip.Call-ID",
+        "sip.CSeq.seq",
+        "sip.CSeq.method",
+        "sip.via.branch",
+        "sip.Status-Code"
+      ],
+      "checks": [
+        {
+          "id": "stage-timing",
+          "description": "Read callSetupAnalysis for exact stage durations, stage percentages, largest contribution, and boundary frames",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        },
+        {
+          "id": "network-anomalies",
+          "description": "Use only TCP/TLS evidence matched to the selected call window and endpoints; inspect other Expert evidence as uncorrelated context",
+          "recommendedTools": [
+            "get_statistics",
+            "get_expert_info"
+          ]
+        }
+      ],
+      "successPath": [
+        "Call get_communication_analysis with domains=[sip]",
+        "When the question supplies a duration such as 8 seconds, send targetSetupMillis=8000",
+        "Optionally send the playbook-configured attentionThresholdMillis only to flag stages worth reviewing",
+        "Report exact stage durations and percentages, then name the largest contribution with its frames",
+        "Treat an attention threshold as a review signal, not a universal root-cause timer"
+      ],
+      "failureBranches": [
+        {
+          "condition": "Transaction correlation is weak or fields are missing",
+          "recommendedTools": [
+            "get_packet_fields"
+          ],
+          "limitation": "Report the timing as low-confidence and name the missing correlation fields."
+        },
+        {
+          "condition": "callSetupAnalysis requiresUserSelection is true",
+          "recommendedTools": [],
+          "limitation": "Ask the user to select a Call-ID or INVITE frame; never average or combine multiple dialogs."
+        }
+      ],
+      "requiredLimitations": [
+        "Capture timestamps describe observed timing, not necessarily handset or network processing time.",
+        "Truncated signaling cannot establish the full setup duration.",
+        "A configured attention threshold marks a stage for review; it does not establish a network- or operator-specific timer root cause.",
+        "Without correlated core-network evidence, do not infer a bearer or session root cause."
+      ],
+      "outputSections": [
+        "call_setup_timeline",
+        "delay_breakdown",
+        "transport_evidence",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "ims-call-release",
+      "version": 1,
+      "title": "IMS call release",
+      "intentHints": [
+        "call release",
+        "call dropped",
+        "bye analysis",
+        "呼叫释放",
+        "掉话"
+      ],
+      "protocols": [
+        "sip",
+        "rtcp",
+        "rtp"
+      ],
+      "initialTools": [
+        "get_communication_analysis",
+        "get_capture_overview"
+      ],
+      "requiredFields": [
+        "sip.Call-ID",
+        "sip.CSeq.seq",
+        "sip.CSeq.method",
+        "sip.via.branch",
+        "sip.Status-Code",
+        "sip.from.tag",
+        "sip.to.tag"
+      ],
+      "checks": [
+        {
+          "id": "release-transaction",
+          "description": "Locate BYE or CANCEL and its final response",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        },
+        {
+          "id": "preceding-media",
+          "description": "Review RTP and RTCP quality before the release",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_statistics"
+          ]
+        }
+      ],
+      "successPath": [
+        "Confirm the release request and final response",
+        "Describe which endpoint sent the visible release",
+        "Separate normal release signaling from prior quality symptoms"
+      ],
+      "failureBranches": [
+        {
+          "condition": "No BYE or CANCEL is visible",
+          "recommendedTools": [
+            "get_expert_info",
+            "query_packet_summaries"
+          ],
+          "limitation": "Do not label the call as normally released when the release path is outside the capture."
+        }
+      ],
+      "requiredLimitations": [
+        "The visible BYE sender is not sufficient to assign user or network intent.",
+        "Media loss preceding release is correlation evidence, not proof of causality."
+      ],
+      "outputSections": [
+        "release_timeline",
+        "release_evidence",
+        "preceding_media_quality",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "ims-one-way-audio",
+      "version": 2,
+      "title": "IMS one-way audio",
+      "intentHints": [
+        "one way audio",
+        "one-way audio",
+        "no audio",
+        "单通",
+        "单向无声"
+      ],
+      "protocols": [
+        "sip",
+        "sdp",
+        "rtp",
+        "rtcp"
+      ],
+      "initialTools": [
+        "get_communication_analysis",
+        "get_capture_overview"
+      ],
+      "requiredFields": [
+        "sip.Call-ID",
+        "sdp.media.direction",
+        "sdp.rtpmap",
+        "rtp.ssrc",
+        "rtp.p_type",
+        "rtcp.ssrc.fraction"
+      ],
+      "checks": [
+        {
+          "id": "sdp-negotiation",
+          "description": "Compare SDP direction, payload mappings, and offer-answer media endpoints",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_packet_fields"
+          ]
+        },
+        {
+          "id": "media-directions",
+          "description": "Read correlated SDP m-lines, expected directions, RTP confidence, and RTCP reports before classifying one-way media",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        }
+      ],
+      "successPath": [
+        "Confirm compatible SDP direction and common codecs",
+        "Compare correlated RTP directions and their endpoint-match confidence",
+        "Report whether one-way behavior is SDP-expected or an observed anomaly with its coverage limit"
+      ],
+      "failureBranches": [
+        {
+          "condition": "One or both RTP directions are absent",
+          "recommendedTools": [
+            "get_packet_fields",
+            "get_statistics"
+          ],
+          "limitation": "Use the media session coverage flag and endpoint-match confidence; absence may reflect a different capture point, encryption, NAT, or routing outside scope."
+        }
+      ],
+      "requiredLimitations": [
+        "RTP at one observation point cannot prove endpoint playback behavior.",
+        "Do not label SDP sendonly or recvonly as a fault.",
+        "SDP media addresses and SIP identifiers are privacy-sensitive and must stay aliased in Agent output."
+      ],
+      "outputSections": [
+        "sdp_negotiation",
+        "media_direction_evidence",
+        "rtcp_quality",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "rtp-quality",
+      "version": 2,
+      "title": "RTP quality",
+      "intentHints": [
+        "rtp quality",
+        "rtp loss",
+        "rtp jitter",
+        "audio quality",
+        "rtp质量",
+        "丢包",
+        "抖动"
+      ],
+      "protocols": [
+        "rtp",
+        "rtcp",
+        "sip",
+        "sdp"
+      ],
+      "initialTools": [
+        "get_communication_analysis",
+        "get_statistics"
+      ],
+      "requiredFields": [
+        "rtp.ssrc",
+        "rtp.p_type",
+        "rtcp.ssrc.fraction",
+        "rtcp.ssrc.jitter",
+        "sdp.rtpmap"
+      ],
+      "checks": [
+        {
+          "id": "stream-metrics",
+          "description": "Read correlated RTP direction metrics, negotiated codec clock rate, sequence anomalies, and evidence frames",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        },
+        {
+          "id": "rtcp-confirmation",
+          "description": "Compare local RTP sequence observations with reported-SSRC RTCP loss and jitter without discarding either",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        }
+      ],
+      "successPath": [
+        "Report affected m-lines, directions, and their frame ranges",
+        "Compare RTP sequence metrics and RTCP reports",
+        "State the SDP clock-rate mapping and whether the capture supports a directional quality observation"
+      ],
+      "failureBranches": [
+        {
+          "condition": "No RTCP is visible",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ],
+          "limitation": "No receiver feedback was captured; RTP-derived loss and jitter remain local observations, not proof of no loss."
+        }
+      ],
+      "requiredLimitations": [
+        "Dynamic RTP payload types require SDP rtpmap clock rates before jitter or codec conclusions.",
+        "RTCP and local RTP sequence metrics can disagree and must both be reported.",
+        "Capture loss and endpoint media quality are distinct phenomena."
+      ],
+      "outputSections": [
+        "stream_metrics",
+        "rtcp_evidence",
+        "codec_mapping",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "mobile-core-registration",
+      "version": 2,
+      "title": "Mobile core registration",
+      "intentHints": [
+        "mobile core registration",
+        "core network registration",
+        "5g registration",
+        "lte registration",
+        "nas registration",
+        "attach failure",
+        "pdu session",
+        "核心网注册",
+        "核心网失败",
+        "5g注册"
+      ],
+      "protocols": [
+        "nas",
+        "ngap",
+        "s1ap",
+        "gtp",
+        "gtpv2",
+        "pfcp",
+        "diameter",
+        "sip"
+      ],
+      "initialTools": [
+        "get_capture_overview",
+        "get_communication_analysis"
+      ],
+      "requiredFields": [
+        "nas_eps.nas_msg_emm_type",
+        "nas_eps.emm.cause",
+        "nas-5gs.mm.message_type",
+        "nas-5gs.mm.cause",
+        "ngap.amf_ue_ngap_id",
+        "ngap.ran_ue_ngap_id",
+        "diameter.session-id",
+        "diameter.cmd.code",
+        "diameter.flags.request",
+        "diameter.result-code",
+        "pfcp.seid",
+        "pfcp.cause",
+        "gtpv2.teid",
+        "gtpv2.cause",
+        "s1ap.procedurecode",
+        "s1ap.cause"
+      ],
+      "checks": [
+        {
+          "id": "core-session",
+          "description": "Read coreProcedures to locate the cross-protocol registration, attach, or PDU-session timeline and its local correlation ID",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        },
+        {
+          "id": "failure-cause",
+          "description": "Locate the failed procedure stage, explicit cause, Diameter result, or experimental result and cite its frames",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_packet_fields"
+          ]
+        },
+        {
+          "id": "preceding-security",
+          "description": "Check authentication and security-mode stages before assigning a registration or session failure",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_expert_info"
+          ]
+        },
+        {
+          "id": "ims-window",
+          "description": "Query the matching SIP/IMS time window and use the local core correlation ID as a cross-layer reference",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        }
+      ],
+      "successPath": [
+        "Get the core session summary and cross-protocol procedure timeline",
+        "Locate the failed procedure stage and explicit cause or result code",
+        "Check the preceding authentication and security-mode stages",
+        "Correlate the core timeline with SIP/IMS findings only by the reported time window and local correlation ID",
+        "Declare missing interfaces, encrypted signaling, and truncation boundaries"
+      ],
+      "failureBranches": [
+        {
+          "condition": "Core identifiers or layers are unavailable",
+          "recommendedTools": [
+            "get_capture_overview",
+            "get_statistics"
+          ],
+          "limitation": "State which registration layers are not visible and avoid cross-layer conclusions."
+        },
+        {
+          "condition": "The core source is truncated or only Weak temporal edges are available",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "query_packet_summaries"
+          ],
+          "limitation": "Report a Partial or candidate timeline; time proximity alone cannot establish a High Confidence root cause."
+        },
+        {
+          "condition": "NAS, SIP, or Diameter is encrypted or outside the capture point",
+          "recommendedTools": [
+            "get_capture_overview",
+            "get_statistics"
+          ],
+          "limitation": "State the encryption or missing-interface boundary and do not infer success, failure, or wireless-side health."
+        }
+      ],
+      "requiredLimitations": [
+        "Core session identifiers, UE identifiers, TEIDs, SEIDs, realms, node IDs, APN/DNN and IMS identities are privacy-sensitive and must be aliased.",
+        "Authentication vectors, keys, integrity data, and credential values are never available to the Agent.",
+        "A partial, encrypted, or single-interface control-plane capture cannot prove end-to-end registration state.",
+        "Weak time adjacency is a candidate relationship, not a deterministic root cause.",
+        "SIP/IMS time-window overlap is correlation evidence, not proof of a core-network cause."
+      ],
+      "outputSections": [
+        "core_registration_timeline",
+        "procedure_stage_evidence",
+        "result_code_evidence",
+        "authentication_security_state",
+        "ims_relationship",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "eps-fallback",
+      "version": 1,
+      "title": "EPS fallback",
+      "intentHints": [
+        "eps fallback",
+        "eps-fallback",
+        "lte fallback",
+        "5g to lte call",
+        "eps回落",
+        "5g回落"
+      ],
+      "protocols": [
+        "radio",
+        "nas",
+        "ngap",
+        "s1ap",
+        "sip",
+        "rtp"
+      ],
+      "initialTools": [
+        "get_capture_overview",
+        "get_unified_network_timeline"
+      ],
+      "requiredFields": [
+        "radio.rat",
+        "radio.registration_state",
+        "ngap.amf_ue_ngap_id",
+        "sip.Call-ID"
+      ],
+      "checks": [
+        {
+          "id": "radio-transition",
+          "description": "Query RAT, registration, service, and recovery events around the call window",
+          "recommendedTools": [
+            "get_radio_events",
+            "get_unified_network_timeline"
+          ]
+        },
+        {
+          "id": "core-and-sip",
+          "description": "Compare the candidate Radio transition with NGAP/NAS and SIP call setup stages",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_unified_network_timeline"
+          ]
+        },
+        {
+          "id": "media-result",
+          "description": "Check whether RTP starts after the observed access-network transition without treating overlap as causality",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        }
+      ],
+      "successPath": [
+        "Query Radio events in the call time range",
+        "Read the unified timeline with source clocks and uncertainty",
+        "Compare RAT and registration transitions to core and SIP stages",
+        "Report media start and any transport anomaly as separate evidence",
+        "Keep the result as a temporal candidate unless an explicit source reference exists"
+      ],
+      "failureBranches": [
+        {
+          "condition": "Radio data is unavailable",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_statistics"
+          ],
+          "limitation": "Describe the SIP/core/media path as a degraded fallback and state that the wireless-side transition cannot be assessed."
+        },
+        {
+          "condition": "RAT or core source is truncated or encrypted",
+          "recommendedTools": [
+            "get_radio_events",
+            "get_communication_analysis",
+            "get_capture_overview"
+          ],
+          "limitation": "Report only the visible transition candidates and do not infer a completed fallback."
+        }
+      ],
+      "requiredLimitations": [
+        "Missing Radio data does not establish that the wireless side was healthy.",
+        "Time proximity between RAT, core, SIP, and RTP events is a candidate correlation, not a root cause.",
+        "Encrypted NAS/NGAP or a single capture point limits EPS fallback conclusions.",
+        "Cell identifiers and subscriber identifiers remain aliased."
+      ],
+      "outputSections": [
+        "radio_transition",
+        "core_sip_relationship",
+        "media_outcome",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "vonr-call-setup",
+      "version": 1,
+      "title": "VoNR call setup",
+      "intentHints": [
+        "vonr",
+        "vonr call",
+        "5g voice call",
+        "vonr呼叫",
+        "5g语音"
+      ],
+      "protocols": [
+        "radio",
+        "nas",
+        "ngap",
+        "sip",
+        "rtp"
+      ],
+      "initialTools": [
+        "get_capture_overview",
+        "get_unified_network_timeline"
+      ],
+      "requiredFields": [
+        "radio.rat",
+        "radio.signal.sinr",
+        "sip.Call-ID",
+        "ngap.amf_ue_ngap_id"
+      ],
+      "checks": [
+        {
+          "id": "radio-capability",
+          "description": "Check the observed RAT, registration state, and signal observations before reviewing SIP",
+          "recommendedTools": [
+            "get_radio_events"
+          ]
+        },
+        {
+          "id": "sip-setup",
+          "description": "Read the SIP call setup stages and correlate them to the Radio/Core time window",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_unified_network_timeline"
+          ]
+        },
+        {
+          "id": "media-start",
+          "description": "Confirm negotiated media and actual RTP start separately from call signalling",
+          "recommendedTools": [
+            "get_communication_analysis"
+          ]
+        }
+      ],
+      "successPath": [
+        "Establish whether a supported Radio source is available",
+        "Read the unified timeline and clock uncertainty",
+        "Inspect SIP call setup and core stages",
+        "Compare signal observations with setup timing only as a candidate relationship",
+        "State capture coverage and encryption boundaries"
+      ],
+      "failureBranches": [
+        {
+          "condition": "Radio data is unavailable",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_statistics"
+          ],
+          "limitation": "Use SIP, core, and media evidence only; explicitly state that VoNR radio readiness and signal quality are not observable."
+        },
+        {
+          "condition": "SIP or NGAP is encrypted or absent",
+          "recommendedTools": [
+            "get_radio_events",
+            "get_capture_overview",
+            "get_statistics"
+          ],
+          "limitation": "Do not infer VoNR registration or call setup success from Radio snapshots alone."
+        }
+      ],
+      "requiredLimitations": [
+        "No Radio evidence means no conclusion about wireless signal quality or VoNR readiness.",
+        "Signal and setup-time overlap is not proof of a radio cause.",
+        "RTP visibility depends on the capture point and encryption.",
+        "Radio and core identifiers are privacy-sensitive and remain aliased."
+      ],
+      "outputSections": [
+        "radio_context",
+        "vonr_setup_timeline",
+        "media_start",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "mobility-interruption",
+      "version": 1,
+      "title": "Mobility interruption",
+      "intentHints": [
+        "mobility interruption",
+        "handover",
+        "cell change",
+        "rat change",
+        "移动性中断",
+        "切换中断",
+        "小区切换"
+      ],
+      "protocols": [
+        "radio",
+        "nas",
+        "ngap",
+        "s1ap",
+        "sip",
+        "rtp",
+        "tcp"
+      ],
+      "initialTools": [
+        "get_radio_events",
+        "get_unified_network_timeline"
+      ],
+      "requiredFields": [
+        "radio.rat",
+        "radio.event_type",
+        "radio.registration_state",
+        "sip.Call-ID"
+      ],
+      "checks": [
+        {
+          "id": "mobility-events",
+          "description": "Locate RAT changes, cell-change candidates, out-of-service, and recovery events",
+          "recommendedTools": [
+            "get_radio_events"
+          ]
+        },
+        {
+          "id": "cross-layer-window",
+          "description": "Inspect core, SIP, RTP/RTCP, and transport events within both source uncertainties",
+          "recommendedTools": [
+            "get_unified_network_timeline",
+            "get_communication_analysis",
+            "get_statistics"
+          ]
+        },
+        {
+          "id": "coverage",
+          "description": "Check truncation, filtered scope, and source frame coverage before making a negative statement",
+          "recommendedTools": [
+            "get_capture_overview",
+            "get_expert_info"
+          ]
+        }
+      ],
+      "successPath": [
+        "Query Radio events around the interruption",
+        "Use the unified timeline to show uncertainty ranges",
+        "Compare control-plane, SIP, media, and transport observations",
+        "Describe candidate relationships without assigning causality",
+        "Report recovery and post-event media state separately"
+      ],
+      "failureBranches": [
+        {
+          "condition": "Radio data is unavailable",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_statistics",
+            "get_expert_info"
+          ],
+          "limitation": "Use only visible packet-layer symptoms and state that cell/RAT mobility cannot be confirmed."
+        },
+        {
+          "condition": "Only temporal proximity is available",
+          "recommendedTools": [
+            "get_unified_network_timeline"
+          ],
+          "limitation": "Label the relationship as Candidate and do not convert it into a handover root cause."
+        }
+      ],
+      "requiredLimitations": [
+        "A missing Radio source cannot prove mobility did not occur or that radio was healthy.",
+        "Cell-change and RAT-change events may be candidates with source uncertainty.",
+        "A media gap or SIP retry can have non-radio causes and must remain separate evidence.",
+        "Filtered or truncated captures limit recovery and absence conclusions."
+      ],
+      "outputSections": [
+        "mobility_events",
+        "cross_layer_candidates",
+        "recovery",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    },
+    {
+      "id": "radio-signal-degradation",
+      "version": 1,
+      "title": "Radio signal degradation",
+      "intentHints": [
+        "radio signal",
+        "signal degradation",
+        "signal drop",
+        "rsrp",
+        "rsrq",
+        "sinr",
+        "信号下降",
+        "无线信号"
+      ],
+      "protocols": [
+        "radio",
+        "sip",
+        "rtp",
+        "tcp"
+      ],
+      "initialTools": [
+        "get_radio_events",
+        "get_unified_network_timeline"
+      ],
+      "requiredFields": [
+        "radio.signal.rsrp",
+        "radio.signal.rsrq",
+        "radio.signal.sinr",
+        "radio.event_type"
+      ],
+      "checks": [
+        {
+          "id": "signal-events",
+          "description": "Read signal-drop observations, metric before/after values, and confidence",
+          "recommendedTools": [
+            "get_radio_events"
+          ]
+        },
+        {
+          "id": "network-impact",
+          "description": "Compare signal candidates with SIP, RTP/RTCP, and transport symptoms in the uncertainty window",
+          "recommendedTools": [
+            "get_unified_network_timeline",
+            "get_communication_analysis",
+            "get_statistics"
+          ]
+        },
+        {
+          "id": "source-boundary",
+          "description": "Check source capability, sampling interval, and capture coverage before excluding causes",
+          "recommendedTools": [
+            "get_capture_overview",
+            "get_radio_events"
+          ]
+        }
+      ],
+      "successPath": [
+        "Report the observed signal metric change and source uncertainty",
+        "Inspect registration and data state transitions",
+        "Compare packet-layer symptoms as temporal candidates",
+        "Keep signal observation and user-perceived quality as separate claims",
+        "List missing Radio, endpoint, and encryption evidence"
+      ],
+      "failureBranches": [
+        {
+          "condition": "Radio data is unavailable",
+          "recommendedTools": [
+            "get_communication_analysis",
+            "get_statistics"
+          ],
+          "limitation": "Diagnose only packet-layer symptoms and state that signal degradation is not observable."
+        },
+        {
+          "condition": "Signal samples are sparse or uncertain",
+          "recommendedTools": [
+            "get_radio_events",
+            "get_unified_network_timeline"
+          ],
+          "limitation": "Report the metric change as a low-confidence candidate and do not interpolate between samples."
+        }
+      ],
+      "requiredLimitations": [
+        "No Radio data means no conclusion about signal quality or wireless-side health.",
+        "Signal metric changes do not prove packet loss, call failure, or user-perceived audio impact.",
+        "Telephony snapshots may omit cell identity and detailed RRC state due to Android permissions.",
+        "Time correlation includes both source uncertainties and any manual clock offset."
+      ],
+      "outputSections": [
+        "signal_observations",
+        "network_impact_candidates",
+        "source_capabilities",
+        "limitations",
+        "recommended_next_steps"
+      ]
+    }
+  ]
+}

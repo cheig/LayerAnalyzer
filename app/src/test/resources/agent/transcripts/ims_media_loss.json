@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_ims_media_loss",
+  "description": "Offline Mock Agent trajectory for ims_media_loss.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "get_communication_analysis",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "get_communication_analysis",
+          "arguments": {
+            "domains": [
+              "sip",
+              "rtp",
+              "rtcp"
+            ],
+            "includeMessages": true,
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "get_communication_analysis",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {1, 3, 5, 6, 56, 193, 194, 195, 196, 197, 198}",
+            "limit": 11
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for ims_media_loss.",
+        "findings": [
+          {
+            "id": "rtp-sequence-gap",
+            "title": "HighLoss",
+            "severity": "Critical",
+            "confidence": "Medium",
+            "conclusion": "The peer-to-UE RTP sequence has a gap and the RTCP report indicates loss.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 56,
+                "observation": "Frame 56 supports HighLoss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 195,
+                "observation": "Frame 195 supports HighLoss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 1,
+                "observation": "Frame 1 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 3,
+                "observation": "Frame 3 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 5,
+                "observation": "Frame 5 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 6,
+                "observation": "Frame 6 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 193,
+                "observation": "Frame 193 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 194,
+                "observation": "Frame 194 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 196,
+                "observation": "Frame 196 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 197,
+                "observation": "Frame 197 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 198,
+                "observation": "Frame 198 establishes capture context for ims_media_loss.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "RTP and RTCP observations are local to the capture point",
+          "endpoint media quality is not proven"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}

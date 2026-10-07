@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "tls_handshake_failure",
+  "captureFile": "tls_handshake_failure.pcap",
+  "captureSha256": "62a12da0c5029bfeb1a1a992b145a235dccbd5cd03eb5df77e38dde9bc35b0fe",
+  "captureFrameCount": 8,
+  "question": "Why does the TLS session to the server never establish in this capture?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "tls-handshake-failure",
+      "kind": "TlsHandshakeFailure",
+      "severity": "Error",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        4,
+        6
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    4,
+    6
+  ],
+  "allowedAlternativeConclusions": [
+    "The TCP handshake completes and the ClientHello is acknowledged, but the server aborts the negotiation with a fatal TLS alert, description handshake_failure, and the connection closes without a session being established."
+  ],
+  "forbiddenConclusions": [
+    "certificate expired",
+    "cipher negotiation succeeded",
+    "the server refused the password"
+  ],
+  "expectedLimitations": [
+    "the alert description is visible",
+    "why the server rejected the handshake is not visible"
+  ],
+  "maximumToolCalls": 4,
+  "attributionRubric": {
+    "requiredRootCause": "the server aborted the TLS negotiation with a fatal handshake_failure alert after a fully delivered ClientHello",
+    "disallowedRootCauses": [
+      "a certificate expired",
+      "cipher negotiation succeeded",
+      "the transport path failed to deliver the handshake"
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "capture_truncated_start",
+  "captureFile": "capture_truncated_start.pcap",
+  "captureSha256": "65dede5923127e865a2d61d5fd7485405df0fdc4e99a40a8f09bb4c883ed77d1",
+  "captureFrameCount": 122,
+  "question": "What can be concluded when this call capture starts mid-dialog?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "capture-start-incomplete",
+      "kind": "CaptureIncomplete",
+      "severity": "Warning",
+      "minimumConfidence": "Low",
+      "requiredEvidenceFrames": [
+        121,
+        122
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    121,
+    122
+  ],
+  "allowedAlternativeConclusions": [
+    "The capture shows mid-dialog RTP and BYE, but not the setup or SDP exchange."
+  ],
+  "forbiddenConclusions": [
+    "no SDP was ever sent",
+    "the call was never established",
+    "the media ports are known from this file"
+  ],
+  "expectedLimitations": [
+    "capture starts after call setup",
+    "absence of setup evidence is not proof of absence"
+  ],
+  "maximumToolCalls": 4
+}

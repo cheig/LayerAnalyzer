@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "http_5xx_storm",
+  "captureFile": "http_5xx_storm.pcap",
+  "captureSha256": "e4f59aaf9d6a6038174287338c0f733643e93ef29d5551615b7f9efca04e7675",
+  "captureFrameCount": 13,
+  "question": "Is this web failure caused by the network path or by the server application?",
+  "scope": "complete_file",
+  "privacyMode": "redacted_metadata",
+  "expectedFindings": [
+    {
+      "id": "http-server-error-storm",
+      "kind": "HttpServerError",
+      "severity": "Error",
+      "minimumConfidence": "Medium",
+      "requiredEvidenceFrames": [
+        5,
+        7,
+        9,
+        11
+      ]
+    }
+  ],
+  "requiredEvidenceFrames": [
+    5,
+    7,
+    9,
+    11
+  ],
+  "allowedAlternativeConclusions": [
+    "Four GETs sent over one keep-alive connection are each answered with an HTTP 503 or 500 error body while the TCP connection opens and closes normally, so the failures are returned by the application, not lost on the path."
+  ],
+  "forbiddenConclusions": [
+    "the server is down at the network layer",
+    "requests were never delivered",
+    "a tcp reset ended the session"
+  ],
+  "expectedLimitations": [
+    "the http status codes are visible",
+    "the server-side cause behind the 5xx responses is not visible"
+  ],
+  "maximumToolCalls": 4,
+  "attributionRubric": {
+    "requiredRootCause": "the server application returned HTTP 5xx responses to delivered requests",
+    "disallowedRootCauses": [
+      "a network path failure caused the outage",
+      "requests were never delivered",
+      "a tcp reset ended the session"
+    ]
+  }
+}

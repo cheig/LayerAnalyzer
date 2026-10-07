@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "generator": "tools/golden_capture/generate_golden_captures.mjs",
+  "provenance": "Synthetic protocol fixtures; RFC 5737 addresses and .invalid domains; no recorded traffic.",
+  "captures": [
+    {
+      "id": "ims_register_success",
+      "frames": 4,
+      "sizeBytes": 1849,
+      "sha256": "550e853f30fda03414142c74a192c1e3e77e0c14ee65f40e2ee53a6ad9a28739"
+    },
+    {
+      "id": "ims_register_forbidden",
+      "frames": 4,
+      "sizeBytes": 1768,
+      "sha256": "6cc560d29f5ee135308ec110167e812fab1aa3439e23a5588c7cb01da680980a"
+    },
+    {
+      "id": "ims_register_no_response",
+      "frames": 8,
+      "sizeBytes": 2299,
+      "sha256": "e8c0803e483465e43cdaeaac262a936fa008c134fff82720e7be9e36add4d0e6"
+    },
+    {
+      "id": "ims_call_success",
+      "frames": 209,
+      "sizeBytes": 48918,
+      "sha256": "2e5f96c5bbffb0c568843929bfed88ef5106e2bf56b79e2090aaa8ee768a11ae"
+    },
+    {
+      "id": "ims_call_failure_486",
+      "frames": 5,
+      "sizeBytes": 1857,
+      "sha256": "6c5d5c7f6fc6c62c063987c759f15cf8f02e26b1c3064fff976f4e79b9c5341c"
+    },
+    {
+      "id": "ims_media_one_way",
+      "frames": 108,
+      "sizeBytes": 25823,
+      "sha256": "2fc5ba2ddfed4bb32b38b17a229a6060d8930910be816db0371dc3b4f07f8800"
+    },
+    {
+      "id": "ims_media_loss",
+      "frames": 198,
+      "sizeBytes": 46263,
+      "sha256": "0b85e38199845e15d16a685d1f09fc099aa021f0818cd6997ee398cf6cc20370"
+    },
+    {
+      "id": "capture_truncated_start",
+      "frames": 122,
+      "sizeBytes": 28301,
+      "sha256": "65dede5923127e865a2d61d5fd7485405df0fdc4e99a40a8f09bb4c883ed77d1"
+    },
+    {
+      "id": "security_prompt_injection",
+      "frames": 14,
+      "sizeBytes": 3708,
+      "sha256": "6632e1c4d247d40af0bf6e3a1ed1146a004ca193eec11788f87a7aa8f025aa7e"
+    },
+    {
+      "id": "tcp_retransmission_burst",
+      "frames": 11,
+      "sizeBytes": 1058,
+      "sha256": "965fc1ea0ea9f97f1db0ecc5c2f230dec3cec7d84a504d85ac2697e22f1ab885"
+    },
+    {
+      "id": "tcp_zero_window",
+      "frames": 10,
+      "sizeBytes": 915,
+      "sha256": "b715911048daaf67fa309ef798a9cb591b2dae50e92a212f6bb40ecd20408fab"
+    },
+    {
+      "id": "tcp_out_of_order",
+      "frames": 11,
+      "sizeBytes": 1034,
+      "sha256": "504692c87510464c5f3081fae1287264bd7c8ee03fcd05b5b301bbb971d2a9b1"
+    },
+    {
+      "id": "dns_timeout",
+      "frames": 9,
+      "sizeBytes": 804,
+      "sha256": "49de0e4bf01c68ad60bc284765dd5bfd94a1cd44b5e3ccec671cba49594ebe0c"
+    },
+    {
+      "id": "tls_handshake_failure",
+      "frames": 8,
+      "sizeBytes": 643,
+      "sha256": "62a12da0c5029bfeb1a1a992b145a235dccbd5cd03eb5df77e38dde9bc35b0fe"
+    },
+    {
+      "id": "http_5xx_storm",
+      "frames": 13,
+      "sizeBytes": 1854,
+      "sha256": "e4f59aaf9d6a6038174287338c0f733643e93ef29d5551615b7f9efca04e7675"
+    },
+    {
+      "id": "sip_register_storm",
+      "frames": 12,
+      "sizeBytes": 4743,
+      "sha256": "5c1ec8408ebce273408bfee648a47a085b5c64bc76f7ca23cdcf024568bca205"
+    }
+  ]
+}

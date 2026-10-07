@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "id": "golden_dns_timeout",
+  "description": "Offline Mock Agent trajectory for dns_timeout.",
+  "capabilities": {
+    "toolCalling": true,
+    "parallelToolCalls": false,
+    "structuredOutput": true,
+    "streaming": false,
+    "maxContextTokens": 128000,
+    "maxOutputTokens": 4096
+  },
+  "turns": [
+    {
+      "type": "tool_calls",
+      "expect": {
+        "requiredToolDefinitions": [
+          "get_capture_overview",
+          "query_packet_summaries"
+        ],
+        "requiresResponseSchema": true,
+        "minMessageCount": 3
+      },
+      "calls": [
+        {
+          "toolCallId": "call-analysis",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "dns",
+            "limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool_calls",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-analysis"
+      },
+      "calls": [
+        {
+          "toolCallId": "call-evidence",
+          "toolName": "query_packet_summaries",
+          "arguments": {
+            "filter": "frame.number in {1, 2, 3, 4, 5, 6}",
+            "limit": 6
+          }
+        }
+      ]
+    },
+    {
+      "type": "final",
+      "expect": {
+        "toolName": "query_packet_summaries",
+        "toolCallId": "call-evidence"
+      },
+      "report": {
+        "summary": "Golden baseline for dns_timeout.",
+        "findings": [
+          {
+            "id": "dns-queries-unanswered",
+            "title": "Dns",
+            "severity": "Error",
+            "confidence": "Medium",
+            "conclusion": "DNS queries for two names are each sent three times and none is ever answered, and the later direct TCP connection attempts also stay unanswered.",
+            "evidence": [
+              {
+                "type": "Frame",
+                "frameNumber": 1,
+                "observation": "Frame 1 supports Dns.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 2,
+                "observation": "Frame 2 supports Dns.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 3,
+                "observation": "Frame 3 supports Dns.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 4,
+                "observation": "Frame 4 supports Dns.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 5,
+                "observation": "Frame 5 supports Dns.",
+                "sourceToolCallId": "call-evidence"
+              },
+              {
+                "type": "Frame",
+                "frameNumber": 6,
+                "observation": "Frame 6 supports Dns.",
+                "sourceToolCallId": "call-evidence"
+              }
+            ],
+            "alternatives": [],
+            "recommendations": [
+              "Review the cited frames and retain the stated capture boundary."
+            ]
+          }
+        ],
+        "limitations": [
+          "no dns response is visible in the capture",
+          "the resolver or the authority behind it is outside the observation point"
+        ],
+        "recommendedNextSteps": [
+          "Inspect the returned evidence before assigning a root cause beyond the capture."
+        ]
+      }
+    }
+  ]
+}
