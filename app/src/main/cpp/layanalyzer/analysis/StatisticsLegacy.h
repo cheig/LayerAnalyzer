@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Typed accumulators used by the legacy statistics implementation. They were
 // file-local structs in the former single translation unit; the PerfExport
 // debug path shares them so both paths aggregate identically.

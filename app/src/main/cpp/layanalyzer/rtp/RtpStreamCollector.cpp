@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // `rtp` tap 收集器实现（RTP1-NAT-03）。
 //
 // 依赖 epan：注册 "rtp" tap，把每个包的 `_rtp_info` 映射成 `RtpPacketObservation`

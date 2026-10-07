@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Small string helpers shared by the legacy JNI modules. They were file-local
 // statics in the former single translation unit; as inline functions they keep
 // identical behaviour without adding a dedicated translation unit.

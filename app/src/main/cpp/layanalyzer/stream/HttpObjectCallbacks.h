@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // HTTP export-object callbacks. The stream module installs them into a
 // Wireshark export_object_list_t and the PerfExport debug path reuses the same
 // callbacks so both paths collect identical HTTP object snapshots.

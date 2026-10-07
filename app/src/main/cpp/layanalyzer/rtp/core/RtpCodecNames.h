@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP 编码名规范化（RTP1-NAT-06）。
 //
 // 本文件是 README §4.3「编码名规范 ID 表」的唯一权威实现（C13）：

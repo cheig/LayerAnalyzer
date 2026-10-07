@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Shared visibility snapshot helpers.  Every service scans the same "visible
 // frame set" (all frames, or the committed display-filter matches); these
 // helpers keep that contract in one place.

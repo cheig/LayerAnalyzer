@@ -1,0 +1,5 @@
+<resources>
+    <string name="project_author" translatable="false">cheig</string>
+    <string name="project_copyright" translatable="false">Copyright (c) 2026 cheig</string>
+    <string name="project_repository_url" translatable="false">https://github.com/cheig/LayerAnalyzer</string>
+</resources>

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Ogg Opus container writer (RFC 7845) for exported RTP/Opus streams.
 //
 // Uses only the C++ standard library -- no Wireshark, GLib, JNI or nlohmann

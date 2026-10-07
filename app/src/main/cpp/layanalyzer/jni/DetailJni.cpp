@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Packet detail JNI endpoints: protocol-tree JSON serialization and raw
 // packet bytes.
 #include "layanalyzer/internal/Common.h"

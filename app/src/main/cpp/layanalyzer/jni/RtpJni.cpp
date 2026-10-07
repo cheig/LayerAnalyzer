@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP stream discovery and payload-decoding JNI endpoints.
 //
 // RTP1-ARCH-01 froze the entry points in

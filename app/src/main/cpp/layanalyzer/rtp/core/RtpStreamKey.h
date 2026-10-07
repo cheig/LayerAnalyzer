@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP 流标识（RTP1-NAT-01）。
 //
 // 移植自 Wireshark 4.0.10 的 ui/rtp_stream_id.c：rtpstream_id_t /

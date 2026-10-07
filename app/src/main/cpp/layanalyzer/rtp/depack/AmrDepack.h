@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // AMR / AMR-WB de-packetization (RFC 4867) -- RTP4-NAT-04.
 //
 // Input: one RTP payload. Output: its frames in *storage format* (RFC 4867

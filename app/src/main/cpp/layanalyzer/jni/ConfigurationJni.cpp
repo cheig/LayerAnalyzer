@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Process-wide Wireshark configuration JNI endpoints: name resolution,
 // Decode As and ESP NULL-encryption decryption. All serialize through
 // RuntimeExclusiveGuard because the underlying Wireshark state is

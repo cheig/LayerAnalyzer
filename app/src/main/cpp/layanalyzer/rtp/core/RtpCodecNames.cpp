@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP 编码名规范化（RTP1-NAT-06）—— 见 RtpCodecNames.h 顶部说明。
 //
 // 表内容逐字照抄 model/RtpCodecCatalog.kt。

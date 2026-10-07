@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Query JNI endpoints: scoped temporary-filter queries, summary cache stats,
 // display filter validation/application and packet search.
 #include "layanalyzer/internal/Common.h"

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // `rtp` tap 收集器（RTP1-NAT-03）。
 //
 // 在一遍 `dissect_frame_with_taps` 遍历里通过 "rtp" tap 收集所有流，逐包喂给

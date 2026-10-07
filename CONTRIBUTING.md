@@ -4,6 +4,19 @@
 
 Please include reproduction steps, Android version, ABI, expected behavior, and actual behavior. Prefer minimal synthetic captures. Contributions are distributed under the project's GPL-3.0 license; third-party files retain their original licenses and attribution.
 
+## 作者署名 / Attribution
+
+原作者与维护者为 [cheig](https://github.com/cheig)，项目来源见 [AUTHORS.md](AUTHORS.md)
+和 [COPYRIGHT](COPYRIGHT)。修改现有文件时保留原有版权与来源说明；新增原创源码时，
+按实际年份与版权人添加文件头，注明项目仓库和 GPL 第 3 版许可。贡献者保留各自贡献的版权，
+不要把第三方代码的作者替换成项目作者，也不要把他人的贡献全部署为 cheig。
+
+Preserve existing copyright and provenance notices. For new original source
+files, add a header with the actual year and copyright holder, the project URL,
+and the GNU GPL version 3 license. Contributors retain copyright in their own
+contributions. Keep third-party attribution intact; do not attribute others'
+work to cheig.
+
 ## 开发与验证
 
 先按 [README.md](README.md) 安装工具链并运行 `python tools/fetch_native_deps.py`。Kotlin 使用 4 空格缩进；状态保留在 ViewModel 或 Compose 状态容器中。JNI 集成位于 `app/src/main/cpp/`，Android 日志标签为 `LayAnalyzer-JNI`。

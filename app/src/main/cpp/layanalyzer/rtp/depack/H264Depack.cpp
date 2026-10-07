@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // H.264 de-packetization (RFC 6184) -- RTP5-NAT-01.
 // See H264Depack.h for the contract and for the decisions the task card left
 // open; this file is the state machine itself.

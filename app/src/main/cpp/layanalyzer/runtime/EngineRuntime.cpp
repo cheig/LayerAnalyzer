@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Process-wide engine runtime: logging, report callbacks, last-error store,
 // JNI string/PacketSummary helpers, cancellation token, packet provider and
 // the initEngine/getVersion/cleanup/initCaresAndroid JNI entry points.

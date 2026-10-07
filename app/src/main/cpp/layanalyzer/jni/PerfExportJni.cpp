@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // =============================================================================
 // [PERF-export] G4 对拍导出（T0 基线任务交付物 d）
 // Debug 构建专用：对当前会话依次导出过滤 / 四种搜索 / 统计 / Expert /

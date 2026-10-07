@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // LayerAnalyzer native bridge composition root.
 //
 // Every Java_com_example_layanalyzer_NativeEngine_* symbol now lives in an

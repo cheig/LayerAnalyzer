@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Engine lifecycle JNI endpoints: process initialization, cleanup, version,
 // c-ares Android bootstrap, Wireshark report callbacks and the packet
 // provider functions shared with every epan session.

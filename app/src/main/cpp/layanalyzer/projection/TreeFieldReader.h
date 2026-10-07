@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Protocol-tree field readers shared by the detail, list, analysis and
 // communication modules. These helpers were file-local statics in the former
 // single translation unit.

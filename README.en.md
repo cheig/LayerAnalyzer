@@ -6,6 +6,8 @@ The pinned Wireshark 4.0.10 libraries have no security backports, and the upstre
 
 LayerAnalyzer is an Android packet capture and analysis application built with Wireshark 4.0.10, Kotlin, Jetpack Compose, and C++ JNI.
 
+Original author and maintainer: [cheig](https://github.com/cheig). Upstream project: [cheig/LayerAnalyzer](https://github.com/cheig/LayerAnalyzer). Original code Copyright (c) 2026 cheig; see [AUTHORS.md](AUTHORS.md) for authorship and contributions and [COPYRIGHT](COPYRIGHT) for the copyright notice.
+
 ## Features
 
 - Open PCAP/PCAPNG files, browse packets and protocol trees, inspect bytes, and apply Wireshark display filters.
@@ -34,7 +36,9 @@ The screenshots show the Chinese interface. Click any screenshot to view the ful
 
 ## Install
 
-This repository provides the complete application source; an official APK has not yet been released. Packaging continues with the pinned Wireshark 4.0.10 / r1 native libraries. Upgrades and security backports are follow-up maintenance work; final Release validation is still required. Development build instructions follow. See the [maintenance assessment](docs/wireshark-security-maintenance.md) for known issues.
+Download the ARM64 APK and SHA256SUMS from [GitHub Releases](https://github.com/cheig/LayerAnalyzer/releases). Each release documents its validation scope. This repository provides the complete application source. Packaging continues with the pinned Wireshark 4.0.10 / r1 native libraries; upgrades and security backports are follow-up maintenance work. Development build instructions follow. See the [maintenance assessment](docs/wireshark-security-maintenance.md) for known issues.
+
+Open Preferences → About LayerAnalyzer in the app to view the author and project address, copy the address, or open the project repository.
 
 ## Build
 

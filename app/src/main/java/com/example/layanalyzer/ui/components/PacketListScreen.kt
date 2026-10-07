@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 package com.example.layanalyzer.ui.components
 
 import android.app.Activity
@@ -39,6 +43,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -1720,6 +1725,7 @@ private fun PreferencesDialog(
     val context = LocalContext.current
     var draft by remember(preferences) { mutableStateOf(preferences) }
     var showNotices by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     if (showNotices) {
         val noticeParagraphs = remember {
             runCatching {
@@ -1759,6 +1765,13 @@ private fun PreferencesDialog(
         )
         return
     }
+    if (showAbout) {
+        AboutDialog(
+            onOpenNotices = { showNotices = true },
+            onDismiss = { showAbout = false }
+        )
+        return
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -1772,7 +1785,7 @@ private fun PreferencesDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         title = { Text(stringResource(R.string.preferences_title)) },
         text = {
-            Column(modifier = Modifier.widthIn(max = 520.dp)) {
+            Column(modifier = Modifier.widthIn(max = 520.dp).verticalScroll(rememberScrollState())) {
                 // Resolved here rather than inside EnumMenu's display lambda:
                 // that lambda is not a @Composable scope, so stringResource
                 // cannot be called from it.  Same pattern as timeLabels below.
@@ -1843,6 +1856,9 @@ private fun PreferencesDialog(
                     TextButton(onClick = { draft = draft.copy(defaultTreeExpansionDepth = (draft.defaultTreeExpansionDepth + 1).coerceAtMost(5)) }) {
                         Text("+")
                     }
+                }
+                TextButton(onClick = { showAbout = true }) {
+                    Text(stringResource(R.string.about_title))
                 }
                 TextButton(onClick = { showNotices = true }) {
                     Text(stringResource(R.string.third_party_notices))

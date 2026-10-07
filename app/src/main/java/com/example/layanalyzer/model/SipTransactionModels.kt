@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 package com.example.layanalyzer.model
 
 /** Reliability of the key used to correlate a SIP request and its responses. */

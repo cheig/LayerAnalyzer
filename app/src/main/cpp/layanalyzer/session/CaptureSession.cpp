@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // CaptureSession implementation: session state, cache bookkeeping, wiretap
 // record/buffer RAII and the single per-frame dissection path.
 

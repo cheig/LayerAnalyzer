@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // G.729 / G.729A / G.729B decoder (RTP4-NAT-03).
 //
 // The codec itself is the vendored bcg729 (RTP4-BLD-02); this file is only the

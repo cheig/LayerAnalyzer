@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // PS (program stream) de-multiplexing for GB28181 -- RTP5-NAT-06.
 // See PsDemux.h for the contract and for the decisions the task card left open;
 // this file is the demultiplexer itself.

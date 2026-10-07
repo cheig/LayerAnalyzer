@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP 扫描快照（RTP1-NAT-04）。
 //
 // `scanRtpStreams` 成功后把一次遍历的结果发布到 `session->rtp_last_scan`，

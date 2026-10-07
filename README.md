@@ -4,6 +4,8 @@
 
 LayerAnalyzer 是一个基于 Wireshark 4.0.10 的 Android 网络抓包与分析工具，使用 Kotlin、Jetpack Compose 和 C++ JNI 实现。
 
+原作者与维护者：[cheig](https://github.com/cheig)。原项目仓库：[cheig/LayerAnalyzer](https://github.com/cheig/LayerAnalyzer)。原创代码 Copyright (c) 2026 cheig；作者与贡献说明见 [AUTHORS.md](AUTHORS.md)，版权说明见 [COPYRIGHT](COPYRIGHT)。
+
 当前固定原生库尚未回移安全修复，4.0 系列已停止上游维护；已知问题、未决项和安装包验收边界见 [安全维护评估](docs/wireshark-security-maintenance.md)。
 
 ## 功能
@@ -34,7 +36,9 @@ Android 8.0（API 26）及以上。正式安装包面向 ARM64；开发构建同
 
 ## 安装
 
-本仓库提供完整应用源码，正式 APK 尚未发布。当前打包继续使用固定的 Wireshark 4.0.10 / r1 原生库，升级和安全补丁回移作为后续维护工作；安装包仍需完成最终 Release 验收。开发构建入口见下文，已知问题见 [安全维护评估](docs/wireshark-security-maintenance.md)。
+从 [GitHub Releases](https://github.com/cheig/LayerAnalyzer/releases) 下载 ARM64 安装包及 SHA256SUMS，具体版本的验证范围见对应发布说明。本仓库提供完整应用源码。当前打包继续使用固定的 Wireshark 4.0.10 / r1 原生库，升级和安全补丁回移作为后续维护工作。开发构建入口见下文，已知问题见 [安全维护评估](docs/wireshark-security-maintenance.md)。
+
+应用内通过“偏好设置 → 关于 LayerAnalyzer”查看作者与项目地址，支持复制地址及打开项目仓库。
 
 ## 构建
 

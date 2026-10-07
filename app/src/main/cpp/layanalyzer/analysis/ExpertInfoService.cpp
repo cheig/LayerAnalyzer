@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Expert Info service: scans the visible frames for Wireshark expert items.
 
 #include "layanalyzer/internal/Common.h"

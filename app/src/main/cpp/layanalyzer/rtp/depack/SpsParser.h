@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // H.264 / H.265 sequence parameter set parsing -- RTP5-NAT-04.
 //
 // Input: one parameter set NAL unit as the de-packetizers above hand it up --

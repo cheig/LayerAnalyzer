@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Communication analysis JNI endpoint (SIP/SDP, RTP/RTCP and core network).
 #include "layanalyzer/internal/Common.h"
 #include "layanalyzer/internal/EngineState.h"

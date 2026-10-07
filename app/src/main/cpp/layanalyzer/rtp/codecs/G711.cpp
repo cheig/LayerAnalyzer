@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // G.711 A-law and mu-law decoders.
 //
 // The expansion tables are copied value-for-value from Wireshark 4.0.10:

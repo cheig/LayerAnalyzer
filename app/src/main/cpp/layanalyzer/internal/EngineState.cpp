@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Engine-wide state definitions: lifetime/lease registry, the process-global
 // error store, shared JNI string helpers and Wireshark process configuration.
 #include "layanalyzer/internal/Common.h"

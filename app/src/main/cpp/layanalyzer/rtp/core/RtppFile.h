@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP payload record stream (`.rtpp`) reader/writer.
 //
 // The format is deliberately self-contained and uses only the C++ standard

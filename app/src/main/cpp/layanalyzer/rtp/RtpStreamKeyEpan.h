@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // 从 epan 的 packet_info 构造 RtpStreamKey（RTP1-NAT-01）。
 //
 // 对应 Wireshark 4.0.10 ui/rtp_stream_id.c 的 rtpstream_id_copy_pinfo：

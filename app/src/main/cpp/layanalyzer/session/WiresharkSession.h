@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Session state and the single Wireshark dissection entry point shared by all
 // legacy JNI modules. The types here were file-local in the former single
 // translation unit; they are exposed in this header so each module can compile

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Engine-wide state shared across the LayerAnalyzer JNI modules.
 //
 // These symbols were file-local inside the former single translation unit.

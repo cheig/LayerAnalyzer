@@ -9,6 +9,16 @@ This file is identical to the notices shipped in the application at
 app/src/main/assets/THIRD_PARTY_NOTICES.txt. Upstream copyright headers and
 license texts are retained with the vendored source and runtime data.
 
+## LayerAnalyzer authorship
+
+Original LayerAnalyzer code: Copyright (c) 2026 cheig.
+Original author and maintainer: cheig (https://github.com/cheig).
+Upstream project: https://github.com/cheig/LayerAnalyzer
+
+This attribution covers original LayerAnalyzer code authored by cheig. Other
+contributors and third-party authors retain copyright in their respective work.
+The project authorship notice does not replace the component notices below.
+
 ## Components
 
 | Component | Licence | Upstream source | In this repository |

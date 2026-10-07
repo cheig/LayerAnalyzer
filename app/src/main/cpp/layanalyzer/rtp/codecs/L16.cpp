@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // L16 decoder: big-endian 16-bit PCM to host int16_t samples.
 #include "layanalyzer/rtp/codecs/RtpDecoderFactory.h"
 

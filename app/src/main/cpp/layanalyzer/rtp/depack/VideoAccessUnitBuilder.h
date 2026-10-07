@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Access-unit assembly and `.vidx` records for the video export -- RTP5-NAT-03.
 //
 // NAT-01 / NAT-02 turn one RTP payload into the NAL units it carried; this class

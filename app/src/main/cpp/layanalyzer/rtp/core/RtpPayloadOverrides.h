@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP 负载类型覆盖表（RTP1-NAT-06）。
 //
 // 会话级（`WiresharkSession::rtp_overrides`）的「Decode As」覆盖表：用户手动把

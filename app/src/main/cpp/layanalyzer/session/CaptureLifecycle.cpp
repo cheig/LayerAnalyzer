@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Session lifecycle JNI entry points: open/index/close, cancellation and
 // error retrieval.  The heavy lifting stays in the registry and session
 // modules; this unit only translates the JNI boundary.

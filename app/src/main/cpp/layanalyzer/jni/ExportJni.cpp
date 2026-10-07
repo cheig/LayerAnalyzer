@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Visible-capture pcap export JNI endpoint.
 #include "layanalyzer/internal/Common.h"
 #include "layanalyzer/internal/EngineState.h"

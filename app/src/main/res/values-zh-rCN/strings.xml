@@ -85,6 +85,17 @@
     <string name="analysis_tools">分析工具</string>
     <string name="show_dashboard">健康度与场景分析</string>
     <string name="third_party_notices">第三方许可</string>
+    <string name="about_title">关于 LayerAnalyzer</string>
+    <string name="about_version">版本 %1$s（%2$d）</string>
+    <string name="about_author">原作者与维护者：%1$s</string>
+    <string name="about_repository">原项目仓库</string>
+    <string name="about_open_repository">打开项目仓库</string>
+    <string name="about_copy_repository">复制项目地址</string>
+    <string name="about_repository_copied">已复制项目地址</string>
+    <string name="about_browser_unavailable">没有可用的浏览器，可以复制项目地址后打开。</string>
+    <string name="about_license_summary">本应用按 GNU GPL 第 3 版许可发布。你可以依照许可证修改和再分发本软件。本软件不提供任何担保。</string>
+    <string name="about_third_party_summary">基于 Wireshark 等开源组件构建。各组件作者保留各自的版权，详见下方许可与署名说明。</string>
+    <string name="about_license_notices">许可与第三方声明</string>
     <string name="apply">应用</string>
     <string name="preferences_title">偏好设置</string>
     <string name="tree_expansion_depth">协议树展开深度</string>

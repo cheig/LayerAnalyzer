@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 package com.example.layanalyzer.model
 
 /** "显示分组字节"弹窗的显示格式（对齐 Wireshark Show data as 下拉） */

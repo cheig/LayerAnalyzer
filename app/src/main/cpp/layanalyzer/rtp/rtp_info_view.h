@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // `_rtp_info` → `RtpPacketObservation` 的字段映射（RTP1-NAT-03）。
 //
 // 本文件**不包含任何 Wireshark / GLib / JNI 头文件**，只依赖标准库和

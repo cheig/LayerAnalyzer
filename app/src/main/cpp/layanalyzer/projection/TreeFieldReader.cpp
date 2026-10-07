@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Protocol-tree field reader implementation shared by every consumer of
 // Wireshark protocol trees.
 #include "layanalyzer/internal/Common.h"

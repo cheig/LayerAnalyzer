@@ -88,6 +88,17 @@
     <string name="analysis_tools">Analysis tools</string>
     <string name="show_dashboard">Health and scenarios</string>
     <string name="third_party_notices">Third-party notices</string>
+    <string name="about_title">About LayerAnalyzer</string>
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_author">Original author and maintainer: %1$s</string>
+    <string name="about_repository">Original project</string>
+    <string name="about_open_repository">Open project repository</string>
+    <string name="about_copy_repository">Copy project address</string>
+    <string name="about_repository_copied">Project address copied</string>
+    <string name="about_browser_unavailable">No browser is available. You can copy the project address instead.</string>
+    <string name="about_license_summary">Licensed under GNU GPL version 3. You may modify and redistribute this software under the license. This software comes without any warranty.</string>
+    <string name="about_third_party_summary">Built with Wireshark and other open-source components. Their authors retain their respective copyrights; see the license notices below.</string>
+    <string name="about_license_notices">License and third-party notices</string>
     <string name="apply">Apply</string>
     <string name="preferences_title">Preferences</string>
     <string name="tree_expansion_depth">Tree expansion depth</string>

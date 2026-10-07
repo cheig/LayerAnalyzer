@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // `.fidx` frame index reader/writer (RTP4-NAT-06).
 //
 // One `.frames` blob -- a raw concatenation of codec frames with no header --

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Session core implementation: summary cache, wiretap record helpers, the
 // protocol-inference fallback and the single Wireshark dissection entry point.
 #include "layanalyzer/internal/Common.h"

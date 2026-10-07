@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // `.vidx` video access-unit index reader/writer (RTP5-NAT-03).
 //
 // One `.h264`/`.h265` elementary stream -- a raw Annex-B concatenation of access

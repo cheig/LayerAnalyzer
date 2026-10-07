@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP 流可解码判定（RTP1-NAT-06）。
 //
 // 输入由 scanRtpStreams 按「override > sdp > static」算出的编码信息 + 流的

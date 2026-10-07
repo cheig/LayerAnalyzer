@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // RTP 流抖动 / delta / skew 统计（RTP1-NAT-02）—— 见 RtpStreamAnalysis.h 顶部说明。
 //
 // 本文件逐行移植 Wireshark 4.0.10 的 ui/tap-rtp-analysis.c:163-533

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // Projection: per-frame field access.  FieldIndex walks a protocol tree once;
 // the recursive find_field_value/parse_tree_* readers remain for callers that
 // do not have an index.  get_filter_value() is the single fvalue -> string

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // G.726 decoder (RTP4-NAT-02).
 //
 // The codec itself is the vendored spandsp subset (RTP4-BLD-01); this file is

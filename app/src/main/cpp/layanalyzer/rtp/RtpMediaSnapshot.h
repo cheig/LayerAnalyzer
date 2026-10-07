@@ -1,3 +1,7 @@
+// Copyright (c) 2026 cheig
+// LayerAnalyzer - https://github.com/cheig/LayerAnalyzer
+// Licensed under GNU GPL version 3; see LICENSE.
+
 // M2 media metadata snapshot shared by RTP decode/export JNI entry points.
 //
 // M1 keeps publishing RtpScanSnapshot in WiresharkSession::rtp_last_scan.
