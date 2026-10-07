@@ -85,6 +85,12 @@ cmake --build build/rtp-host --parallel
 
 Tool checks require Node.js 18+. Native algorithm tests require a host C++ compiler and CMake. See [CONTRIBUTING.md](CONTRIBUTING.md) for locally supplied external test fixtures and contribution guidance, and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
+## Acknowledgements and community
+
+Thanks to the [LINUX DO](https://linux.do/) community for sharing knowledge and exchanging technical ideas.
+
+Visit LINUX DO for technical discussions and to share your experience. For LayerAnalyzer bug reports, feature requests, and code contributions, use this project's [Issues](https://github.com/cheig/LayerAnalyzer/issues) and [Pull Requests](https://github.com/cheig/LayerAnalyzer/pulls).
+
 ## License and responsible use
 
 LayerAnalyzer is distributed under **GNU GPL version 3 (GPL-3.0)**; see [LICENSE](LICENSE). The bcg729 G.729 decoder is enabled by default. `-PlayanalyzerEnableG729=false` disables that decoder without changing the application license. iLBC is disabled by default and can be enabled with `-PlayanalyzerEnableIlbc=true`.

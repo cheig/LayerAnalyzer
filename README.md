@@ -83,6 +83,12 @@ node tools/agent_metrics/summarize.mjs --check
 
 工具自检需要 Node.js 18+；原生算法测试需要主机 C++ 编译器和 CMake。测试数据、可选外部样本和贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
+## 致谢与社区
+
+感谢 [LINUX DO](https://linux.do/) 社区的技术交流与知识分享。
+
+欢迎在 LINUX DO 交流技术与使用心得。关于 LayerAnalyzer 的问题反馈、功能建议和代码贡献，欢迎通过本项目的 [Issues](https://github.com/cheig/LayerAnalyzer/issues) 和 [Pull Requests](https://github.com/cheig/LayerAnalyzer/pulls) 参与。
+
 ## 许可证与使用范围
 
 LayerAnalyzer 按 **GNU GPL 第 3 版（GPL-3.0）**发布，完整条款见 [LICENSE](LICENSE)。G.729 解码器 bcg729 默认开启；关闭 `-PlayanalyzerEnableG729=false` 只会禁用该编码器，不改变本项目许可证。iLBC 默认关闭，可通过 `-PlayanalyzerEnableIlbc=true` 启用。
