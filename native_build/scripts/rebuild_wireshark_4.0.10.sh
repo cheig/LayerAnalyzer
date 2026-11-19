@@ -23,6 +23,8 @@ fi
 
 cd "$WIRESHARK_SRC"
 
+python3 "$SCRIPT_DIR/apply_wireshark_scope_patch.py" --source "$WIRESHARK_SRC"
+
 # 应用补丁修复 getdtablesize() 问题（如果存在）
 PATCH_FILE="wsutil/ws_pipe.c"
 if [ -f "$PATCH_FILE" ]; then

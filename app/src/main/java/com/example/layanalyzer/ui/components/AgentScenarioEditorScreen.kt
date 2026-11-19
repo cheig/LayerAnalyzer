@@ -25,8 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -347,17 +345,11 @@ private fun AgentScenarioErrorSummaryCard(
     validationErrors: Map<String, ScenarioValidationError>
 ) {
     if (validationErrors.isEmpty()) return
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
-        )
-    ) {
+    AnalyzerCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(AnalyzerSpacing.CardPadding),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
@@ -365,7 +357,8 @@ private fun AgentScenarioErrorSummaryCard(
                     R.string.agent_scenario_editor_error_summary_title,
                     validationErrors.size
                 ),
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.error
             )
             validationErrors.forEach { (path, error) ->
                 Text(
@@ -1214,14 +1207,11 @@ private fun AgentScenarioChecksEditor(
                     pendingFocusIndex = -1
                 }
             }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
+            AnalyzerCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(AnalyzerSpacing.CardPadding),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1527,14 +1517,11 @@ private fun AgentScenarioFailureBranchesEditor(
                     pendingLimitationFocusIndex = -1
                 }
             }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
+            AnalyzerCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(AnalyzerSpacing.CardPadding),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

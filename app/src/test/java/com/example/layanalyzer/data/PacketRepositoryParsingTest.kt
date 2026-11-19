@@ -13,6 +13,16 @@ import org.junit.Test
 
 class PacketRepositoryParsingTest {
     @Test
+    fun protocolNodePreservesNativeFrameReferenceType() {
+        val node = PacketRepository().parseProtocolNode(JSONObject("""
+            {"label":"TCP Segment: 7","filter":"tcp.segment","filterValue":"7","type":"FT_FRAMENUM"}
+        """))
+        assertEquals("FT_FRAMENUM", node.fieldType)
+        assertEquals(7L, node.referencedFrame)
+        assertNull(PacketRepository().parseProtocolNode(JSONObject("{}")).referencedFrame)
+    }
+
+    @Test
     fun protocolNodeDefaultsMissingOptionalFields() {
         val root = PacketRepository().parseProtocolNode(
             JSONObject(

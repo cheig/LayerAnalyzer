@@ -45,7 +45,13 @@ import java.security.SecureRandom
 class AgentPayloadRedactor private constructor(
     private val textRedactor: MetadataRedactor?,
     private val privacyMode: AgentPrivacyMode,
-    private val aliasTable: AliasTable?
+    private val aliasTable: AliasTable?,
+    /**
+     * Whether the run is under the explicit payload content policy, which is
+     * the only thing that lets a TLS-decrypted value reach a model — and even
+     * then only redacted.  See [AgentDecryptedContentPolicy].
+     */
+    private val allowDecryptedPlaintext: Boolean = false
 ) {
 
     /** Whether this redactor will change anything at all. */
@@ -84,7 +90,9 @@ class AgentPayloadRedactor private constructor(
         redactor: MetadataRedactor,
         declared: AgentDataSensitivity,
         depth: Int,
-        inheritedField: String? = null
+        inheritedField: String? = null,
+        /** True when an enclosing object already declared a decrypted source. */
+        inheritedDecrypted: Boolean = false
     ): AgentJsonObject {
         if (depth > MAX_DEPTH) return emptyMap()
 
@@ -105,9 +113,71 @@ class AgentPayloadRedactor private constructor(
             ?: inheritedField
         preRegisterIdentifiers(source, contextField)
 
+        // TLS-313: a value a tool marked as coming from a decrypted TLS source
+        // is judged by the decrypted-content policy before the ordinary field
+        // table, so a decrypted body cannot ride out under an innocuous field
+        // name the way a pre-decryption result could.
+        val decryptedOrigin = inheritedDecrypted || AgentDecryptedContentPolicy.isDecryptedSource(
+            source[AgentDecryptedContentPolicy.DATA_SOURCE_KEY]
+        )
+
         val result = LinkedHashMap<String, Any?>(source.size)
         source.forEach { (key, value) ->
             val classifyAs = if (contextField != null && key in VALUE_KEYS) contextField else key
+
+            // CA material and TLS session secrets are withheld in every mode,
+            // including the explicit-payload and unredacted-metadata modes.
+            // There is deliberately no branch that turns this back on.
+            if (AgentDecryptedContentPolicy.isNeverAllowed(classifyAs)) {
+                result[key] = AgentDecryptedContentPolicy.WITHHELD
+                result["${key}Withheld"] = true
+                return@forEach
+            }
+
+            // The origin marker is host bookkeeping, not capture text; it is
+            // kept verbatim so the model can tell a decrypted observation from
+            // a raw one, or an active-proxy observation from a capture frame,
+            // without the marker itself being aliased away.
+            if (key == AgentDecryptedContentPolicy.DATA_SOURCE_KEY) {
+                val marker = (value as? String) ?: AgentDecryptedContentPolicy.DECRYPTED_TLS_SOURCE
+                result[key] = marker
+                if (AgentTlsEvidence.isProxyObservation(marker)) result["proxyObservation"] = true
+                return@forEach
+            }
+
+            // A value key inside a decrypted-source occurrence is plaintext.
+            // Default cloud modes exclude it entirely; the explicit content
+            // policy redacts it; local-only hands it through unchanged.
+            // A summary's Info has no source range. With keys configured it may
+            // contain plaintext (e.g. a request URI), so apply the same consent
+            // gate without claiming that every summary row was decrypted.
+            val possibleDecryptedText = (key == "info" && source["infoMayContainDecryptedContent"] == true) ||
+                (key == "summary" && source["summaryMayContainDecryptedContent"] == true)
+            if ((decryptedOrigin && key in VALUE_KEYS) || possibleDecryptedText) {
+                when (
+                    AgentDecryptedContentPolicy.decision(
+                        fieldName = classifyAs,
+                        decryptedOrigin = true,
+                        privacyMode = privacyMode,
+                        allowPayload = allowDecryptedPlaintext
+                    )
+                ) {
+                    AgentDecryptedContentPolicy.Decision.Block -> {
+                        result[key] = AgentDecryptedContentPolicy.BLOCKED
+                        result["decryptedBlocked"] = true
+                        return@forEach
+                    }
+
+                    AgentDecryptedContentPolicy.Decision.Redact -> {
+                        result[key] = value?.let { redactString(classifyAs, it.toString(), redactor) }
+                        result["decryptedRedacted"] = true
+                        return@forEach
+                    }
+
+                    AgentDecryptedContentPolicy.Decision.Allow -> Unit
+                }
+            }
+
             when (AgentFieldSensitivity.handling(classifyAs)) {
                 AgentFieldSensitivity.Handling.Credential -> {
                     // Existence metadata only.  The value is dropped rather than
@@ -122,10 +192,18 @@ class AgentPayloadRedactor private constructor(
                     // Structurally unreachable for MVP tools, which declare no
                     // payload field.  Enforced anyway so a future tool cannot
                     // introduce one silently.
-                    result[key] = PAYLOAD_BLOCKED
+                    result[key] = redactPayloadValue(value)
                 }
 
-                else -> result[key] = redactValue(classifyAs, value, redactor, declared, depth, contextField)
+                else -> result[key] = redactValue(
+                    classifyAs,
+                    value,
+                    redactor,
+                    declared,
+                    depth,
+                    contextField,
+                    decryptedOrigin
+                )
             }
         }
         return result
@@ -137,10 +215,11 @@ class AgentPayloadRedactor private constructor(
         redactor: MetadataRedactor,
         declared: AgentDataSensitivity,
         depth: Int,
-        inheritedField: String? = null
+        inheritedField: String? = null,
+        inheritedDecrypted: Boolean = false
     ): Any? {
         when (AgentFieldSensitivity.handling(fieldName)) {
-            AgentFieldSensitivity.Handling.Payload -> return PAYLOAD_BLOCKED
+            AgentFieldSensitivity.Handling.Payload -> return redactPayloadValue(value)
             AgentFieldSensitivity.Handling.Credential -> return redactCredentialValue(value)
             else -> Unit
         }
@@ -163,10 +242,10 @@ class AgentPayloadRedactor private constructor(
                     // `fields` in a projection is keyed by the requested field
                     // name, so it classifies everything under that key.
                     nested.mapValues { (key, item) ->
-                        redactValue(key, item, redactor, declared, depth + 1, key)
+                        redactValue(key, item, redactor, declared, depth + 1, key, inheritedDecrypted)
                     }
                 } else {
-                    redactObject(nested, redactor, declared, depth + 1, inheritedField)
+                    redactObject(nested, redactor, declared, depth + 1, inheritedField, inheritedDecrypted)
                 }
             }
 
@@ -177,13 +256,28 @@ class AgentPayloadRedactor private constructor(
                     redactor,
                     declared,
                     depth + 1,
-                    inheritedField ?: fieldName
+                    inheritedField ?: fieldName,
+                    inheritedDecrypted
                 )
             }
 
             // Do not forward arbitrary future DTO types directly.
             else -> redactString(fieldName, value.toString(), redactor)
         }
+    }
+
+    /** Keep confirmed decrypted-source provenance even when the body is withheld.
+     * Rebuild an allowlisted shape; never copy a payload occurrence's arbitrary keys. */
+    private fun redactPayloadValue(value: Any?): Any = when {
+        value is Map<*, *> && value["payload"] == true &&
+            AgentDecryptedContentPolicy.isDecryptedSource(value[AgentDecryptedContentPolicy.DATA_SOURCE_KEY]) ->
+            mapOf("payload" to true, "present" to true, "value" to PAYLOAD_BLOCKED,
+                AgentDecryptedContentPolicy.DATA_SOURCE_KEY to AgentDecryptedContentPolicy.DECRYPTED_TLS_SOURCE)
+        value is List<*> && value.isNotEmpty() && value.all {
+            it is Map<*, *> && it["payload"] == true &&
+                AgentDecryptedContentPolicy.isDecryptedSource(it[AgentDecryptedContentPolicy.DATA_SOURCE_KEY])
+        } -> value.map(::redactPayloadValue)
+        else -> PAYLOAD_BLOCKED
     }
 
     private fun redactCredentialValue(value: Any?): Any? = when (value) {
@@ -361,7 +455,9 @@ class AgentPayloadRedactor private constructor(
          */
         fun of(
             privacyMode: AgentPrivacyMode,
-            snapshot: AgentCaptureSnapshot
+            snapshot: AgentCaptureSnapshot,
+            /** Only the explicit payload content policy may set this true. */
+            allowDecryptedPlaintext: Boolean = false
         ): AgentPayloadRedactor {
             if (privacyMode == AgentPrivacyMode.LocalOnly) {
                 return AgentPayloadRedactor(null, privacyMode, null)
@@ -370,7 +466,8 @@ class AgentPayloadRedactor private constructor(
             return AgentPayloadRedactor(
                 textRedactor = MetadataRedactor(salt),
                 privacyMode = privacyMode,
-                aliasTable = AliasTable(salt)
+                aliasTable = AliasTable(salt),
+                allowDecryptedPlaintext = allowDecryptedPlaintext
             )
         }
 

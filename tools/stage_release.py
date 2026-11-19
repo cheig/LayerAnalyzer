@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 from check_runtime_licenses import check as check_licenses
+from check_release_inventory import checked_build, checked_apk, BRIDGE
 
 ROOT = Path(__file__).resolve().parents[1]
 SAFE_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]*\Z')
@@ -90,6 +91,20 @@ def verify_apk(stage, tag=None):
     return stage / name
 
 
+def runtime_native_libraries(inventory):
+    # A reviewed Maven AAR, not a native-deps output. Never permit arbitrary
+    # libraries merely because they appear in an APK or a runtime inventory.
+    coordinate = 'androidx.graphics:graphics-path:1.0.1'
+    components = {c['coordinate']: c for c in inventory['components']}
+    if coordinate not in components:
+        return {}
+    expected = [{'file': 'graphics-path-1.0.1.aar',
+                 'sha256': '8ca4032b6d79b351f0b59ad4b580eddbb9423e1652f7c958830687f1eee2ec03'}]
+    if components[coordinate]['artifacts'] != expected:
+        raise ValueError('Unreviewed graphics-path native AAR')
+    return {'libandroidx.graphics.path.so': coordinate}
+
+
 def packaged_members(archive, kind, abis, libraries):
     prefix = 'lib/' if kind == 'apk' else 'base/lib/'
     members = [n for n in archive.namelist() if n.startswith(prefix) and n.endswith('.so')]
@@ -99,17 +114,14 @@ def packaged_members(archive, kind, abis, libraries):
     return sorted(members)
 
 
-def create_apk(stage, inventory_path, apk):
-    if stage.exists() and any(stage.iterdir()):
-        raise ValueError('Staging must be new or empty; do not reuse old attachments')
-    if subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=all'], cwd=ROOT):
-        raise ValueError('Commit reviewed changes before packaging; checkout must be clean')
+def checked_apk_inputs(inventory_path, apk):
+    """Read-only validation; never stages or bypasses create_apk's clean guard."""
     inventory = read_json(inventory_path)
     checked_inventory(inventory, read_json(ROOT / 'docs/dependency-licenses.json'))
+    build = checked_apk(inventory, apk, ROOT)
     failures = check_licenses(inventory_path, apk)
     if failures:
         raise ValueError('\n'.join(failures))
-    build = inventory['build']
     if len(build['abis']) != 1 or build['abis'][0] not in ('arm64-v8a', 'x86_64'):
         raise ValueError('APK release requires one supported architecture')
     if not re.fullmatch(r'[0-9][A-Za-z0-9._-]*', build['versionName']):
@@ -127,8 +139,20 @@ def create_apk(stage, inventory_path, apk):
             set(deps['files']) != {abi + '/' + name for abi in deps['abis'] for name in outputs}):
         raise ValueError('Native binary file set differs from provenance')
     libraries = set(outputs) | {'liblayanalyzer.so', 'liblayanalyzer_tunnel.so', 'libc++_shared.so'}
+    libraries.update(runtime_native_libraries(inventory))
+    if build['tlsEnabled']:
+        libraries.add(BRIDGE)
     with zipfile.ZipFile(apk) as archive:
         packaged_members(archive, 'apk', build['abis'], libraries)
+    return build, libraries
+
+
+def create_apk(stage, inventory_path, apk):
+    if stage.exists() and any(stage.iterdir()):
+        raise ValueError('Staging must be new or empty; do not reuse old attachments')
+    if subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=all'], cwd=ROOT):
+        raise ValueError('Commit reviewed changes before packaging; checkout must be clean')
+    build, _ = checked_apk_inputs(inventory_path, apk)
     stage.mkdir(parents=True, exist_ok=True)
     name = f'LayerAnalyzer-{build["abis"][0]}-{build["versionName"]}.apk'
     shutil.copyfile(apk, stage / name)
@@ -138,6 +162,7 @@ def create_apk(stage, inventory_path, apk):
 
 
 def checked_inventory(inventory, review):
+    checked_build(inventory, ROOT)
     def indexed(components):
         result = {c['coordinate']: c for c in components}
         if len(result) != len(components):
@@ -155,6 +180,7 @@ def checked_inventory(inventory, review):
 def make_sbom(inventory, commit, source_name, stage, deps, sources, provenance):
     reviewed = checked_inventory(inventory, read_json(ROOT / 'docs/dependency-licenses.json'))
     packages, files, relationships = [], [], []
+    maven_ids = {}
 
     def relation(left, kind, right):
         relationships.append({'spdxElementId': left, 'relationshipType': kind,
@@ -186,6 +212,7 @@ def make_sbom(inventory, commit, source_name, stage, deps, sources, provenance):
         packages[-1]['externalRefs'] = [{'referenceCategory': 'PACKAGE-MANAGER',
                                         'referenceType': 'purl',
                                         'referenceLocator': f'pkg:maven/{quote(group)}/{quote(name)}@{quote(version)}'}]
+        maven_ids[coordinate] = identifier
         relation(app, 'DEPENDS_ON', identifier)
         for number, artifact in enumerate(component['artifacts']):
             file(f'{identifier}-Artifact-{number}', f'./gradle/{group}/{artifact["file"]}',
@@ -233,18 +260,35 @@ def make_sbom(inventory, commit, source_name, stage, deps, sources, provenance):
                              'NDK runtime comes from the toolchain; other source is in the application ZIP.')
         relation(app, 'DEPENDS_ON', identifier)
 
+    if inventory['build']['tlsEnabled']:
+        go = package('SPDXRef-TLS-Go', 'Go', inventory['build']['tlsBridge']['goVersion'], 'BSD-3-Clause',
+                     comment='Reviewed Go distribution and standard-library vendor notices: native_go/tlsbridge/dependencies.json')
+        relation(app, 'DEPENDS_ON', go)
+        bridge = package('SPDXRef-TLS-Bridge', 'LayerAnalyzer TLS bridge', inventory['build']['versionName'],
+                         'GPL-3.0-only', comment='Application-owned bridge source; embeds the reviewed Go runtime.')
+        relation(app, 'DEPENDS_ON', bridge)
+        relation(bridge, 'DEPENDS_ON', go)
+
     # Release .so files are stripped. Record actual bytes separately from pinned input hashes.
     known_libraries = set(native_ids) | {'liblayanalyzer.so', 'liblayanalyzer_tunnel.so', 'libc++_shared.so'}
+    runtime_libraries = runtime_native_libraries(inventory)
+    known_libraries.update(runtime_libraries)
+    if inventory['build']['tlsEnabled']:
+        known_libraries.add(BRIDGE)
     for archive_path in sorted(list(stage.glob('*.apk')) + list(stage.glob('*.aab'))):
         kind = archive_path.suffix[1:]
         artifact_id = 'SPDXRef-' + kind
         file(artifact_id, './' + archive_path.name, digest(archive_path), app)
+        if kind == 'apk':
+            checked_apk(inventory, archive_path, ROOT)
         with zipfile.ZipFile(archive_path) as archive:
             for index, name in enumerate(packaged_members(
                     archive, kind, inventory['build']['abis'], known_libraries)):
                 basename = Path(name).name
-                owner = native_ids.get(basename, 'SPDXRef-Vendored-NDK-runtime'
+                owner = 'SPDXRef-TLS-Bridge' if basename == BRIDGE else native_ids.get(basename, 'SPDXRef-Vendored-NDK-runtime'
                                        if basename == 'libc++_shared.so' else app)
+                if basename in runtime_libraries:
+                    owner = maven_ids[runtime_libraries[basename]]
                 identifier = f'SPDXRef-{kind}-Library-{index}'
                 file(identifier, './' + archive_path.name + '!/' + name,
                      hashlib.sha256(archive.read(name)).hexdigest(), owner)
@@ -274,6 +318,8 @@ def create(stage, inventory_path, apk=None, aab=None):
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     inventory = read_json(inventory_path)
     checked_inventory(inventory, read_json(ROOT / 'docs/dependency-licenses.json'))
+    if apk:
+        checked_apk(inventory, apk, ROOT)
     failures = check_licenses(inventory_path, apk)
     if failures:
         raise ValueError('\n'.join(failures))

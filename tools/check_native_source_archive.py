@@ -54,6 +54,8 @@ def check(archive, manifest):
             )
     for name, records in trees.items():
         actual = hashlib.sha256(''.join(sorted(records)).encode()).hexdigest()
+        if len(records) != components[name]['archiveEntries']:
+            raise ValueError('Component entry count mismatch: ' + name)
         if actual != components[name]['archiveTreeSha256']:
             raise ValueError('Component tree mismatch: ' + name)
         print(f'{name}: verified {len(records)} source entries')
@@ -62,8 +64,9 @@ def check(archive, manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--archive', required=True, type=Path)
+    parser.add_argument('--manifest', type=Path, help='explicit candidate manifest; default: repository pin')
     args = parser.parse_args()
-    manifest = json.loads((ROOT / 'native_build/native-sources.json').read_text(encoding='utf-8'))
+    manifest = json.loads((args.manifest or ROOT / 'native_build/native-sources.json').read_text(encoding='utf-8'))
     try:
         check(args.archive, manifest)
     except (ValueError, OSError, tarfile.TarError) as error:

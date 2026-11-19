@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "module": "com.layeranalyzer/tlsbridge",
+  "license": "GPL-3.0-only",
+  "externalModules": [],
+  "goSumPolicy": "Absent: no external modules. Do not create an empty go.sum. Any new require/replace/vendor input needs license review.",
+  "toolchainLock": "native_go/tlsbridge/toolchain-lock.json",
+  "goDistribution": {
+    "version": "go1.27.2",
+    "sourceTag": "go1.27.2",
+    "upstream": "https://go.googlesource.com/go/+/refs/tags/go1.27.2/",
+    "localModifications": [],
+    "license": "BSD-3-Clause",
+    "licenseAsset": "Go.txt",
+    "licenseSha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+    "patentsAsset": "Go-PATENTS.txt",
+    "patentsSha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+    "vendorModulesSha256": "b382247257983ed466aa7c5002c756f2b27f65b7947a9b8c02831858f379beee",
+    "vendoredModules": [
+      {"module": "golang.org/x/crypto", "version": "v0.52.1-0.20260526024921-9beb694f9766"},
+      {"module": "golang.org/x/net", "version": "v0.55.1-0.20260731170536-c1d18010be90"},
+      {"module": "golang.org/x/sys", "version": "v0.45.0"},
+      {"module": "golang.org/x/text", "version": "v0.37.0"}
+    ],
+    "vendoredScope": "Go src/vendor/modules.txt; BSD-3-Clause, identical LICENSE and PATENTS bytes. Build manifest lists only packages selected for that Android ABI. Compiler-only src/cmd/vendor is not an APK dependency."
+  },
+  "referencesOnly": [
+    {
+      "name": "go-mitmproxy",
+      "upstream": "https://github.com/lqqyt2423/go-mitmproxy",
+      "commit": "3f5b4f8ee19d58784c6332ec946f46d3c2b2e73b",
+      "upstreamLicense": "MIT",
+      "copiedFiles": [],
+      "use": "Design research only: certificate cache and handshake/ALPN ordering; independent bounded certstore and raw TCP relay, no fork or HTTP proxy runtime."
+    },
+    {
+      "name": "mitmproxy",
+      "upstream": "https://github.com/mitmproxy/mitmproxy",
+      "commit": "5253dcbd1d8f0522de097bfe56918fe12a0f267a",
+      "upstreamLicense": "MIT",
+      "copiedFiles": [],
+      "use": "Design research only; no Python/OpenSSL/Rust addon shipped."
+    },
+    {
+      "name": "PCAPdroid",
+      "upstream": "https://github.com/emanuele-f/PCAPdroid",
+      "commit": null,
+      "copiedFiles": [],
+      "use": "README/product concept reference only; no source snapshot imported, no runtime dependency."
+    }
+  ],
+  "existingNativeInputs": [
+    "native_build/native-deps.json",
+    "native_build/native-sources.json",
+    "native_build/provenance/wireshark-4.0.10-r1.json"
+  ],
+  "existingTunnel": {
+    "path": "app/src/main/cpp/third_party/hev-socks5-tunnel",
+    "commit": "00c7eb9ad7ca381b0f1fee880abc1077fe9b93be",
+    "license": "MIT",
+    "tlsLocalModifications": [],
+    "note": "Existing HEV auth configuration reused; TLS gateway/dispatch implemented in original Kotlin/Go code. Nested exact revisions and retained MIT copyright texts are in THIRD_PARTY_NOTICES.md."
+  }
+}

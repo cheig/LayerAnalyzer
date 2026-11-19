@@ -255,7 +255,7 @@ RtpExtractionResult extract_rtp_payloads(
     DissectedFrame first;
     if (!session->frame_offsets.empty() &&
         dissect_frame(session, 0, FALSE, FALSE, nullptr, first)) {
-      first_frame_abs_sec = nstime_to_sec(&first.fd.abs_ts);
+      first_frame_abs_sec = nstime_to_sec(&first.fd->abs_ts);
     }
   }
 

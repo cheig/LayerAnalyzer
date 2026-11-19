@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.max
 
 interface PacketPageReader {
+    fun currentAnalysisRevision(): CaptureAnalysisRevision = CaptureAnalysisRevision()
     fun getVisibleFrameCount(): Int
     fun getPacketSummaries(start: Int, count: Int): List<PacketSummary>
 }
@@ -26,6 +27,7 @@ class PacketPagingSource(
     private val repository: PacketPageReader,
     private val pagingDispatcher: CoroutineDispatcher = PACKET_PAGING_DISPATCHER
 ) : PagingSource<Int, PacketSummary>() {
+    private val analysis = repository.currentAnalysisRevision()
 
     override fun getRefreshKey(state: PagingState<Int, PacketSummary>): Int? {
         return state.anchorPosition
@@ -33,12 +35,14 @@ class PacketPagingSource(
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, PacketSummary> {
         return withContext(pagingDispatcher) {
-            val total = repository.getVisibleFrameCount()
-            val offset = (params.key ?: 0).coerceIn(0, max(total - 1, 0))
-            val pageSize = params.loadSize
-
+            if (analysis != repository.currentAnalysisRevision()) return@withContext LoadResult.Invalid()
             try {
+                val total = repository.getVisibleFrameCount()
+                val offset = (params.key ?: 0).coerceIn(0, max(total - 1, 0))
+                val pageSize = params.loadSize
+
                 if (total <= 0) {
+                    if (analysis != repository.currentAnalysisRevision()) return@withContext LoadResult.Invalid()
                     return@withContext LoadResult.Page(
                         data = emptyList(),
                         prevKey = null,
@@ -49,6 +53,7 @@ class PacketPagingSource(
                 }
 
                 val data = repository.getPacketSummaries(offset, pageSize)
+                if (analysis != repository.currentAnalysisRevision()) return@withContext LoadResult.Invalid()
 
                 val nextOffset = offset + data.size
                 val nextKey = if (data.isEmpty() || nextOffset >= total) null else nextOffset
@@ -61,6 +66,8 @@ class PacketPagingSource(
                     itemsBefore = offset,
                     itemsAfter = (total - nextOffset).coerceAtLeast(0)
                 )
+            } catch (_: StaleCaptureAnalysisException) {
+                LoadResult.Invalid()
             } catch (e: Exception) {
                 LoadResult.Error(e)
             }

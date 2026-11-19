@@ -23,4 +23,7 @@ internal object Tun2SocksBridge {
 
     /** Returns HEV tunnel counters as [txPackets, txBytes, rxPackets, rxBytes]. */
     external fun getStats(): LongArray
+
+    /** Completed-worker snapshot: cleanup runs, discarded TCP PCBs, remaining TCP/UDP PCBs. */
+    external fun getLwipCleanupStats(): LongArray
 }

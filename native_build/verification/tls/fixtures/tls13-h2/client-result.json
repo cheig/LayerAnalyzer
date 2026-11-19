@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "trusted": {
+    "success": true,
+    "certificateVerified": true,
+    "tlsVersion": "TLS1.3",
+    "alpn": "h2",
+    "cipher": "TLS_AES_256_GCM_SHA384",
+    "destinationPort": 53170,
+    "serverName": "fixture.layeranalyzer.test",
+    "status": 200,
+    "bodyBase64": "TGF5ZXJBbmFseXplciBUTFMgZml4dHVyZSB2MQo=",
+    "bodySha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4",
+    "connectionId": "client-random:f9e6cabf964b8088d8d8e4385158b931f06ca2a94c5ac48c8fe3a403663007a1"
+  },
+  "wrongConnection": {
+    "success": true,
+    "certificateVerified": true,
+    "tlsVersion": "TLS1.3",
+    "alpn": "h2",
+    "cipher": "TLS_AES_256_GCM_SHA384",
+    "destinationPort": 53170,
+    "serverName": "fixture.layeranalyzer.test",
+    "status": 200,
+    "bodyBase64": "TGF5ZXJBbmFseXplciBUTFMgZml4dHVyZSB2MQo=",
+    "bodySha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4",
+    "connectionId": "client-random:0d65ad3bc8001f5ffdb39b74f55760942ade1d7ee6927e58e17b4198f063561b"
+  },
+  "untrusted": {
+    "success": false,
+    "errorCode": "CERTIFICATE_VERIFY_FAILED"
+  }
+}

@@ -10,6 +10,9 @@ import com.example.layanalyzer.data.CaptureFingerprintCalculator
 import com.example.layanalyzer.data.CaptureSessionCoordinator
 import com.example.layanalyzer.data.CaptureSessionDataSource
 import com.example.layanalyzer.data.CaptureSessionToken
+import com.example.layanalyzer.data.CaptureAnalysisRevision
+import com.example.layanalyzer.data.TlsAnalysisSecretLease
+import com.example.layanalyzer.data.TlsAnalysisResult
 import com.example.layanalyzer.data.ScopedPacketSummaryQuery
 import com.example.layanalyzer.model.AgentCaptureSnapshot
 import com.example.layanalyzer.model.AgentDataSensitivity
@@ -77,6 +80,22 @@ internal class AgentToolTestHarness private constructor(
         private var visible: Int = frameCount
         private var filter: String = ""
         private var fileInfo: FileSessionInfo? = null
+        private var tlsRevision = 0L
+        override fun currentAnalysisRevision() = CaptureAnalysisRevision(
+            sessionHandle = handle, revision = tlsRevision, dissectionGeneration = tlsRevision,
+            secretsGeneration = tlsRevision, ready = handle != 0L
+        )
+        /** Coordinator/cache contract fake only; does not model or claim native decryption. */
+        override fun configureTlsAnalysis(
+            lease: TlsAnalysisSecretLease?, expected: CaptureAnalysisRevision, filter: String,
+            checkCancelled: () -> Unit, progress: (Int, Int) -> Unit
+        ): TlsAnalysisResult {
+            check(lease == null)
+            check(expected == currentAnalysisRevision())
+            checkCancelled()
+            tlsRevision++
+            return TlsAnalysisResult(true, currentAnalysisRevision(), visible)
+        }
 
         /** Every filter this source was asked to apply, in order. */
         val appliedFilters = mutableListOf<String>()

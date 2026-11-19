@@ -4,6 +4,13 @@
 
 // Common include context shared by every LayerAnalyzer native module.
 //
+// This header defines inline functions (dump_json / dump_json_pretty), so it
+// needs a guard: several translation units (EngineLifecycle.cpp,
+// PacketListJni.cpp, ...) reach it twice through EngineState.h plus their own
+// direct include, and a second definition inside one translation unit is a
+// hard error even for inline functions.
+#pragma once
+
 // Each module translation unit includes this header instead of repeating the
 // Wireshark/GLib/JNI include block that used to open native-lib.cpp.  The
 // include order matches the former single-translation-unit build so the
@@ -42,6 +49,37 @@
 #include <vector>
 
 using json = nlohmann::json;
+
+/**
+ * Serializes a result envelope for the JNI boundary.
+ *
+ * Packet payloads, HTTP header values and reassembled stream text are arbitrary
+ * bytes: a GBK/Shift-JIS body or a binary field is not valid UTF-8, and
+ * nlohmann's dump() throws type_error.316 for it. Inside a JNI function that
+ * exception has no Kotlin frame to unwind into, so the process aborts
+ * (SIGABRT / "terminating due to uncaught exception"). Replacing an undecodable
+ * byte with U+FFFD keeps the rest of the envelope, which is always the better
+ * trade than losing the capture session the user is looking at.
+ *
+ * Use this for every string returned to Kotlin; plain dump() is only safe for
+ * envelopes built exclusively from numbers and fixed ASCII labels.
+ */
+inline std::string dump_json(const json& value) {
+  return value.dump(-1, ' ', false, json::error_handler_t::replace);
+}
+
+/**
+ * Two-space indented variant of dump_json, for exported report files.
+ *
+ * The file exports (expert.json, statistics.json, http_objects.json) carry the
+ * same arbitrary header/protocol text as the JNI envelopes, but they are
+ * written from inside a JNI entry point with no enclosing try/catch, so one
+ * undecodable byte would abort the process instead of failing the export.
+ * Keeps dump(2) formatting so the on-disk shape is unchanged.
+ */
+inline std::string dump_json_pretty(const json& value) {
+  return value.dump(2, ' ', false, json::error_handler_t::replace);
+}
 
 // Wireshark headers
 #include <ares.h>

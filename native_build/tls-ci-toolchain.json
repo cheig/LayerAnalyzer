@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "runner": "ubuntu-24.04",
+  "javaVersion": "17.0.17+10",
+  "javaDistribution": "temurin",
+  "pythonVersion": "3.12.4",
+  "cmdlineToolsVersion": "12266719",
+  "buildToolsVersions": ["34.0.0", "35.0.0"],
+  "platformApi": 34,
+  "cmakeVersion": "3.22.1",
+  "goLock": "native_go/tlsbridge/toolchain-lock.json",
+  "cachePolicy": "No Gradle home/task output or Go cache restoration; isolated ON/OFF jobs and per-build Go caches"
+}

@@ -4,6 +4,7 @@
 
 package com.example.layanalyzer.ai.tools.dto
 
+import com.example.layanalyzer.ai.privacy.AgentDecryptedContentPolicy
 import com.example.layanalyzer.ai.privacy.AgentFieldSensitivity
 import com.example.layanalyzer.model.AgentJsonObject
 import com.example.layanalyzer.model.PacketSearchMode
@@ -102,7 +103,15 @@ data class AgentFieldOccurrence(
     val credential: Boolean = false,
     val payload: Boolean = false,
     val present: Boolean = true,
-    val scheme: String? = null
+    val scheme: String? = null,
+    /**
+     * TLS-313: the kind of data source this occurrence's value came from, when
+     * the host could determine it.  `decrypted_tls` marks a value that only
+     * exists because a keylog made Wireshark decrypt the connection; the host
+     * content policy excludes such a value from cloud output by default.  Null
+     * means the source is unknown, which is never treated as decrypted.
+     */
+    val dataSource: String? = null
 ) {
     fun toAgentJson(): AgentJsonObject = buildMap {
         put("requestedName", requestedName)
@@ -120,6 +129,7 @@ data class AgentFieldOccurrence(
             put("displayValue", displayValue)
             put("filterValue", filterValue)
         }
+        dataSource?.let { put(AgentDecryptedContentPolicy.DATA_SOURCE_KEY, it) }
     }
 }
 

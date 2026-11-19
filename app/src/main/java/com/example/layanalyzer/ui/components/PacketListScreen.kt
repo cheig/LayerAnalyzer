@@ -17,6 +17,7 @@ import android.text.format.DateUtils
 import android.view.Surface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
@@ -146,6 +147,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.example.layanalyzer.R
+import com.example.layanalyzer.BuildConfig
+import com.example.layanalyzer.capture.TlsInterceptionPolicy
+import com.example.layanalyzer.capture.TlsModeChangePolicy
+import com.example.layanalyzer.capture.TlsStartBlockReason
+import com.example.layanalyzer.capture.tls.TlsCaState
+import com.example.layanalyzer.capture.tls.TlsConnectionSnapshot
 import com.example.layanalyzer.ai.agent.AgentSettings
 import com.example.layanalyzer.ai.agent.AgentProviderConfig
 import com.example.layanalyzer.ai.audit.AgentRunRecord
@@ -180,6 +187,7 @@ import com.example.layanalyzer.model.OpenProgress
 import com.example.layanalyzer.model.PacketSearchMode
 import com.example.layanalyzer.model.PacketSearchState
 import com.example.layanalyzer.model.PacketSummary
+import com.example.layanalyzer.model.PacketVantage
 import com.example.layanalyzer.model.RecentCapture
 import com.example.layanalyzer.model.RtpDecodeResult
 import com.example.layanalyzer.model.RtpExportFormat
@@ -194,11 +202,13 @@ import com.example.layanalyzer.model.TimeDisplayFormat
 import com.example.layanalyzer.model.UiLanguage
 import com.example.layanalyzer.model.EvidenceExportMode
 import com.example.layanalyzer.model.EvidenceExportScope
+import com.example.layanalyzer.data.CaptureOpenScope
 import com.example.layanalyzer.data.EvidenceExportScopePolicy
 import com.example.layanalyzer.data.EvidenceFrameFilter
 import com.example.layanalyzer.data.EvidenceFrameViewDecision
 import com.example.layanalyzer.data.EvidenceFrameViewPolicy
 import com.example.layanalyzer.data.EvidenceFrameViewRejection
+import com.example.layanalyzer.data.SavedCaptureOpenInfo
 import com.example.layanalyzer.model.AnalysisScope
 import com.example.layanalyzer.model.AnalysisWorkspace
 import com.example.layanalyzer.model.CaptureHealthSummary
@@ -209,6 +219,7 @@ import com.example.layanalyzer.model.HealthSeverity
 import com.example.layanalyzer.model.HttpObjectEntry
 import com.example.layanalyzer.model.HttpObjectsState
 import com.example.layanalyzer.model.PacketContextActionsState
+import com.example.layanalyzer.model.PacketTlsFollowAction
 import com.example.layanalyzer.model.ProtocolAgentUiState
 import com.example.layanalyzer.model.AgentConsentPrompt
 import com.example.layanalyzer.model.AgentEvidence
@@ -224,6 +235,10 @@ import com.example.layanalyzer.model.ScenarioTemplate
 import com.example.layanalyzer.model.WorkspacePage
 import com.example.layanalyzer.viewmodel.formatFileSize
 import com.example.layanalyzer.viewmodel.LargeCaptureWarning
+import com.example.layanalyzer.viewmodel.TlsConnectionSummary
+import com.example.layanalyzer.viewmodel.TlsFollowPrompt
+import com.example.layanalyzer.viewmodel.TlsFollowUiState
+import com.example.layanalyzer.viewmodel.TlsFollowViewerState
 import com.example.layanalyzer.viewmodel.RtpExportDestination
 import com.example.layanalyzer.viewmodel.RtpExportUiState
 import com.example.layanalyzer.viewmodel.RtpExternalOpenUiState
@@ -267,9 +282,10 @@ private data class EvidenceExportSelection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PacketListScreen(
+internal fun PacketListScreen(
     packetItems: LazyPagingItems<PacketSummary>,
     currentFile: FileSessionInfo?,
+    tls: PacketListTlsInputs,
     openProgress: OpenProgress?,
     openError: String?,
     /** One-shot ESP decryption message: an error, or a probe that decoded nothing. */
@@ -286,12 +302,10 @@ fun PacketListScreen(
     highlightedFrames: Set<Long>,
     communicationAnalysis: CommunicationAnalysis,
     analysisJob: AnalysisJobState,
-    agentUiState: ProtocolAgentUiState,
-    agentJob: AnalysisJobState,
+    agent: PacketListAgentInputs,
     preferences: AnalyzerPreferences,
     exportState: ExportUiState,
     decodeAsRules: List<DecodeAsRule>,
-    liveCaptureState: LiveCaptureState,
     healthSummary: CaptureHealthSummary,
     workspace: AnalysisWorkspace?,
     /**
@@ -351,25 +365,9 @@ fun PacketListScreen(
     onClearExportState: () -> Unit,
     onAddDecodeAsRule: (DecodeAsScope, DecodeAsTransport, String, String, Int?, Int?, String) -> Unit,
     onRemoveDecodeAsRule: (DecodeAsRule) -> Unit,
-    onStartLiveCapture: (LiveCaptureSettings) -> Unit,
-    onStopLiveCapture: () -> Unit,
-    onOpenSavedLiveCapture: () -> Unit,
-    onClearLiveCaptureError: () -> Unit,
     onRefreshDashboard: () -> Unit,
     onApplyScenarioStep: (String) -> Unit,
     onToggleFavoriteFilter: (String) -> Unit,
-    onAgentSubmitQuestion: (String, AnalysisScope, String?, Int?) -> Unit,
-    onAgentContinueConversation: (String) -> Unit,
-    onAgentCancel: () -> Unit,
-    onAgentRetry: () -> Unit,
-    onAgentNewConversation: () -> Unit,
-    onAgentClearTransientError: () -> Unit,
-    agentFilterPreview: AgentFilterPreviewState? = null,
-    onAgentEvidenceClick: (AgentEvidence, AgentReport) -> Unit = { _, _ -> },
-    onAgentSaveFinding: (AgentFinding, AgentReport) -> Unit = { _, _ -> },
-    onAgentExportReport: (AgentReport) -> Unit = {},
-    onConfirmAgentFilterPreview: () -> Unit = {},
-    onDismissAgentFilterPreview: () -> Unit = {},
     onPacketClick: (Long) -> Unit,
     onSaveWorkspaceNote: (Long, String) -> Unit,
     onRemoveEvidence: (Long) -> Unit,
@@ -383,178 +381,182 @@ fun PacketListScreen(
      * filter.
      */
     onShowEvidenceFramesOnly: () -> EvidenceFrameViewDecision = { EvidenceFrameViewDecision.Reject(EvidenceFrameViewRejection.EmptySet) },
-    agentSettings: AgentSettings = AgentSettings(),
-    agentConsentPrompt: AgentConsentPrompt? = null,
-    onAgentSettingsChange: (AgentSettings) -> Unit = {},
-    onAgentPrivacyModeChange: (AgentPrivacyMode) -> Unit = {},
-    onAgentModelSelectionChange: (String, String) -> Unit = { _, _ -> },
-    onAgentAcceptConsent: () -> Unit = {},
-    onAgentDeclineConsent: () -> Unit = {},
-    onAgentSaveProviderKey: (AgentProviderConfig, String) -> Unit = { _, _ -> },
-    onAgentClearProviderKey: (String) -> Unit = {},
-    onAgentFetchProviderModels: suspend (AgentProviderConfig, String) -> ProviderModelFetchResult =
-        { _, _ -> ProviderModelFetchResult.Failure(ProviderModelFetchFailure.Network) },
-    gatewayAccount: GatewayAccountUiState = GatewayAccountUiState(),
-    onRefreshGatewayAccount: () -> Unit = {},
-    agentByokEnabled: Boolean = false,
-    agentResponseCaptureAvailable: Boolean = false,
-    onAgentClearResponseDumps: () -> Unit = {},
-    agentSavedSessions: List<AgentSavedSessionSummary> = emptyList(),
-    agentDeletingSavedSessions: Set<String> = emptySet(),
-    agentRestoredSession: AgentSavedSession? = null,
-    agentRestoredSessionMatchesCapture: Boolean = false,
-    agentInterruptedJob: com.example.layanalyzer.data.AnalysisJobCheckpoint? = null,
-    onAgentResumeInterruptedJob: () -> Unit = {},
-    onAgentDismissInterruptedJob: () -> Unit = {},
-    agentLocalDataUsage: AgentLocalDataUsage = AgentLocalDataUsage(),
-    onAgentOpenSavedSession: (String) -> Unit = {},
-    onAgentDeleteSavedSession: (String) -> Unit = {},
-    onAgentDismissRestoredSession: () -> Unit = {},
-    onAgentClearLocalData: (Set<AgentLocalDataCategory>) -> Unit = {},
-    onAgentExportDiagnostics: () -> Unit = {},
-    /** AI-26: the active scenario rule package shown on the Agent page. */
-    agentScenarioPackage: ScenarioPackageDescription? = null,
-    agentPlaybooks: List<AgentPlaybook> = emptyList(),
-    onAgentClearScenarioPackage: () -> Unit = {},
-    onAgentPlaybookUsed: (String) -> Unit = {},
-    /** Scenario chip long-press menu: edit a user scenario. */
-    onAgentEditScenario: (AgentPlaybook) -> Unit = {},
-    /** Scenario chip long-press menu: copy the scenario as a duplicate. */
-    onAgentCopyScenario: (String) -> Unit = {},
-    /** Scenario chip long-press menu: delete a user scenario. */
-    onAgentDeleteScenario: (String) -> Unit = {},
-    /** Scenario chip long-press menu: read-only details; the editor mounts in a later task. */
-    onAgentViewScenarioDetails: (AgentPlaybook) -> Unit = {},
-    /** "New scenario" chip; the scenario editor mounts in a later task (SRE-EDITOR-01). */
-    onAgentNewScenario: () -> Unit = {},
-    /** The open scenario editor draft (edit or read-only details); null closes the editor. */
-    agentEditingScenario: AgentScenarioDraft? = null,
-    /** Tools the scenario editor's Initial tools chips offer; empty renders no chips. */
-    agentScenarioToolWhitelist: Set<String> = emptySet(),
-    onAgentDismissScenarioEditor: () -> Unit = {},
-    /** Persists the ViewModel-held draft; the editor keeps no copy (OPT-DRAFT-01). */
-    onAgentSaveScenario: () -> Unit = {},
-    /** OPT-SAVE-01: a scenario save is in flight; the editor's Save button disables. */
-    agentScenarioSaving: Boolean = false,
-    /** Routes an edited scenario playbook into the ViewModel draft (OPT-DRAFT-01). */
-    onAgentScenarioPlaybookChange: (AgentPlaybook) -> Unit = {},
-    /** Monotonic count of successful scenario saves; raises the saved notice (SRE-EDITOR-06). */
-    agentScenarioSaveCompleted: Int = 0,
-    /** OPT-QNT-01: distinct quarantine reason codes; each new one raises the notice. */
-    agentScenarioQuarantineCodes: List<String> = emptyList(),
-    /**
-     * EVL-UI-07: the current run's audit record, threaded to the report's
-     * evidence-coverage badge. Null suppresses the badge (fail-closed).
-     */
-    agentRunRecord: AgentRunRecord? = null,
-    rtpState: RtpScanUiState = RtpScanUiState.Idle,
-    rtpHeuristicEnabled: Boolean = false,
-    rtpHighlightedStreamId: String? = null,
-    rtpOpenRequest: RtpStreamIdentity? = null,
-    rtpHeuristicApplyVersion: Long = 0L,
-    onRtpOpenRequestHandled: () -> Unit = {},
-    onRtpScan: (Boolean) -> Unit = {},
-    onRtpCancel: () -> Unit = {},
-    onRtpToggleHeuristic: (Boolean) -> Unit = {},
-    onRtpSetOverride: (Int, String, Int) -> Unit = { _, _, _ -> },
-    onRtpHighlightStream: (String?) -> Unit = {},
-    rtpPlayerState: RtpPlayerUiState = RtpPlayerUiState(),
-    rtpPlaybackState: RtpPlayerState = RtpPlayerState.Idle,
-    rtpPlayerPositionMs: Long = 0L,
-    rtpExportState: RtpExportUiState = RtpExportUiState.Idle,
-    onRtpOpenPlayer: (RtpStream) -> Unit = {},
-    onRtpPlayStream: (RtpStream) -> Unit = {},
-    onRtpPlayStreams: (List<RtpStream>) -> Unit = {},
-    onRtpExportWav: (List<RtpStream>, List<RtpExportDestination>) -> Unit = { _, _ -> },
-    onRtpExportRaw: (List<RtpStream>, List<RtpExportDestination>) -> Unit = { _, _ -> },
-    /** RTP4-KT-03: 导出格式对话框选定后的目的地写入（宿主交给 `RtpViewModel.exportFormat`）。 */
-    onRtpExportFormat: (RtpStream, RtpExportFormat, RtpExportDestination) -> Unit =
-        { _, _, _ -> },
-    /** RTP4-KT-03: 「外部打开」的容器准备状态，见 `RtpViewModel.prepareExternalOpen`。 */
-    rtpExternalOpenState: RtpExternalOpenUiState = RtpExternalOpenUiState.Idle,
-    onRtpOpenExternal: (RtpStream) -> Unit = {},
-    onRtpClearExternalOpenState: () -> Unit = {},
-    onRtpClosePlayer: () -> Unit = {},
-    onRtpPlayerPlayPause: () -> Unit = {},
-    onRtpPlayerSeek: (Long) -> Unit = {},
-    onRtpPlayerTimingChange: (RtpTimingMode) -> Unit = {},
-    onRtpPlayerCancelDecode: () -> Unit = {},
-    onRtpPlayerRetryDecode: () -> Unit = {},
-    onRtpPlayerSelectStream: (String) -> Unit = {},
-    onRtpPlayerExportWav: (Uri) -> Unit = {},
-    onRtpPlayerShareWav: () -> Unit = {},
-    onRtpPlayerClearExportState: () -> Unit = {},
-    /** RTP3-UI-01: the VoIP call list state; [VoipCallsUiState.Idle] until the user opens the page. */
-    voipCallsState: VoipCallsUiState = VoipCallsUiState.Idle,
-    /** RTP3-UI-01: asks the host to (re)build the call list for the current session. */
-    onVoipCallsLoad: () -> Unit = {},
-    /** RTP3-UI-02: the decode result of the call selected with the detail page's Play button. */
-    voipPlayback: RtpDecodeResult? = null,
-    /** RTP3-UI-02: Play on the detail page; the host forwards it to `VoipCallsViewModel.selectCall`. */
-    onVoipPlayCall: (String) -> Unit = {},
-    /** RTP3-UI-03: the dual-track player's track input; null while the decode is still running. */
-    voipDualTrack: RtpDualTrackPlayback? = null,
-    /** RTP3-UI-03: the VoIP audio controller's playback state (idle when no controller is wired). */
-    voipPlayerPlaybackState: RtpPlayerState = RtpPlayerState.Idle,
-    /** RTP3-UI-03: the VoIP audio controller's playhead, in milliseconds. */
-    voipPlayerPositionMs: Long = 0L,
-    /** RTP3-UI-03: left/right channel mute of the dual-track player. */
-    voipPlayerMuteState: RtpTrackMuteState = RtpTrackMuteState(),
-    /** RTP3-UI-03: play/pause the VoIP audio controller. */
-    onVoipPlayerPlayPause: () -> Unit = {},
-    /** RTP3-UI-03: seek the VoIP audio controller. */
-    onVoipPlayerSeek: (Long) -> Unit = {},
-    /** RTP3-UI-03: set the left/right channel mute of the dual-track player. */
-    onVoipPlayerMute: (Boolean, Boolean) -> Unit = { _, _ -> },
-    /** RTP3-UI-03: stop the VoIP audio when the VoIP pages are left. */
-    onVoipClosePlayer: () -> Unit = {},
-    /** RTP5-UI-01: the video export state, see `RtpViewModel.videoExportState`. */
-    rtpVideoExportState: RtpVideoExportUiState = RtpVideoExportUiState.Idle,
-    /** RTP5-UI-01: write one video stream to the chosen SAF destination. */
-    onRtpExportVideo: (
-        RtpStream,
-        RtpVideoExportFormat,
-        RtpExportDestination,
-        Boolean,
-        Boolean
-    ) -> Unit = { _, _, _, _, _ -> },
-    onRtpClearVideoExportState: () -> Unit = {},
-    /** Stops a video export or the external-open preparation. Both walk the capture. */
-    onRtpCancelVideoExport: () -> Unit = {},
-    /** Stops an audio export. */
-    onRtpCancelAudioExport: () -> Unit = {},
-    /**
-     * RTP5-UI-01: 「外部播放」的导出状态。The streams page opens the file itself
-     * (it has the `Context`), the same split `RtpPlayerScreen` has for audio.
-     */
-    rtpVideoOpenState: RtpVideoOpenUiState = RtpVideoOpenUiState.Idle,
-    onRtpOpenVideoExternal: (RtpStream) -> Unit = {},
-    onRtpClearVideoOpenState: () -> Unit = {},
-    /** RTP5-UI-01: the HEVC decoder probe's answer, shown in the export dialog. */
-    rtpHevcDecoderAvailability: RtpVideoDecoderAvailability = RtpVideoDecoderAvailability.UNKNOWN,
-    onRtpRefreshHevcDecoderAvailability: () -> Unit = {},
-    /** RTP5-UI-01: the state of the in-app preview page (RTP5-KT-03). */
-    rtpVideoPreviewState: RtpVideoPreviewUiState = RtpVideoPreviewUiState(),
-    rtpVideoPreviewAvailability: RtpVideoPreviewAvailability = RtpVideoPreviewAvailability.NoExport,
-    rtpVideoPreviewPlaybackState: RtpPlayerState = RtpPlayerState.Idle,
-    rtpVideoPreviewPositionMs: Long = 0L,
-    rtpVideoPreviewDurationMs: Long = 0L,
-    /** RTP5-UI-01: a finished MP4 export, handed to `refreshVideoPreviewAvailability`. */
-    onRtpVideoPreviewAvailable: (RtpStream, String, String) -> Unit = { _, _, _ -> },
-    /** RTP5-UI-01: open the preview page for a stream the host has a target for. */
-    onRtpOpenVideoPreview: (RtpStream, String, String) -> Unit = { _, _, _ -> },
-    /**
-     * RTP5-UI-01：视频流卡片整块点击、还没有可播 MP4 时，把该流交给
-     * `RtpViewModel.prepareVideoPreview` —— 就地封装一份再进预览页。
-     */
-    onRtpPrepareVideoPreview: (RtpStream) -> Unit = {},
-    onRtpCloseVideoPreview: () -> Unit = {},
-    onRtpVideoPreviewPlayPause: () -> Unit = {},
-    onRtpVideoPreviewSeek: (Long) -> Unit = {},
-    /** RTP5-UI-01: the preview `TextureView`'s surface, forwarded to the controller. */
-    onRtpAttachVideoPreviewSurface: (Surface) -> Unit = {},
-    onRtpDetachVideoPreviewSurface: () -> Unit = {}
+    rtp: PacketListRtpInputs,
+    voip: PacketListVoipInputs,
 ) {
+
+    // The grouped inputs, unpacked so the body below keeps the names it always had.
+    // See PacketListScreenInputs.kt for why they are grouped.
+    val tlsKeyLogImportState = tls.tlsKeyLogImportState
+    val onBeginTlsKeyLogSelection = tls.onBeginTlsKeyLogSelection
+    val onImportTlsKeyLog = tls.onImportTlsKeyLog
+    val onClearTlsKeyLog = tls.onClearTlsKeyLog
+    val onCancelTlsKeyLogImport = tls.onCancelTlsKeyLogImport
+    val liveCaptureState = tls.liveCaptureState
+    val tlsFollowViewer = tls.tlsFollowViewer
+    val tlsFollowExportState = tls.tlsFollowExportState
+    val onFollowTlsStream = tls.onFollowTlsStream
+    val onCloseTlsFollow = tls.onCloseTlsFollow
+    val onExportTlsFollow = tls.onExportTlsFollow
+    val onCancelTlsFollowExport = tls.onCancelTlsFollowExport
+    val onClearTlsFollowExportState = tls.onClearTlsFollowExportState
+    val savedCaptureOpenInfo = tls.savedCaptureOpenInfo
+    val onDismissSavedCaptureOpenInfo = tls.onDismissSavedCaptureOpenInfo
+    val onPrepareCaptureExport = tls.onPrepareCaptureExport
+    val onSaveCaptureExport = tls.onSaveCaptureExport
+    val onImportCaptureBundle = tls.onImportCaptureBundle
+    val onCancelCaptureExport = tls.onCancelCaptureExport
+    val onStartLiveCapture = tls.onStartLiveCapture
+    val onStopLiveCapture = tls.onStopLiveCapture
+    val onOpenSavedLiveCapture = tls.onOpenSavedLiveCapture
+    val onClearLiveCaptureError = tls.onClearLiveCaptureError
+    val liveCaptureSettings = tls.liveCaptureSettings
+    val tlsConnectionSnapshot = tls.tlsConnectionSnapshot
+    val tlsConnectionSummary = tls.tlsConnectionSummary
+    val loadTlsCaState = tls.loadTlsCaState
+    val tlsStartBlock = tls.tlsStartBlock
+    val onDismissTlsStartBlock = tls.onDismissTlsStartBlock
+    val agentUiState = agent.agentUiState
+    val agentJob = agent.agentJob
+    val onAgentSubmitQuestion = agent.onAgentSubmitQuestion
+    val onAgentContinueConversation = agent.onAgentContinueConversation
+    val onAgentCancel = agent.onAgentCancel
+    val onAgentRetry = agent.onAgentRetry
+    val onAgentNewConversation = agent.onAgentNewConversation
+    val onAgentClearTransientError = agent.onAgentClearTransientError
+    val agentFilterPreview = agent.agentFilterPreview
+    val onAgentEvidenceClick = agent.onAgentEvidenceClick
+    val onAgentSaveFinding = agent.onAgentSaveFinding
+    val onAgentExportReport = agent.onAgentExportReport
+    val onConfirmAgentFilterPreview = agent.onConfirmAgentFilterPreview
+    val onDismissAgentFilterPreview = agent.onDismissAgentFilterPreview
+    val agentSettings = agent.agentSettings
+    val agentConsentPrompt = agent.agentConsentPrompt
+    val onAgentSettingsChange = agent.onAgentSettingsChange
+    val onAgentPrivacyModeChange = agent.onAgentPrivacyModeChange
+    val onAgentModelSelectionChange = agent.onAgentModelSelectionChange
+    val onAgentAcceptConsent = agent.onAgentAcceptConsent
+    val onAgentDeclineConsent = agent.onAgentDeclineConsent
+    val onAgentSaveProviderKey = agent.onAgentSaveProviderKey
+    val onAgentClearProviderKey = agent.onAgentClearProviderKey
+    val onAgentFetchProviderModels = agent.onAgentFetchProviderModels
+    val gatewayAccount = agent.gatewayAccount
+    val onRefreshGatewayAccount = agent.onRefreshGatewayAccount
+    val agentByokEnabled = agent.agentByokEnabled
+    val agentResponseCaptureAvailable = agent.agentResponseCaptureAvailable
+    val onAgentClearResponseDumps = agent.onAgentClearResponseDumps
+    val agentSavedSessions = agent.agentSavedSessions
+    val agentDeletingSavedSessions = agent.agentDeletingSavedSessions
+    val agentRestoredSession = agent.agentRestoredSession
+    val agentRestoredSessionMatchesCapture = agent.agentRestoredSessionMatchesCapture
+    val agentInterruptedJob = agent.agentInterruptedJob
+    val onAgentResumeInterruptedJob = agent.onAgentResumeInterruptedJob
+    val onAgentDismissInterruptedJob = agent.onAgentDismissInterruptedJob
+    val agentLocalDataUsage = agent.agentLocalDataUsage
+    val onAgentOpenSavedSession = agent.onAgentOpenSavedSession
+    val onAgentDeleteSavedSession = agent.onAgentDeleteSavedSession
+    val onAgentDismissRestoredSession = agent.onAgentDismissRestoredSession
+    val onAgentClearLocalData = agent.onAgentClearLocalData
+    val onAgentExportDiagnostics = agent.onAgentExportDiagnostics
+    val agentScenarioPackage = agent.agentScenarioPackage
+    val agentPlaybooks = agent.agentPlaybooks
+    val onAgentClearScenarioPackage = agent.onAgentClearScenarioPackage
+    val onAgentPlaybookUsed = agent.onAgentPlaybookUsed
+    val onAgentEditScenario = agent.onAgentEditScenario
+    val onAgentCopyScenario = agent.onAgentCopyScenario
+    val onAgentDeleteScenario = agent.onAgentDeleteScenario
+    val onAgentViewScenarioDetails = agent.onAgentViewScenarioDetails
+    val onAgentNewScenario = agent.onAgentNewScenario
+    val agentEditingScenario = agent.agentEditingScenario
+    val agentScenarioToolWhitelist = agent.agentScenarioToolWhitelist
+    val onAgentDismissScenarioEditor = agent.onAgentDismissScenarioEditor
+    val onAgentSaveScenario = agent.onAgentSaveScenario
+    val agentScenarioSaving = agent.agentScenarioSaving
+    val onAgentScenarioPlaybookChange = agent.onAgentScenarioPlaybookChange
+    val agentScenarioSaveCompleted = agent.agentScenarioSaveCompleted
+    val agentScenarioQuarantineCodes = agent.agentScenarioQuarantineCodes
+    val agentRunRecord = agent.agentRunRecord
+    val rtpState = rtp.rtpState
+    val rtpHeuristicEnabled = rtp.rtpHeuristicEnabled
+    val rtpHighlightedStreamId = rtp.rtpHighlightedStreamId
+    val rtpOpenRequest = rtp.rtpOpenRequest
+    val rtpHeuristicApplyVersion = rtp.rtpHeuristicApplyVersion
+    val onRtpOpenRequestHandled = rtp.onRtpOpenRequestHandled
+    val onRtpScan = rtp.onRtpScan
+    val onRtpCancel = rtp.onRtpCancel
+    val onRtpToggleHeuristic = rtp.onRtpToggleHeuristic
+    val onRtpSetOverride = rtp.onRtpSetOverride
+    val onRtpHighlightStream = rtp.onRtpHighlightStream
+    val rtpPlayerState = rtp.rtpPlayerState
+    val rtpPlaybackState = rtp.rtpPlaybackState
+    val rtpPlayerPositionMs = rtp.rtpPlayerPositionMs
+    val rtpExportState = rtp.rtpExportState
+    val onRtpOpenPlayer = rtp.onRtpOpenPlayer
+    val onRtpPlayStream = rtp.onRtpPlayStream
+    val onRtpPlayStreams = rtp.onRtpPlayStreams
+    val onRtpExportWav = rtp.onRtpExportWav
+    val onRtpExportRaw = rtp.onRtpExportRaw
+    val onRtpExportFormat = rtp.onRtpExportFormat
+    val rtpExternalOpenState = rtp.rtpExternalOpenState
+    val onRtpOpenExternal = rtp.onRtpOpenExternal
+    val onRtpClearExternalOpenState = rtp.onRtpClearExternalOpenState
+    val onRtpClosePlayer = rtp.onRtpClosePlayer
+    val onRtpPlayerPlayPause = rtp.onRtpPlayerPlayPause
+    val onRtpPlayerSeek = rtp.onRtpPlayerSeek
+    val onRtpPlayerTimingChange = rtp.onRtpPlayerTimingChange
+    val onRtpPlayerCancelDecode = rtp.onRtpPlayerCancelDecode
+    val onRtpPlayerRetryDecode = rtp.onRtpPlayerRetryDecode
+    val onRtpPlayerSelectStream = rtp.onRtpPlayerSelectStream
+    val onRtpPlayerExportWav = rtp.onRtpPlayerExportWav
+    val onRtpPlayerShareWav = rtp.onRtpPlayerShareWav
+    val onRtpPlayerClearExportState = rtp.onRtpPlayerClearExportState
+    val rtpVideoExportState = rtp.rtpVideoExportState
+    val onRtpExportVideo = rtp.onRtpExportVideo
+    val onRtpClearVideoExportState = rtp.onRtpClearVideoExportState
+    val onRtpCancelVideoExport = rtp.onRtpCancelVideoExport
+    val onRtpCancelAudioExport = rtp.onRtpCancelAudioExport
+    val rtpVideoOpenState = rtp.rtpVideoOpenState
+    val onRtpOpenVideoExternal = rtp.onRtpOpenVideoExternal
+    val onRtpClearVideoOpenState = rtp.onRtpClearVideoOpenState
+    val rtpHevcDecoderAvailability = rtp.rtpHevcDecoderAvailability
+    val onRtpRefreshHevcDecoderAvailability = rtp.onRtpRefreshHevcDecoderAvailability
+    val rtpVideoPreviewState = rtp.rtpVideoPreviewState
+    val rtpVideoPreviewAvailability = rtp.rtpVideoPreviewAvailability
+    val rtpVideoPreviewPlaybackState = rtp.rtpVideoPreviewPlaybackState
+    val rtpVideoPreviewPositionMs = rtp.rtpVideoPreviewPositionMs
+    val rtpVideoPreviewDurationMs = rtp.rtpVideoPreviewDurationMs
+    val onRtpVideoPreviewAvailable = rtp.onRtpVideoPreviewAvailable
+    val onRtpOpenVideoPreview = rtp.onRtpOpenVideoPreview
+    val onRtpPrepareVideoPreview = rtp.onRtpPrepareVideoPreview
+    val onRtpCloseVideoPreview = rtp.onRtpCloseVideoPreview
+    val onRtpVideoPreviewPlayPause = rtp.onRtpVideoPreviewPlayPause
+    val onRtpVideoPreviewSeek = rtp.onRtpVideoPreviewSeek
+    val onRtpAttachVideoPreviewSurface = rtp.onRtpAttachVideoPreviewSurface
+    val onRtpDetachVideoPreviewSurface = rtp.onRtpDetachVideoPreviewSurface
+    val voipCallsState = voip.voipCallsState
+    val onVoipCallsLoad = voip.onVoipCallsLoad
+    val voipPlayback = voip.voipPlayback
+    val onVoipPlayCall = voip.onVoipPlayCall
+    val voipDualTrack = voip.voipDualTrack
+    val voipPlayerPlaybackState = voip.voipPlayerPlaybackState
+    val voipPlayerPositionMs = voip.voipPlayerPositionMs
+    val voipPlayerMuteState = voip.voipPlayerMuteState
+    val onVoipPlayerPlayPause = voip.onVoipPlayerPlayPause
+    val onVoipPlayerSeek = voip.onVoipPlayerSeek
+    val onVoipPlayerMute = voip.onVoipPlayerMute
+    val onVoipClosePlayer = voip.onVoipClosePlayer
+
+    if (tlsFollowViewer != null) {
+        TlsFollowScreen(
+            viewer = tlsFollowViewer,
+            exportState = tlsFollowExportState,
+            onDismiss = onCloseTlsFollow,
+            onExport = onExportTlsFollow,
+            onCancelExport = onCancelTlsFollowExport,
+            onClearExportState = onClearTlsFollowExportState
+        )
+        return
+    }
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -601,9 +603,41 @@ fun PacketListScreen(
     var showPreferencesDialog by remember { mutableStateOf(false) }
     var showAgentModelSettings by remember { mutableStateOf(false) }
     var showDecodeAsDialog by remember { mutableStateOf(false) }
-    var showLiveCaptureDialog by remember { mutableStateOf(false) }
+    var showLiveCaptureDialog by rememberSaveable { mutableStateOf(false) }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showFileActions by remember { mutableStateOf(false) }
+    var showCaptureExport by remember { mutableStateOf(false) }
+    val rawCaptureExportPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"), onSaveCaptureExport)
+    val bundleExportPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"), onSaveCaptureExport)
+    val bundleImportPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onImportCaptureBundle(uri)
+    }
+    if (showCaptureExport) {
+        TlsCaptureExportDialog(displayFilterUiState.appliedExpression.isNotBlank() ||
+            displayFilterUiState.draftExpression.isNotBlank(), onExport = { kind, confirmed ->
+            showCaptureExport = false
+            if (kind == com.example.layanalyzer.data.TlsCaptureExportKind.SelectedPlaintext) {
+                showHttpObjects = true
+            } else if (onPrepareCaptureExport(kind, confirmed)) {
+                if (kind == com.example.layanalyzer.data.TlsCaptureExportKind.CompleteDecryptableSession) {
+                    bundleExportPicker.launch("capture-session.zip")
+                } else {
+                    rawCaptureExportPicker.launch(currentFile?.displayName ?: "capture.pcap")
+                }
+            }
+        }, onDismiss = { showCaptureExport = false })
+    }
+    var showTlsKeyLogDialog by rememberSaveable { mutableStateOf(false) }
+    val keyLogPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), onImportTlsKeyLog)
+    if (showTlsKeyLogDialog) {
+        TlsKeyLogImportDialog(tlsKeyLogImportState, currentFile != null,
+            onImport = {
+                if (onBeginTlsKeyLogSelection()) keyLogPicker.launch(arrayOf("*/*"))
+            }, onClear = onClearTlsKeyLog, onCancel = onCancelTlsKeyLogImport,
+            onDismiss = { showTlsKeyLogDialog = false })
+    }
     var showEvidenceExportDialog by remember { mutableStateOf(false) }
     var pendingEvidenceSelection by remember {
         mutableStateOf(EvidenceExportSelection(EvidenceExportMode.Redacted, EvidenceExportScope.CurrentView))
@@ -1058,6 +1092,15 @@ fun PacketListScreen(
     if (showLiveCaptureDialog) {
         LiveCaptureScreen(
             state = liveCaptureState,
+            initialSettings = liveCaptureSettings,
+            tlsSnapshot = tlsConnectionSnapshot,
+            tlsSummary = tlsConnectionSummary,
+            // Opening a frame is the same action as clicking a packet, and it
+            // unmounts this screen, so the capture view closes with it.
+            onJumpToFrame = onPacketClick,
+            loadTlsCaState = loadTlsCaState,
+            tlsStartBlock = tlsStartBlock,
+            onDismissTlsStartBlock = onDismissTlsStartBlock,
             onStart = requestCaptureStart,
             onStop = onStopLiveCapture,
             onOpenSavedCapture = {
@@ -1067,6 +1110,13 @@ fun PacketListScreen(
             onBack = { showLiveCaptureDialog = false }
         )
         return
+    }
+
+    val noteFrames = remember(workspace?.notes) {
+        workspace?.notes?.mapTo(mutableSetOf()) { it.frameNumber }.orEmpty()
+    }
+    val searchFrames = remember(searchState.results) {
+        searchState.results.toSet()
     }
 
     val configuration = LocalConfiguration.current
@@ -1084,6 +1134,10 @@ fun PacketListScreen(
         else -> stringResource(R.string.evidence)
     }
     val topBarActions: @Composable RowScope.() -> Unit = {
+        IconButton(onClick = { bundleImportPicker.launch(arrayOf("application/zip", "application/octet-stream")) },
+            enabled = openProgress == null) {
+            Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.tls_capture_import_title))
+        }
         IconButton(onClick = { showPreferencesDialog = true }) {
             Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.preferences))
         }
@@ -1111,6 +1165,12 @@ fun PacketListScreen(
                         leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) }
                     )
                     DropdownMenuItem(
+                        text = { Text(stringResource(R.string.tls_keylog_title)) },
+                        onClick = { showFileActions = false; showTlsKeyLogDialog = true },
+                        enabled = openProgress == null,
+                        leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.http_objects)) },
                         onClick = { showFileActions = false; showHttpObjects = true },
                         leadingIcon = { Icon(Icons.Default.WebAsset, contentDescription = null) }
@@ -1130,6 +1190,21 @@ fun PacketListScreen(
                         leadingIcon = { Icon(if (liveCaptureState.isCapturing) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null) }
                     )
                     HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.tls_capture_export_title)) },
+                        onClick = { showFileActions = false; showCaptureExport = true },
+                        enabled = !exportState.isExporting,
+                        leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.tls_capture_import_title)) },
+                        onClick = { showFileActions = false; bundleImportPicker.launch(arrayOf("application/zip", "application/octet-stream")) },
+                        enabled = openProgress == null
+                    )
+                    if (exportState.isExporting) DropdownMenuItem(
+                        text = { Text(stringResource(R.string.cancel)) },
+                        onClick = { showFileActions = false; onCancelCaptureExport() }
+                    )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.export_filtered_capture)) },
                         onClick = {
@@ -1315,13 +1390,14 @@ fun PacketListScreen(
                                 selectedFrame = workspace?.selectedFrame,
                                 bookmarkedFrames = workspace?.bookmarks.orEmpty(),
                                 evidenceFrames = workspace?.evidenceFrames.orEmpty(),
-                                noteFrames = workspace?.notes?.mapTo(mutableSetOf()) { it.frameNumber }.orEmpty(),
-                                searchFrames = searchState.results.toSet(),
+                                noteFrames = noteFrames,
+                                searchFrames = searchFrames,
                                 packetContextActions = packetContextActions,
                                 highlightedFrames = highlightedFrames,
                                 onPrepareContextActions = onPreparePacketContextActions,
                                 onApplyFollowFilter = onApplyPacketFollowFilter,
                                 onToggleHighlight = onTogglePacketHighlight,
+                                onFollowTlsStream = onFollowTlsStream,
                                 onPacketClick = onPacketClick
                             )
                         }
@@ -1550,6 +1626,13 @@ fun PacketListScreen(
     if (showLiveCaptureDialog) {
         LiveCaptureDialog(
             state = liveCaptureState,
+            initialSettings = liveCaptureSettings,
+            tlsSnapshot = tlsConnectionSnapshot,
+            tlsSummary = tlsConnectionSummary,
+            onJumpToFrame = onPacketClick,
+            loadTlsCaState = loadTlsCaState,
+            tlsStartBlock = tlsStartBlock,
+            onDismissTlsStartBlock = onDismissTlsStartBlock,
             onStart = requestCaptureStart,
             onStop = onStopLiveCapture,
             onOpenSavedCapture = {
@@ -1578,6 +1661,9 @@ fun PacketListScreen(
     if (largeCaptureWarning != null) {
         LargeCaptureWarningDialog(largeCaptureWarning, onConfirmLargeCapture, onDismissLargeCapture)
     }
+    if (savedCaptureOpenInfo != null) {
+        SavedCaptureOpenDialog(savedCaptureOpenInfo, onDismissSavedCaptureOpenInfo)
+    }
 }
 
 @Composable
@@ -1588,6 +1674,38 @@ private fun LargeCaptureWarningDialog(warning: LargeCaptureWarning, onConfirm: (
         text = { Text(stringResource(R.string.large_capture_message, warning.displayName, warning.sizeBytes.formatFileSize(), (warning.sizeBytes * 2).formatFileSize())) },
         confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.open_anyway)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
+    )
+}
+
+/**
+ * TLS-310: the one-shot summary of a saved-capture open. The body is the ViewModel's
+ * honest summary — scope (whole/single-segment/legacy), drops, key completeness and any
+ * incompleteness — so a legacy, partial or undecrypted open never reads as "whole capture
+ * analysed with keys". The vantage line comes from the structured state and is omitted for
+ * a legacy capture, whose manifest never recorded one.
+ */
+@Composable
+internal fun SavedCaptureOpenDialog(info: SavedCaptureOpenInfo, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.saved_capture_open_title)) },
+        text = {
+            Column {
+                Text(info.message)
+                if (info.scope != CaptureOpenScope.LegacySingleFile) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(
+                            when (info.vantage) {
+                                PacketVantage.TunInterface -> R.string.saved_capture_open_vantage_tun
+                                PacketVantage.AppToLocalProxy -> R.string.saved_capture_open_vantage_proxy
+                            }
+                        )
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } }
     )
 }
 
@@ -1973,10 +2091,30 @@ private fun DecodeAsDialog(
     )
 }
 
+/**
+ * The one sentence a refused start shows (TLS-315 step 1). Each reason maps to
+ * fixed text — the feature's absence, the CA material the wizard installs, or
+ * storage — so the user is told the one thing to fix instead of a generic failure.
+ */
+@StringRes
+private fun tlsStartBlockMessage(reason: TlsStartBlockReason): Int = when (reason) {
+    TlsStartBlockReason.CONFIGURATION_INVALID -> R.string.tls_capture_blocked_start
+    TlsStartBlockReason.FEATURE_UNAVAILABLE -> R.string.tls_capture_feature_unavailable
+    TlsStartBlockReason.CA_NOT_READY -> R.string.tls_capture_start_blocked_ca
+    TlsStartBlockReason.STORAGE_LOW -> R.string.tls_capture_start_blocked_storage
+}
+
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun LiveCaptureScreen(
+internal fun LiveCaptureScreen(
     state: LiveCaptureState,
+    initialSettings: LiveCaptureSettings,
+    tlsSnapshot: TlsConnectionSnapshot?,
+    tlsSummary: TlsConnectionSummary?,
+    onJumpToFrame: (Long) -> Unit,
+    loadTlsCaState: suspend () -> TlsCaState,
+    tlsStartBlock: TlsStartBlockReason?,
+    onDismissTlsStartBlock: () -> Unit,
     onStart: (LiveCaptureSettings) -> Unit,
     onStop: () -> Unit,
     onOpenSavedCapture: () -> Unit,
@@ -1984,9 +2122,18 @@ private fun LiveCaptureScreen(
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
-    var settings by remember { mutableStateOf(LiveCaptureSettings()) }
+    val scope = rememberCoroutineScope()
+    // A local draft: it is seeded from the saved settings and only reaches the store
+    // when Start commits it, so backing out of this screen never overwrites them.
+    var settings by remember { mutableStateOf(initialSettings) }
+    var caState by remember { mutableStateOf<TlsCaState?>(null) }
+    LaunchedEffect(Unit) { caState = loadTlsCaState() }
+    val validation = TlsInterceptionPolicy.validation(settings)
+    val canStart = TlsInterceptionPolicy.canStart(settings)
     val installedApplications = remember { queryCaptureApplications(context) }
     var showApplicationPicker by remember { mutableStateOf(false) }
+    var showCertificateSetup by remember { mutableStateOf(false) }
+    var showUsageHelp by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -2000,7 +2147,12 @@ private fun LiveCaptureScreen(
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.End) {
-                    Button(onClick = if (state.isCapturing) onStop else { { onStart(settings) } }) {
+                    Button(
+                        onClick = if (state.isCapturing) onStop else { { onStart(settings) } },
+                        // An enabled interception with invalid settings cannot start (C03 7);
+                        // stopping a running capture is always allowed.
+                        enabled = state.isCapturing || canStart
+                    ) {
                         Icon(if (state.isCapturing) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(if (state.isCapturing) R.string.stop else R.string.start))
@@ -2043,6 +2195,63 @@ private fun LiveCaptureScreen(
                 }
             }
             item {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                TlsCaptureSettingsSection(
+                    settings = settings.tls,
+                    status = TlsSettingsStatus(
+                        featureBuilt = BuildConfig.TLS_ENABLED,
+                        caState = caState,
+                        ipv6Captured = settings.captureIpv6,
+                        // The forwarding-layer UDP rule ships with the engine
+                        // (TLS-314): without the engine there is no TCP
+                        // connection to send a client back to, so the control
+                        // stays disabled with its reason.
+                        quicInterceptionAvailable = BuildConfig.TLS_ENABLED
+                    ),
+                    validation = validation,
+                    enabled = TlsModeChangePolicy.acceptsNewRun(state.isCapturing),
+                    onSettingsChange = {
+                        onDismissTlsStartBlock()
+                        settings = settings.copy(tls = it)
+                    },
+                    onOpenCertificateSetup = {
+                        onDismissTlsStartBlock()
+                        showCertificateSetup = true
+                    },
+                    onOpenUsageHelp = { showUsageHelp = true }
+                )
+                if (settings.tls.enabled && !validation.isValid) {
+                    Text(
+                        stringResource(R.string.tls_capture_blocked_start),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                tlsStartBlock?.let { reason ->
+                    Text(
+                        stringResource(tlsStartBlockMessage(reason)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                if (!TlsModeChangePolicy.acceptsNewRun(state.isCapturing)) {
+                    Text(
+                        stringResource(R.string.tls_capture_next_capture_notice),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Text(
+                        stringResource(R.string.tls_capture_mode_change_restart),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+            item {
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(if (state.isCapturing) stringResource(R.string.capture_status_running) else stringResource(R.string.capture_status_stopped), Modifier.weight(1f), color = if (state.isCapturing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2057,11 +2266,21 @@ private fun LiveCaptureScreen(
                 }
                 state.lastIoError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall) }
             }
+            item {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                TlsConnectionPreviewSection(
+                    snapshot = tlsSnapshot,
+                    summary = tlsSummary,
+                    onJumpToFrame = onJumpToFrame
+                )
+            }
             if (!state.outputPath.isNullOrBlank()) item {
                 val output = File(state.outputPath)
                 Text(output.name, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                 val report = File(output.parentFile, "${output.name}.report.json")
-                TextButton({ shareExportResult(context, ExportResult(report.absolutePath, report.name, "application/json")) }, enabled = report.isFile) { Text(stringResource(R.string.open_integrity_report)) }
+                TextButton({
+                    scope.launch { shareCaptureIntegrityReport(context, output) }
+                }, enabled = report.isFile) { Text(stringResource(R.string.open_integrity_report)) }
                 if (state.segmentPaths.size > 1) Text(stringResource(R.string.rotated_segments_notice, state.segmentPaths.size), style = MaterialTheme.typography.labelSmall)
             }
             item { Text(stringResource(R.string.recent_packets), style = MaterialTheme.typography.titleMedium) }
@@ -2070,26 +2289,29 @@ private fun LiveCaptureScreen(
             item { Text(stringResource(R.string.adb_capture_workflow), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
+    // A rotated viewport can dispose the LazyColumn item containing the button.
+    // Keep the dialog and its saved state outside that item.
+    if (showUsageHelp) TlsUsageHelpDialog { showUsageHelp = false }
     if (showApplicationPicker) {
-        AlertDialog(
-            onDismissRequest = { showApplicationPicker = false },
-            title = { Text(stringResource(R.string.capture_apps)) },
-            text = {
-                LazyColumn(Modifier.height(420.dp)) {
-                    items(installedApplications, key = { it.packageName }) { application ->
-                        val selected = application.packageName in settings.allowedApplications
-                        Row(Modifier.fillMaxWidth().clickable {
-                            val next = settings.allowedApplications.toMutableSet().apply { if (!add(application.packageName)) remove(application.packageName) }
-                            settings = settings.copy(allowedApplications = next.sorted())
-                        }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(selected, null)
-                            Column { Text(application.label); Text(application.packageName, style = MaterialTheme.typography.labelSmall) }
-                        }
-                    }
-                }
+        CaptureApplicationPickerDialog(
+            applications = installedApplications,
+            allowedApplications = settings.allowedApplications,
+            onAllowedApplicationsChange = {
+                settings = settings.copy(allowedApplications = it)
             },
-            confirmButton = { Button({ showApplicationPicker = false }) { Text(stringResource(R.string.done)) } },
-            dismissButton = { TextButton({ settings = settings.copy(allowedApplications = emptyList()) }) { Text(stringResource(R.string.clear_all_apps)) } }
+            onDismiss = { showApplicationPicker = false }
+        )
+    }
+
+    if (showCertificateSetup) {
+        TlsCertificateSetupDialog(
+            captureRunning = state.isCapturing,
+            onDismiss = {
+                showCertificateSetup = false
+                // The wizard may have generated or reset the CA, so the settings
+                // block re-reads the state instead of keeping a stale one.
+                scope.launch { caState = loadTlsCaState() }
+            }
         )
     }
 }
@@ -2105,15 +2327,29 @@ private fun SettingStepper(label: String, value: String, onClick: () -> Unit) {
 @Composable
 private fun LiveCaptureDialog(
     state: LiveCaptureState,
+    initialSettings: LiveCaptureSettings,
+    tlsSnapshot: TlsConnectionSnapshot?,
+    tlsSummary: TlsConnectionSummary?,
+    onJumpToFrame: (Long) -> Unit,
+    loadTlsCaState: suspend () -> TlsCaState,
+    tlsStartBlock: TlsStartBlockReason?,
+    onDismissTlsStartBlock: () -> Unit,
     onStart: (LiveCaptureSettings) -> Unit,
     onStop: () -> Unit,
     onOpenSavedCapture: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var settings by remember { mutableStateOf(LiveCaptureSettings()) }
+    val scope = rememberCoroutineScope()
+    // A local draft, committed to the store only by Start (see LiveCaptureScreen).
+    var settings by remember { mutableStateOf(initialSettings) }
+    var caState by remember { mutableStateOf<TlsCaState?>(null) }
+    LaunchedEffect(Unit) { caState = loadTlsCaState() }
+    val validation = TlsInterceptionPolicy.validation(settings)
+    val canStart = TlsInterceptionPolicy.canStart(settings)
     val installedApplications = remember { queryCaptureApplications(context) }
     var showApplicationPicker by remember { mutableStateOf(false) }
+    var showCertificateSetup by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -2124,7 +2360,8 @@ private fun LiveCaptureDialog(
                     Text(stringResource(R.string.stop))
                 }
             } else {
-                Button(onClick = { onStart(settings) }) {
+                // An enabled interception with invalid settings cannot start (C03 7).
+                Button(onClick = { onStart(settings) }, enabled = canStart) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(stringResource(R.string.start))
@@ -2207,6 +2444,56 @@ private fun LiveCaptureDialog(
                         }.coerceAtMost(settings.maxSizeMegabytes))
                     }) { Text(stringResource(R.string.segment_size, settings.segmentSizeMegabytes)) }
                 }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                TlsCaptureSettingsSection(
+                    settings = settings.tls,
+                    status = TlsSettingsStatus(
+                        featureBuilt = BuildConfig.TLS_ENABLED,
+                        caState = caState,
+                        ipv6Captured = settings.captureIpv6,
+                        // The forwarding-layer UDP rule ships with the engine
+                        // (TLS-314): without the engine there is no TCP
+                        // connection to send a client back to, so the control
+                        // stays disabled with its reason.
+                        quicInterceptionAvailable = BuildConfig.TLS_ENABLED
+                    ),
+                    validation = validation,
+                    enabled = TlsModeChangePolicy.acceptsNewRun(state.isCapturing),
+                    onSettingsChange = {
+                        onDismissTlsStartBlock()
+                        settings = settings.copy(tls = it)
+                    },
+                    onOpenCertificateSetup = {
+                        onDismissTlsStartBlock()
+                        showCertificateSetup = true
+                    }
+                )
+                if (settings.tls.enabled && !validation.isValid) {
+                    Text(
+                        stringResource(R.string.tls_capture_blocked_start),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                tlsStartBlock?.let { reason ->
+                    Text(
+                        stringResource(tlsStartBlockMessage(reason)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                if (!TlsModeChangePolicy.acceptsNewRun(state.isCapturing)) {
+                    Text(
+                        stringResource(R.string.tls_capture_next_capture_notice),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        stringResource(R.string.tls_capture_mode_change_restart),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -2235,6 +2522,12 @@ private fun LiveCaptureDialog(
                         Text(message, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                TlsConnectionPreviewSection(
+                    snapshot = tlsSnapshot,
+                    summary = tlsSummary,
+                    onJumpToFrame = onJumpToFrame
+                )
                 if (!state.outputPath.isNullOrBlank()) {
                     Text(
                         File(state.outputPath).name,
@@ -2245,7 +2538,7 @@ private fun LiveCaptureDialog(
                     )
                     val report = File(File(state.outputPath).parentFile, "${File(state.outputPath).name}.report.json")
                     TextButton(onClick = {
-                        shareExportResult(context, ExportResult(report.absolutePath, report.name, "application/json"))
+                        scope.launch { shareCaptureIntegrityReport(context, File(state.outputPath)) }
                     }, enabled = report.isFile) { Text(stringResource(R.string.open_integrity_report)) }
                     if (state.segmentPaths.size > 1) {
                         Text(
@@ -2278,40 +2571,113 @@ private fun LiveCaptureDialog(
     )
 
     if (showApplicationPicker) {
-        AlertDialog(
-            onDismissRequest = { showApplicationPicker = false },
-            title = { Text(stringResource(R.string.capture_apps)) },
-            text = {
-                LazyColumn(Modifier.height(420.dp)) {
-                    items(installedApplications, key = { it.packageName }) { application ->
-                        val selected = application.packageName in settings.allowedApplications
-                        Row(
-                            Modifier.fillMaxWidth().clickable {
-                                val next = settings.allowedApplications.toMutableSet().apply {
-                                    if (!add(application.packageName)) remove(application.packageName)
-                                }
-                                settings = settings.copy(allowedApplications = next.sorted())
-                            }.padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(checked = selected, onCheckedChange = null)
-                            Column {
-                                Text(application.label)
-                                Text(application.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
+        CaptureApplicationPickerDialog(
+            applications = installedApplications,
+            allowedApplications = settings.allowedApplications,
+            onAllowedApplicationsChange = {
+                settings = settings.copy(allowedApplications = it)
             },
-            confirmButton = { Button(onClick = { showApplicationPicker = false }) { Text(stringResource(R.string.done)) } },
-            dismissButton = {
-                TextButton(onClick = { settings = settings.copy(allowedApplications = emptyList()) }) { Text(stringResource(R.string.clear_all_apps)) }
+            onDismiss = { showApplicationPicker = false }
+        )
+    }
+
+    if (showCertificateSetup) {
+        TlsCertificateSetupDialog(
+            captureRunning = state.isCapturing,
+            onDismiss = {
+                showCertificateSetup = false
+                // The wizard may have generated or reset the CA, so the settings
+                // block re-reads the state instead of keeping a stale one.
+                scope.launch { caState = loadTlsCaState() }
             }
         )
     }
 }
 
 private data class CaptureApplication(val label: String, val packageName: String)
+
+@Composable
+private fun CaptureApplicationPickerDialog(
+    applications: List<CaptureApplication>,
+    allowedApplications: List<String>,
+    onAllowedApplicationsChange: (List<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val filterQuery = query.trim()
+    val filteredApplications = remember(applications, filterQuery) {
+        if (filterQuery.isEmpty()) applications else applications.filter {
+            it.label.contains(filterQuery, ignoreCase = true) ||
+                it.packageName.contains(filterQuery, ignoreCase = true)
+        }
+    }
+    val listState = rememberLazyListState()
+    LaunchedEffect(filterQuery) { listState.scrollToItem(0) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.capture_apps)) },
+        text = {
+            Column(Modifier.fillMaxWidth().height(420.dp)) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.filter_capture_apps)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear_filter))
+                            }
+                        }
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+                if (filteredApplications.isEmpty()) {
+                    Text(
+                        stringResource(R.string.no_matching_capture_apps),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f), state = listState) {
+                        items(filteredApplications, key = { it.packageName }) { application ->
+                            val selected = application.packageName in allowedApplications
+                            Row(
+                                Modifier.fillMaxWidth().clickable {
+                                    val next = allowedApplications.toMutableSet().apply {
+                                        if (!add(application.packageName)) remove(application.packageName)
+                                    }
+                                    onAllowedApplicationsChange(next.sorted())
+                                }.padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(checked = selected, onCheckedChange = null)
+                                Column {
+                                    Text(application.label)
+                                    Text(
+                                        application.packageName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text(stringResource(R.string.done)) }
+        },
+        dismissButton = {
+            TextButton(onClick = { onAllowedApplicationsChange(emptyList()) }) {
+                Text(stringResource(R.string.clear_all_apps))
+            }
+        }
+    )
+}
 
 private fun queryCaptureApplications(context: Context): List<CaptureApplication> {
     val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -3786,6 +4152,7 @@ private fun PacketTable(
     onPrepareContextActions: (Long) -> Unit,
     onApplyFollowFilter: (String) -> Unit,
     onToggleHighlight: (Long) -> Unit,
+    onFollowTlsStream: (Long) -> Unit,
     onPacketClick: (Long) -> Unit
 ) {
     val isCompactLayout = LocalConfiguration.current.screenWidthDp < 600
@@ -3854,6 +4221,7 @@ private fun PacketTable(
                                             onPrepareContextActions = { onPrepareContextActions(packet.frameNumber) },
                                             onApplyFollowFilter = onApplyFollowFilter,
                                             onToggleHighlight = { onToggleHighlight(packet.frameNumber) },
+                                            onFollowTlsStream = { onFollowTlsStream(packet.frameNumber) },
                                             onClick = { onPacketClick(packet.frameNumber) }
                                         )
                                     } else {
@@ -3866,6 +4234,7 @@ private fun PacketTable(
                                             onPrepareContextActions = { onPrepareContextActions(packet.frameNumber) },
                                             onApplyFollowFilter = onApplyFollowFilter,
                                             onToggleHighlight = { onToggleHighlight(packet.frameNumber) },
+                                            onFollowTlsStream = { onFollowTlsStream(packet.frameNumber) },
                                             onClick = { onPacketClick(packet.frameNumber) }
                                         )
                                     }
@@ -4304,6 +4673,7 @@ private fun CompactPacketRow(
     onPrepareContextActions: () -> Unit = {},
     onApplyFollowFilter: (String) -> Unit = {},
     onToggleHighlight: () -> Unit = {},
+    onFollowTlsStream: () -> Unit = {},
     onClick: () -> Unit
 ) {
     val ports = packetPorts(packet)
@@ -4341,20 +4711,20 @@ private fun CompactPacketRow(
                     }
                 )
             )
-            Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("#${packet.frameNumber}", Modifier.widthIn(min = 50.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium)
-                    Text(packet.time, Modifier.weight(1f), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("#${packet.frameNumber}", Modifier.width(64.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(packet.time, Modifier.width(78.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     PacketMarkerIcons(severity, isBookmarked, isEvidence, hasNote, isSearchMatch)
                     Spacer(Modifier.width(6.dp))
-                    Text(protocolLabel, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text(protocolLabel, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.width(8.dp))
-                    Text("${packet.length} B", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${packet.length} B", Modifier.width(48.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(sourceLabel, Modifier.weight(1f), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(sourceLabel, Modifier.fillMaxWidth(0.48f), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(" -> ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(destinationLabel, Modifier.weight(1f), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(destinationLabel, Modifier.fillMaxWidth(), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Text(
                     packet.info.ifBlank { "-" },
@@ -4372,7 +4742,8 @@ private fun CompactPacketRow(
                 isHighlighted = isHighlighted,
                 onDismiss = { menuExpanded = false },
                 onApplyFollowFilter = onApplyFollowFilter,
-                onToggleHighlight = onToggleHighlight
+                onToggleHighlight = onToggleHighlight,
+                onFollowTlsStream = onFollowTlsStream
             )
         }
     }
@@ -4401,6 +4772,7 @@ fun PacketRow(
     onPrepareContextActions: () -> Unit = {},
     onApplyFollowFilter: (String) -> Unit = {},
     onToggleHighlight: () -> Unit = {},
+    onFollowTlsStream: () -> Unit = {},
     onClick: () -> Unit
 ) {
     val protocolLabel = displayProtocol(packet)
@@ -4479,25 +4851,44 @@ fun PacketRow(
                 isHighlighted = isHighlighted,
                 onDismiss = { menuExpanded = false },
                 onApplyFollowFilter = onApplyFollowFilter,
-                onToggleHighlight = onToggleHighlight
+                onToggleHighlight = onToggleHighlight,
+                onFollowTlsStream = onFollowTlsStream
             )
         }
     }
 }
 
 @Composable
-private fun PacketContextMenu(
+internal fun PacketContextMenu(
     state: PacketContextActionsState?,
     isHighlighted: Boolean,
     onDismiss: () -> Unit,
     onApplyFollowFilter: (String) -> Unit,
-    onToggleHighlight: () -> Unit
+    onToggleHighlight: () -> Unit,
+    onFollowTlsStream: () -> Unit
 ) {
     val filters = state?.followFilters
+    val tlsPrompt = TlsFollowUiState.promptFor(state?.tlsFollow ?: PacketTlsFollowAction())
     DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
         FollowFilterMenuItem(R.string.follow_sip_call, filters?.sipCall, onDismiss, onApplyFollowFilter)
         FollowFilterMenuItem(R.string.follow_udp_filter, filters?.udpStream, onDismiss, onApplyFollowFilter)
         FollowFilterMenuItem(R.string.follow_tcp_filter, filters?.tcpStream, onDismiss, onApplyFollowFilter)
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.follow_tls_stream)) },
+            leadingIcon = { Icon(Icons.Default.Stream, contentDescription = null) },
+            enabled = tlsPrompt == null,
+            onClick = {
+                onDismiss()
+                onFollowTlsStream()
+            }
+        )
+        tlsPrompt?.let { prompt ->
+            DropdownMenuItem(
+                text = { Text(stringResource(prompt.menuLabelRes())) },
+                onClick = {},
+                enabled = false
+            )
+        }
         HorizontalDivider()
         DropdownMenuItem(
             text = { Text(stringResource(if (isHighlighted) R.string.remove_packet_highlight else R.string.highlight_packet)) },
@@ -4526,6 +4917,17 @@ private fun PacketContextMenu(
         }
     }
 }
+
+private fun TlsFollowPrompt.menuLabelRes(): Int = when (this) {
+        TlsFollowPrompt.Loading -> R.string.tls_follow_prompt_loading
+        TlsFollowPrompt.NotTls -> R.string.tls_follow_prompt_not_tls
+        TlsFollowPrompt.SecretsNotConfigured -> R.string.tls_follow_prompt_no_secrets
+        TlsFollowPrompt.HandshakeIncomplete -> R.string.tls_follow_prompt_handshake_incomplete
+        TlsFollowPrompt.NoDecryptedApplicationData -> R.string.tls_follow_prompt_no_plaintext
+        TlsFollowPrompt.Stale -> R.string.tls_follow_prompt_stale
+        TlsFollowPrompt.Unavailable -> R.string.tls_follow_prompt_unavailable
+        TlsFollowPrompt.Failed -> R.string.tls_follow_prompt_failed
+    }
 
 @Composable
 private fun FollowFilterMenuItem(
@@ -4626,6 +5028,18 @@ private fun severityTextColor(severity: String): Color {
         "warn" -> Color(0xFF8A5A00)
         "note" -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurface
+    }
+}
+
+private suspend fun shareCaptureIntegrityReport(context: Context, captureFile: File) {
+    try {
+        val exported = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.example.layanalyzer.data.CaptureArtifactLifecycle(context).exportIntegrityReport(captureFile)
+        }
+        shareExportResult(context, ExportResult(exported.absolutePath, exported.name, "application/json"))
+    } catch (error: Exception) {
+        if (error is kotlinx.coroutines.CancellationException) throw error
+        android.widget.Toast.makeText(context, R.string.error_export_packet_details, android.widget.Toast.LENGTH_LONG).show()
     }
 }
 

@@ -326,13 +326,9 @@ private fun AgentModelInteractionMetrics(interaction: AgentModelInteraction) {
 @Composable
 private fun AgentModelTimingCard(interaction: AgentModelInteraction) {
     val timing = modelInteractionTimingBreakdown(interaction)
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    AnalyzerCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+            modifier = Modifier.padding(AnalyzerSpacing.CardPadding),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             AgentModelUsageRow(
@@ -353,22 +349,18 @@ private fun AgentModelTimingCard(interaction: AgentModelInteraction) {
 
 @Composable
 private fun AgentModelUsageCard(usage: AgentTokenUsage?) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    AnalyzerCard(modifier = Modifier.fillMaxWidth()) {
         if (usage == null) {
             Text(
                 text = stringResource(R.string.agent_model_interaction_usage_unavailable),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(10.dp)
+                modifier = Modifier.padding(AnalyzerSpacing.CardPadding)
             )
         } else {
             val breakdown = modelInteractionUsageBreakdown(usage)
             Column(
-                modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+                modifier = Modifier.padding(AnalyzerSpacing.CardPadding),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 AgentModelUsageRow(
@@ -628,8 +620,8 @@ private fun formatJson(value: Map<String, Any?>): String =
 @Composable
 private fun AgentCodeBlock(text: String, blockKey: String) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.small,
         modifier = Modifier.fillMaxWidth()
     ) {
         CollapsibleMonospaceBody(

@@ -14,6 +14,7 @@ import com.example.layanalyzer.model.ExpertInfoSummary
 import com.example.layanalyzer.model.FileSessionInfo
 import com.example.layanalyzer.model.FollowStreamResult
 import com.example.layanalyzer.model.PacketSearchMode
+import com.example.layanalyzer.model.PacketDetailSnapshot
 import com.example.layanalyzer.model.PacketSummary
 import com.example.layanalyzer.model.ProtocolNode
 import kotlinx.coroutines.CancellationException
@@ -24,6 +25,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +42,8 @@ import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap
+import java.util.UUID
 
 /** Raised by a synchronous JNI reader when its native cancel generation wins. */
 internal class NativeOperationCancelledException : CancellationException(
@@ -58,10 +63,18 @@ interface CaptureSessionDataSource {
     ): DisplayFilterResult
     fun validateDisplayFilter(filter: String): Result<Unit>
     fun cancelLongRunningOperations()
+    fun currentAnalysisRevision(): CaptureAnalysisRevision = CaptureAnalysisRevision()
+    fun configureTlsAnalysis(
+        lease: TlsAnalysisSecretLease?, expected: CaptureAnalysisRevision, filter: String,
+        checkCancelled: () -> Unit, progress: (Int, Int) -> Unit
+    ): TlsAnalysisResult = throw UnsupportedOperationException("TLS configuration unavailable.")
 }
 
 /** Read-only surface exposed to Agent analysis operations. */
 interface AgentReadSession {
+    /** Summary Info lacks per-value provenance; use a conservative content gate when keys are active. */
+    fun tlsDecryptionConfigured(): Boolean = false
+
     fun currentSessionHandle(): Long
     fun currentFile(): FileSessionInfo?
     fun getFrameCount(): Int
@@ -93,6 +106,20 @@ interface AgentReadSession {
     fun getFirstPacketTimestamp(): Double
 
     fun getPacketDetails(frameNumber: Long): ProtocolNode?
+
+    /**
+     * TLS-313: one frame's tree together with the data-source descriptors that
+     * belong to the *same* dissection, or null when this implementation cannot
+     * supply them.
+     *
+     * An Agent detail read uses this to learn which of a frame's fields came
+     * out of a decrypted TLS source, so the host content policy can exclude
+     * plaintext a keylog newly exposed.  Null means "unknown", and is never
+     * read as "no decrypted sources" — the caller falls back to the plain tree
+     * and the ordinary field table, which already drops credentials and
+     * payloads.
+     */
+    fun currentPacketDetailSnapshot(frameNumber: Long): PacketDetailSnapshot? = null
 
     /** Frame numbers matching a search, in frame order. */
     fun searchPacketFrames(mode: PacketSearchMode, query: String): List<Long>
@@ -128,7 +155,8 @@ data class ScopedPacketSummaryQuery(
 /** Identity captured while an open operation is being completed. */
 data class CaptureSessionToken(
     val sessionHandle: Long,
-    val sessionGeneration: Long
+    val sessionGeneration: Long,
+    val analysisConfigVersion: Int = 1
 ) {
     val generation: Long
         get() = sessionGeneration
@@ -181,7 +209,11 @@ data class CaptureSessionState(
      * cache key, so a configuration change invalidates every cached result for
      * this capture without the cache needing to know which setting moved.
      */
-    val analysisConfigVersion: Int = 1
+    val analysisConfigVersion: Int = 1,
+    val dissectionGeneration: Long = 0,
+    val secretsGeneration: Long = 0,
+    val analysisReconfiguring: Boolean = false,
+    val analysisCacheIdentity: String = ""
 ) {
     val hasSession: Boolean
         get() = sessionHandle != 0L
@@ -193,7 +225,7 @@ data class CaptureSessionState(
         get() = sessionGeneration
 
     val token: CaptureSessionToken
-        get() = CaptureSessionToken(sessionHandle, sessionGeneration)
+        get() = CaptureSessionToken(sessionHandle, sessionGeneration, analysisConfigVersion)
 }
 
 /** The saved native/UI state held by one temporary Agent filter lease. */
@@ -204,7 +236,8 @@ data class AgentFilterLease(
     val originalFilterRevision: Long,
     val originalVisibleFrameCount: Int,
     val temporaryDisplayFilter: String,
-    val startedAtMillis: Long
+    val startedAtMillis: Long,
+    val analysisConfigVersion: Int = 1
 ) {
     val originalFilter: String
         get() = originalDisplayFilter
@@ -262,6 +295,7 @@ class CaptureSessionCoordinator(
 ) {
     private val stateGuard = Any()
     private val filterMutex = Mutex()
+    private val activeReads = ConcurrentHashMap.newKeySet<Job>()
     private val _state = MutableStateFlow(CaptureSessionState())
     val state: StateFlow<CaptureSessionState> = _state.asStateFlow()
 
@@ -354,7 +388,7 @@ class CaptureSessionCoordinator(
     /** Calculate and publish the fingerprint only if the same Session remains current. */
     suspend fun prepareFingerprint(token: CaptureSessionToken, file: File): Result<String> {
         val before = state.value
-        if (!isCurrent(token) || before.fingerprintState != CaptureFingerprintState.Preparing) {
+        if (!isSameCapture(token) || before.fingerprintState != CaptureFingerprintState.Preparing) {
             return Result.failure(IllegalStateException("Capture session changed."))
         }
 
@@ -370,7 +404,7 @@ class CaptureSessionCoordinator(
                 details = mapOf("stage" to "fingerprint")
             )
             synchronized(stateGuard) {
-                if (isCurrentLocked(token)) {
+                if (isSameCapture(token)) {
                     _state.value = _state.value.copy(
                         fingerprintState = CaptureFingerprintState.Failed,
                         fingerprintError = safeError,
@@ -382,7 +416,7 @@ class CaptureSessionCoordinator(
         }
 
         synchronized(stateGuard) {
-            if (!isCurrentLocked(token)) {
+            if (!isSameCapture(token)) {
                 return Result.failure(IllegalStateException("Capture session changed."))
             }
             _state.value = _state.value.copy(
@@ -407,7 +441,10 @@ class CaptureSessionCoordinator(
      */
     fun bumpAnalysisConfigVersion(): Int = synchronized(stateGuard) {
         val next = _state.value.analysisConfigVersion + 1
-        _state.value = _state.value.copy(analysisConfigVersion = next)
+        _state.value = _state.value.copy(
+            analysisConfigVersion = next,
+            dissectionGeneration = dataSource.currentAnalysisRevision().dissectionGeneration
+        )
         next
     }
 
@@ -460,8 +497,91 @@ class CaptureSessionCoordinator(
     }
 
     /** Run a synchronous native session read away from Main. */
-    suspend fun <T> withNativeSession(block: suspend () -> T): T =
-        withContext(nativeDispatcher) { block() }
+    suspend fun <T> withNativeSession(block: suspend () -> T): T = trackedRead {
+        val expected = currentToken()
+        withContext(nativeDispatcher) {
+            filterMutex.withLock {
+                if (expected == null || !isCurrent(expected)) throw StaleCaptureAnalysisException()
+                val value = block()
+                if (!isCurrent(expected)) throw StaleCaptureAnalysisException()
+                value
+            }
+        }
+    }
+
+    private suspend fun <T> trackedRead(block: suspend () -> T): T {
+        val job = currentCoroutineContext()[Job]
+        if (job != null) activeReads.add(job)
+        try { return block() } finally { if (job != null) activeReads.remove(job) }
+    }
+
+    /** Transfers lease ownership; call outside every read/filter lease. No per-record resets. */
+    suspend fun configureTlsSecrets(
+        lease: TlsAnalysisSecretLease?,
+        expectedSession: CaptureSessionToken? = currentToken(),
+        expectedAnalysis: CaptureAnalysisRevision = dataSource.currentAnalysisRevision(),
+        progress: (Int, Int) -> Unit = { _, _ -> }
+    ): TlsAnalysisResult {
+        val caller = currentCoroutineContext()
+        activeReads.toList().filter { it !== caller[Job] }.forEach { it.cancel() }
+        dataSource.cancelLongRunningOperations()
+        // Cleanup and state publication cannot be dropped by withContext's prompt cancellation.
+        return withContext(NonCancellable + nativeDispatcher) {
+            filterMutex.withLock {
+                var transferred = false
+                try {
+                    caller.ensureActive()
+                    if (expectedSession == null || !isCurrent(expectedSession)) {
+                        lease?.close()
+                        return@withLock TlsAnalysisResult(false, dataSource.currentAnalysisRevision(), errorCode = "STALE_GENERATION")
+                    }
+                    val before = state.value
+                    synchronized(stateGuard) {
+                        _state.value = before.copy(
+                            analysisConfigVersion = before.analysisConfigVersion + 1,
+                            analysisReconfiguring = true,
+                            analysisCacheIdentity = UUID.randomUUID().toString()
+                        )
+                    }
+                    // No old Agent callback can restore a filter after the new configuration.
+                    dropPendingAgentLeaseWithoutRestore()
+                    transferred = true
+                    val result = dataSource.configureTlsAnalysis(
+                        lease, expectedAnalysis, before.appliedDisplayFilter,
+                        checkCancelled = {
+                            caller.ensureActive()
+                            if (state.value.sessionHandle != before.sessionHandle ||
+                                state.value.sessionGeneration != before.sessionGeneration) {
+                                throw StaleCaptureAnalysisException()
+                            }
+                        }, progress = progress
+                    )
+                    synchronized(stateGuard) {
+                        if (state.value.sessionHandle == before.sessionHandle &&
+                            state.value.sessionGeneration == before.sessionGeneration) {
+                            if (result.reopenRequired) invalidateSession() else {
+                                _state.value = _state.value.copy(
+                                    analysisReconfiguring = false,
+                                    dissectionGeneration = result.analysis.dissectionGeneration,
+                                    secretsGeneration = result.analysis.secretsGeneration,
+                                    visibleFrameCount = if (result.success) result.visibleFrameCount else before.visibleFrameCount,
+                                    filterRevision = before.filterRevision + 1
+                                )
+                            }
+                        }
+                    }
+                    result
+                } catch (error: Throwable) {
+                    if (!transferred) lease?.close()
+                    if (transferred && dataSource.currentSessionHandle() == 0L) invalidateSession()
+                    else synchronized(stateGuard) {
+                        _state.value = _state.value.copy(analysisReconfiguring = false)
+                    }
+                    throw error
+                }
+            }
+        }
+    }
 
     fun isCurrent(token: CaptureSessionToken): Boolean = synchronized(stateGuard) {
         isCurrentLocked(token)
@@ -610,112 +730,115 @@ class CaptureSessionCoordinator(
         owner: CaptureFilterOwner,
         checkSession: () -> AgentError?,
         block: suspend (AgentFilterLease) -> T
-    ): AgentAnalysisResult<T> = try {
-        withContext(nativeDispatcher) {
-            filterMutex.withLock {
-            _filterOwner.value = owner
-            var outcome: AgentAnalysisResult<T>? = null
-            var lease: AgentFilterLease? = null
-            var temporaryApplied = false
-            try {
-                val initialError = checkSession()
-                if (initialError != null) {
-                    outcome = AgentAnalysisResult.Failure(initialError)
-                } else {
-                    val current = state.value
-                    val normalized = temporaryFilter.trim()
-                    val newLease = AgentFilterLease(
-                        sessionHandle = current.sessionHandle,
-                        sessionGeneration = current.sessionGeneration,
-                        originalDisplayFilter = current.appliedDisplayFilter,
-                        originalFilterRevision = current.filterRevision,
-                        // The published state, not the live native count: in a
-                        // chain this lease is created while the native session
-                        // still shows the previous Agent filter, and the restore
-                        // is verified against the user's view the state holds.
-                        originalVisibleFrameCount = current.visibleFrameCount.coerceAtLeast(0),
-                        temporaryDisplayFilter = normalized,
-                        startedAtMillis = clock()
-                    )
-                    lease = newLease
-
-                    val validation = runCatching {
-                        dataSource.validateDisplayFilter(normalized)
-                    }.getOrElse { Result.failure(it) }
-                    val afterValidationError = checkSession()
-                    if (afterValidationError != null) {
-                        outcome = AgentAnalysisResult.Failure(afterValidationError)
-                    } else if (validation.isFailure) {
-                        outcome = AgentAnalysisResult.Failure(invalidFilterError())
+    ): AgentAnalysisResult<T> = trackedRead {
+        try {
+            withContext(nativeDispatcher) {
+                filterMutex.withLock {
+                _filterOwner.value = owner
+                var outcome: AgentAnalysisResult<T>? = null
+                var lease: AgentFilterLease? = null
+                var temporaryApplied = false
+                try {
+                    val initialError = checkSession()
+                    if (initialError != null) {
+                        outcome = AgentAnalysisResult.Failure(initialError)
                     } else {
-                        val applied = runCatching {
-                            dataSource.applyDisplayFilter(normalized, newLease.sessionHandle)
-                        }.getOrElse {
-                            DisplayFilterResult(false, safeVisibleCount(0), null)
-                        }
-                        val afterApplyError = checkSession()
-                        if (afterApplyError != null) {
-                            temporaryApplied = applied.success
-                            outcome = AgentAnalysisResult.Failure(afterApplyError)
-                        } else if (!applied.success) {
-                            // Syntax was already validated, so a failed apply is
-                            // a cancelled native scan, not a bad filter.
-                            outcome = AgentAnalysisResult.Failure(
-                                if (isCancelledApply(applied)) cancelledError() else invalidFilterError()
-                            )
+                        val current = state.value
+                        val normalized = temporaryFilter.trim()
+                        val newLease = AgentFilterLease(
+                            sessionHandle = current.sessionHandle,
+                            sessionGeneration = current.sessionGeneration,
+                            originalDisplayFilter = current.appliedDisplayFilter,
+                            originalFilterRevision = current.filterRevision,
+                            // The published state, not the live native count: in a
+                            // chain this lease is created while the native session
+                            // still shows the previous Agent filter, and the restore
+                            // is verified against the user's view the state holds.
+                            originalVisibleFrameCount = current.visibleFrameCount.coerceAtLeast(0),
+                            temporaryDisplayFilter = normalized,
+                            startedAtMillis = clock(),
+                            analysisConfigVersion = current.analysisConfigVersion
+                        )
+                        lease = newLease
+
+                        val validation = runCatching {
+                            dataSource.validateDisplayFilter(normalized)
+                        }.getOrElse { Result.failure(it) }
+                        val afterValidationError = checkSession()
+                        if (afterValidationError != null) {
+                            outcome = AgentAnalysisResult.Failure(afterValidationError)
+                        } else if (validation.isFailure) {
+                            outcome = AgentAnalysisResult.Failure(invalidFilterError())
                         } else {
-                            temporaryApplied = true
-                            outcome = try {
-                                val value = executeBounded(agentLeaseTimeoutMillis(current.frameCount)) {
-                                    block(newLease)
+                            val applied = runCatching {
+                                dataSource.applyDisplayFilter(normalized, newLease.sessionHandle)
+                            }.getOrElse {
+                                DisplayFilterResult(false, safeVisibleCount(0), null)
+                            }
+                            val afterApplyError = checkSession()
+                            if (afterApplyError != null) {
+                                temporaryApplied = applied.success
+                                outcome = AgentAnalysisResult.Failure(afterApplyError)
+                            } else if (!applied.success) {
+                                // Syntax was already validated, so a failed apply is
+                                // a cancelled native scan, not a bad filter.
+                                outcome = AgentAnalysisResult.Failure(
+                                    if (isCancelledApply(applied)) cancelledError() else invalidFilterError()
+                                )
+                            } else {
+                                temporaryApplied = true
+                                outcome = try {
+                                    val value = executeBounded(agentLeaseTimeoutMillis(current.frameCount)) {
+                                        block(newLease)
+                                    }
+                                    val afterError = checkSession()
+                                    if (afterError != null) {
+                                        AgentAnalysisResult.Failure(afterError)
+                                    } else {
+                                        AgentAnalysisResult.Success(value)
+                                    }
+                                } catch (_: TimeoutCancellationException) {
+                                    AgentAnalysisResult.Failure(timeoutError())
+                                } catch (_: LeaseTimeoutException) {
+                                    AgentAnalysisResult.Failure(timeoutError())
+                                } catch (_: CancellationException) {
+                                    AgentAnalysisResult.Failure(cancelledError())
+                                } catch (_: Throwable) {
+                                    AgentAnalysisResult.Failure(internalError())
                                 }
-                                val afterError = checkSession()
-                                if (afterError != null) {
-                                    AgentAnalysisResult.Failure(afterError)
-                                } else {
-                                    AgentAnalysisResult.Success(value)
-                                }
-                            } catch (_: TimeoutCancellationException) {
-                                AgentAnalysisResult.Failure(timeoutError())
-                            } catch (_: LeaseTimeoutException) {
-                                AgentAnalysisResult.Failure(timeoutError())
-                            } catch (_: CancellationException) {
-                                AgentAnalysisResult.Failure(cancelledError())
-                            } catch (_: Throwable) {
-                                AgentAnalysisResult.Failure(internalError())
                             }
                         }
                     }
-                }
-            } finally {
-                val leaseToRestore = lease
-                if (temporaryApplied && leaseToRestore != null) {
-                    if (agentChainDepth.get() > 0) {
-                        // An open chain keeps the temporary filter applied so
-                        // the next Agent read applies over it and the restore
-                        // scan runs once at chain end.  Overwriting a pending
-                        // lease is safe: Agent applies never touch the published
-                        // state, so every lease in a chain carries the same
-                        // original user view.
-                        pendingAgentLease = leaseToRestore
-                    } else {
-                        val restorationError = withContext(NonCancellable) {
-                            restoreLease(leaseToRestore)
-                        }
-                        if (restorationError != null) {
-                            outcome = AgentAnalysisResult.Failure(restorationError)
+                } finally {
+                    val leaseToRestore = lease
+                    if (temporaryApplied && leaseToRestore != null) {
+                        if (agentChainDepth.get() > 0) {
+                            // An open chain keeps the temporary filter applied so
+                            // the next Agent read applies over it and the restore
+                            // scan runs once at chain end.  Overwriting a pending
+                            // lease is safe: Agent applies never touch the published
+                            // state, so every lease in a chain carries the same
+                            // original user view.
+                            pendingAgentLease = leaseToRestore
+                        } else {
+                            val restorationError = withContext(NonCancellable) {
+                                restoreLease(leaseToRestore)
+                            }
+                            if (restorationError != null) {
+                                outcome = AgentAnalysisResult.Failure(restorationError)
+                            }
                         }
                     }
+                    _filterOwner.value = CaptureFilterOwner.None
                 }
-                _filterOwner.value = CaptureFilterOwner.None
+                outcome ?: AgentAnalysisResult.Failure(internalError())
+                }
             }
-            outcome ?: AgentAnalysisResult.Failure(internalError())
-            }
+        } catch (_: CancellationException) {
+            AgentAnalysisResult.Failure(cancelledError())
+        } catch (_: Throwable) {
+            AgentAnalysisResult.Failure(internalError())
         }
-    } catch (_: CancellationException) {
-        AgentAnalysisResult.Failure(cancelledError())
-    } catch (_: Throwable) {
-        AgentAnalysisResult.Failure(internalError())
     }
 
     /** Validate a snapshot without exposing the native repository. */
@@ -725,7 +848,9 @@ class CaptureSessionCoordinator(
         val expectedGeneration = snapshot.sessionGeneration.takeIf { it > 0L }
             ?: snapshot.generation
         if (current.sessionHandle != snapshot.sessionHandle ||
-            current.sessionGeneration != expectedGeneration
+            current.sessionGeneration != expectedGeneration || current.analysisReconfiguring ||
+            current.analysisConfigVersion != snapshot.analysisConfigVersion ||
+            current.analysisCacheIdentity != snapshot.analysisCacheIdentity
         ) {
             return sessionChangedError()
         }
@@ -750,7 +875,8 @@ class CaptureSessionCoordinator(
         val current = state.value
         if (!current.hasSession ||
             current.sessionHandle != lease.sessionHandle ||
-            current.sessionGeneration != lease.sessionGeneration
+            current.sessionGeneration != lease.sessionGeneration ||
+            current.analysisConfigVersion != lease.analysisConfigVersion
         ) {
             return sessionChangedError()
         }
@@ -788,7 +914,8 @@ class CaptureSessionCoordinator(
         }
         val actualFilter = runCatching { dataSource.getAppliedDisplayFilter().trim() }.getOrDefault("")
         val actualCount = runCatching { dataSource.getVisibleFrameCount() }.getOrDefault(-1)
-        val stillCurrent = isCurrent(CaptureSessionToken(lease.sessionHandle, lease.sessionGeneration))
+        val token = CaptureSessionToken(lease.sessionHandle, lease.sessionGeneration, lease.analysisConfigVersion)
+        val stillCurrent = isCurrent(token)
         if (!stillCurrent) return sessionChangedError()
 
         if (restored == null || !restored!!.success ||
@@ -800,7 +927,7 @@ class CaptureSessionCoordinator(
         }
 
         synchronized(stateGuard) {
-            if (isCurrentLocked(CaptureSessionToken(lease.sessionHandle, lease.sessionGeneration))) {
+            if (isCurrentLocked(token)) {
                 _state.value = _state.value.copy(visibleFrameCount = actualCount)
             }
         }
@@ -914,10 +1041,16 @@ class CaptureSessionCoordinator(
     private fun safeVisibleCount(fallback: Int): Int =
         runCatching { dataSource.getVisibleFrameCount() }.getOrDefault(fallback)
 
+    private fun isSameCapture(token: CaptureSessionToken): Boolean =
+        state.value.sessionHandle == token.sessionHandle &&
+            state.value.sessionGeneration == token.sessionGeneration && state.value.hasSession
+
     private fun isCurrentLocked(token: CaptureSessionToken): Boolean =
         _state.value.hasSession &&
             _state.value.sessionHandle == token.sessionHandle &&
-            _state.value.sessionGeneration == token.sessionGeneration
+            _state.value.sessionGeneration == token.sessionGeneration &&
+            _state.value.analysisConfigVersion == token.analysisConfigVersion &&
+            !_state.value.analysisReconfiguring
 
     private fun identityFor(path: String): String =
         runCatching { File(path).canonicalFile.absolutePath }

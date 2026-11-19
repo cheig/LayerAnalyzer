@@ -1,0 +1,13 @@
+# Manifest hashes describe exact bytes, including golden LF and NSS keylog endings.
+manifest.json text eol=lf
+tls12-h1/* -text whitespace=cr-at-eol
+tls13-h1/* -text whitespace=cr-at-eol
+tls13-h2/* -text whitespace=cr-at-eol
+tls12-h2/* -text whitespace=cr-at-eol
+tls13-chacha-h1/* -text whitespace=cr-at-eol
+tls13-chacha-h2/* -text whitespace=cr-at-eol
+tls13-hrr-h1/* -text whitespace=cr-at-eol
+tls13-keyupdate-h1/* -text whitespace=cr-at-eol
+*/*.pcap binary
+*/capture.pcap binary
+*/golden-body.bin binary

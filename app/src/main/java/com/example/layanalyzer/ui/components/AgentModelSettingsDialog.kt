@@ -31,8 +31,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -342,17 +340,14 @@ private fun AgentProviderRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(Modifier.padding(10.dp)) {
+    AnalyzerListItem(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AnalyzerSpacing.CardPadding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column {
                         Text(provider.name, style = MaterialTheme.typography.titleSmall)
                         if (selected) {
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.height(4.dp))
                             Text(
                                 stringResource(R.string.agent_current_model),
                                 style = MaterialTheme.typography.labelSmall,

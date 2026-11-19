@@ -1,7 +1,7 @@
 # Android runtime license review
 
-The reviewed `releaseRuntimeClasspath` contains **123 components**, of which
-**94 have JAR/AAR artifacts**. The other 29 are BOMs or multiplatform metadata
+The reviewed `releaseRuntimeClasspath` contains **126 components**, of which
+**96 have JAR/AAR artifacts**. The other 30 are BOMs or multiplatform metadata
 redirects. [dependency-licenses.json](dependency-licenses.json) records the exact
 coordinates, artifact SHA-256 values, license identifiers, and version-specific
 POM/source evidence. The complete coordinate table is also in
@@ -48,7 +48,49 @@ fast_float and fast_double_parser implementations. OkHttp's Public Suffix List
 notice is copied unchanged; the MPL license is not replaced by OkHttp's Apache
 license.
 
+## TLS-406 runtime inventory refresh (2026-10-16)
+
+The real release resolution had advanced beyond the old 123-component review.
+This review follows the existing build; no dependency version was changed.
+42 current coordinates needed new version evidence: annotation-experimental
+1.4.1, collection 1.4.4, Compose 1.7.5/BOM 2024.10.01, Material3 1.3.1,
+graphics-path 1.0.1 and lifecycle-runtime-compose 2.8.7. All exact POMs declare
+Apache-2.0. The 22 artifact-bearing coordinates also have source-JAR evidence;
+collection-ktx's source JAR is intentionally empty (manifest only). Source
+copyright statements, including 2024 AOSP and JetBrains notices, are retained
+in `Android-runtime-NOTICES.txt` and both main notice documents. Files named
+`Copyright.kt` are Material icons, not extra license texts; no separate NOTICE
+was found in these source JARs. Complete Apache-2.0 remains bundled.
+
+The graphics-path AAR also contains `libandroidx.graphics.path.so`, which was
+already packaged before TLS-406. Native C++ review uses revision
+`8a05a22af450d589ef911d772a001a49dcb05b71` linked by the official 1.0.1
+release notes, rather than a moving branch. All implementation headers use
+Apache-2.0, including AOSP/Filament math attributions; the CMake file and export
+map have no separate notice. The manifest records exact POM/source-JAR and
+native-source hashes. This is an upstream AAR, not another Wireshark prebuilt
+or a new local native fork. No bit-identical native reconstruction is claimed.
+
 ## Native notice corrections
+
+TLS-201 adds an optional Go **1.27.2** runtime/standard-library binary,
+`liblayanalyzer_tls.so`, outside the Gradle JVM classpath inventory above.
+Its pinned toolchain archives and hashes are in
+[`native_go/tlsbridge/toolchain-lock.json`](../native_go/tlsbridge/toolchain-lock.json).
+The official toolchain's BSD-3-Clause `LICENSE` is copied unchanged to
+`app/src/main/assets/licenses/Go.txt` and is available in the existing offline
+license reader. There are no third-party Go module dependencies or copied
+proxy implementations. TLS builds default ON; the notice may remain present
+in OFF APKs. TLS-406 also retains the unmodified Go `PATENTS` as
+`Go-PATENTS.txt`; both assets are now hash-checked in the reviewed manifest.
+Go's internal vendored `golang.org/x/{crypto,net,sys,text}` versions and
+identical BSD/patent texts are checked against
+`native_go/tlsbridge/dependencies.json`. They belong to the Go distribution,
+outside Gradle's 126-component inventory. Exact source/host archive checksums,
+an independent rebuild, and source-to-artifact provenance are described in
+[the TLS rebuild guide](../native_go/tlsbridge/REBUILD.md).
+`tools/check_runtime_licenses.py` also checks the TLS source inventory and fails
+when an unreviewed module, vendor tree or license change is introduced.
 
 The existing GPL/LGPL, commonmark BSD, and native license texts remain intact.
 The following supplemental notices are included in the same offline reader:

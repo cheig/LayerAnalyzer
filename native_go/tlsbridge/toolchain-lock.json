@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "goVersion": "go1.27.2",
+  "stable": true,
+  "source": "https://go.dev/dl/?mode=json",
+  "checkedAtDate": "2026-10-12",
+  "goToolchainPolicy": "local; exact version enforced by build_tls_engine.py and build_tls_bridge.sh; module network disabled in production builds",
+  "androidNdkVersion": "27.0.12077973",
+  "clangVersion": "18.0.1",
+  "androidApi": 26,
+  "archives": [
+    {
+      "url": "https://go.dev/dl/go1.27.2.src.tar.gz",
+      "sha256": "03495da2ba64894d40f5c4992e49454fa78b50690604ff92b6afff5081b76e62",
+      "bytes": 35134614,
+      "localValidation": "downloaded and SHA-256/byte-count verified 2026-10-16; source archive not used to bootstrap the Go compiler"
+    },
+    {
+      "url": "https://go.dev/dl/go1.27.2.windows-amd64.zip",
+      "sha256": "1314008898bd40df77af4b014f777f08873dbdfbcd3d92308728ee03304fe04f",
+      "bytes": 79008081,
+      "localValidation": "downloaded, SHA-256 verified, installed and executed"
+    },
+    {
+      "url": "https://go.dev/dl/go1.27.2.linux-amd64.tar.gz",
+      "sha256": "ecbadb99091a3f46e31f5f934b068b1864eafa7995211b39eaddf76996045fe5",
+      "bytes": 70590635,
+      "localValidation": "official metadata only; not downloaded or executed"
+    }
+  ]
+}

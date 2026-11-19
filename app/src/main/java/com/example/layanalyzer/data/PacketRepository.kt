@@ -4,6 +4,7 @@
 
 package com.example.layanalyzer.data
 
+import android.util.Log
 import com.example.layanalyzer.NativeEngine
 import com.example.layanalyzer.model.CaptureStatistics
 import com.example.layanalyzer.model.ConversationStat
@@ -34,9 +35,19 @@ import com.example.layanalyzer.model.PacketSearchMode
 import com.example.layanalyzer.model.PacketLengthBucket
 import com.example.layanalyzer.model.PacketLengthStats
 import com.example.layanalyzer.model.PacketFollowFilters
+import com.example.layanalyzer.model.PacketTlsFollowAction
+import com.example.layanalyzer.model.TlsFollowResult
+import com.example.layanalyzer.model.TlsFollowExportResult
+import com.example.layanalyzer.model.TLS_FOLLOW_EXPORT_LIMIT
+import com.example.layanalyzer.model.TLS_FOLLOW_PREVIEW_LIMIT
 import com.example.layanalyzer.model.PacketSummary
 import com.example.layanalyzer.model.ProtocolStat
 import com.example.layanalyzer.model.ProtocolNode
+import com.example.layanalyzer.model.PacketDataSnapshotRef
+import com.example.layanalyzer.model.PacketDataSourceChunk
+import com.example.layanalyzer.model.PacketDataSourceDescriptor
+import com.example.layanalyzer.model.PacketDataSourceException
+import com.example.layanalyzer.model.PacketDetailSnapshot
 import com.example.layanalyzer.model.ProtocolSummaryItem
 import com.example.layanalyzer.model.RequestResponseTransaction
 import com.example.layanalyzer.model.SummaryCacheStats
@@ -50,9 +61,97 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/** Diagnostics for the TLS plaintext observation: counts and verdicts, never payload. */
+private const val TLS_OBSERVATION_TAG = "LayAnalyzer-TLS"
+
 class PacketRepository(
     private val rtpMediaCacheProvider: () -> RtpMediaCache? = { null }
 ) : CaptureSessionDataSource, AgentReadSession, PacketPageReader {
+    private val analysisGate = CaptureAnalysisGate()
+    var artifactLifecycle: CaptureArtifactLifecycle? = null
+    private var analysisFileUse: AutoCloseable? = null
+    private var ownedAnalysisFile: File? = null
+    /** Invalidation stream for details, paging, Follow, HTTP objects and TLS-313 AI caches. */
+    val analysisRevisions = analysisGate.revisions
+    override fun currentAnalysisRevision(): CaptureAnalysisRevision = analysisRevisions.value
+    fun isAnalysisCurrent(expected: CaptureAnalysisRevision): Boolean =
+        expected == analysisRevisions.value && expected.ready
+
+    /** Keep the source and its generation alive until derived bytes finish writing. */
+    fun <T> withCaptureExport(expected: CaptureAnalysisRevision, block: () -> T): T = analysisGate.read {
+        check(isAnalysisCurrent(expected)) { "Analysis changed before export." }
+        block()
+    }
+
+    private val tlsTransaction = TlsAnalysisTransaction(analysisGate, object : TlsAnalysisBackend {
+        // One tally for the whole scan: per-frame counts folded into per-connection
+        // totals, so a log line describes the analysis and not its first hit.
+        private val plaintext = TlsPlaintextTally()
+        private var countersResetNanos = 0L
+        override fun configure(path: String?, revision: Long) = NativeTlsConfiguration.parse(
+            NativeEngine.configureTlsSecrets(sessionPtr, path, revision)
+        )
+        override fun frameCount(): Int = NativeEngine.getFrameCount(sessionPtr)
+        override fun dissectFrame(packetIndex: Int): Boolean {
+            // P2-2: the scan still dissects every frame, in order -- that pass is what
+            // rebuilds the cross-frame reassembly state a later single-frame read needs,
+            // so frames must never be skipped once plaintext has been seen. What it no
+            // longer does is serialise each frame's protocol tree and then ask a second
+            // time which data sources it produced: one probe per frame answers both.
+            //
+            // P2-3: every frame is classified, including the ones after the first hit.
+            // Stopping there made the counters a single frame's worth and left the scan
+            // unable to say how many connections decrypted or under which version.
+            val probe = NativePlaintextProbe.parse(
+                NativeEngine.probeTlsPlaintext(sessionPtr, packetIndex)
+            ) ?: return false
+            // The frame's own data sources decide, never a configured keylog, a protocol
+            // label or successful HTTP dissection.
+            plaintext.record(probe)
+            return true
+        }
+        override fun plaintextStats(): TlsPlaintextStats {
+            val stats = plaintext.stats()
+            // One line per analysis: counts, the verdict and how long the scan took, so
+            // an unlit flag can be attributed to native (zero decrypted connections) or to
+            // the UI wiring, and a slow scan is visible without a profiler. Counts and the
+            // verdict only -- never a label, offset, byte or path.
+            val elapsedMs = if (countersResetNanos == 0L) 0L
+                else (System.nanoTime() - countersResetNanos) / 1_000_000L
+            Log.i(TLS_OBSERVATION_TAG, "tls observation frames=${stats.scannedFrames} " +
+                "decryptedConnections=${stats.connections} tls13=${stats.tls13Connections} " +
+                "tls12=${stats.tls12Connections} other=${stats.otherConnections} " +
+                "decryptedRecords=${stats.decryptedRecords} " +
+                "decryptedBytes=${stats.decryptedBytes} observed=${stats.observed} " +
+                "ms=$elapsedMs")
+            return stats
+        }
+        override fun restoreFilter(filter: String): Int {
+            val result = applyDisplayFilter(filter, sessionPtr)
+            check(result.success)
+            return result.filteredCount
+        }
+        override fun closeSession() = closeNativeSession()
+        override fun onClosed() {
+            analysisFileUse?.close()
+            analysisFileUse = null
+            ownedAnalysisFile?.let { artifactLifecycle?.analysisClosed(it) }
+            ownedAnalysisFile = null
+        }
+        override fun invalidateCaches() {
+            plaintext.reset()
+            // The scan reports how long it ran; the counters and the clock start together.
+            countersResetNanos = System.nanoTime()
+            // Native configure/reset clears summaries, scoped queries and HTTP objects.
+            if (sessionPtr != 0L) rtpMediaCacheProvider()?.deleteSession(sessionPtr)
+        }
+    })
+
+    override fun configureTlsAnalysis(
+        lease: TlsAnalysisSecretLease?, expected: CaptureAnalysisRevision, filter: String,
+        checkCancelled: () -> Unit, progress: (Int, Int) -> Unit
+    ): TlsAnalysisResult = tlsTransaction.configure(lease, expected, filter, checkCancelled, progress)
+
     @Volatile
     private var sessionPtr: Long = 0
     @Volatile
@@ -62,26 +161,35 @@ class PacketRepository(
     private var activeDisplayFilter: String = ""
     private val appliedDecodeAsEntries = mutableSetOf<Pair<String, Int>>()
 
-    @Synchronized
     fun openFile(
         path: String,
         displayName: String = File(path).name,
         sizeBytes: Long = File(path).length(),
         onProgress: ((framesIndexed: Int, bytesRead: Long, totalBytes: Long) -> Boolean)? = null
-    ): Result<FileSessionInfo> {
+    ): Result<FileSessionInfo> = analysisGate.exclusive {
         closeFile()
-
-        val ptr = NativeEngine.openFile(path) { framesIndexed, bytesRead, totalBytes ->
-            onProgress?.invoke(framesIndexed, bytesRead, totalBytes) ?: true
+        val use = CaptureFileAccess.retain(File(path))
+        val ptr = try {
+            NativeEngine.openFile(path) { framesIndexed, bytesRead, totalBytes ->
+                onProgress?.invoke(framesIndexed, bytesRead, totalBytes) ?: true
+            }
+        } catch (error: Throwable) {
+            use.close()
+            artifactLifecycle?.analysisClosed(File(path))
+            throw error
         }
 
         if (ptr == 0L) {
+            use.close()
+            artifactLifecycle?.analysisClosed(File(path))
             return Result.failure(
                 IllegalStateException(NativeEngine.getLastError().ifBlank { "Failed to open capture file." })
             )
         }
 
         sessionPtr = ptr
+        analysisFileUse = use
+        ownedAnalysisFile = File(path)
         val info = FileSessionInfo(
             displayName = displayName,
             sizeBytes = sizeBytes,
@@ -93,11 +201,16 @@ class PacketRepository(
         currentFile = info
         activeDisplayFilter = ""
         firstPacketTimestamp = getRawPacketSummaries(0, 1).firstOrNull()?.time?.toDoubleOrNull() ?: 0.0
+        tlsTransaction.opened(ptr)
         return Result.success(info)
     }
 
-    @Synchronized
     fun closeFile() {
+        NativeEngine.cancelLongRunningOperations()
+        tlsTransaction.close()
+    }
+
+    private fun closeNativeSession() {
         // Cancellation is lock-free on the native side. Signal it before
         // closeFile waits for the session lifetime write lock.
         NativeEngine.cancelLongRunningOperations()
@@ -125,75 +238,86 @@ class PacketRepository(
         if (sessionPtr != 0L) NativeEngine.cancelSearch(sessionPtr)
     }
 
-    override fun getFrameCount(): Int = if (sessionPtr == 0L) 0 else NativeEngine.getFrameCount(sessionPtr)
+    override fun getFrameCount(): Int = analysisGate.read { if (sessionPtr == 0L) 0 else NativeEngine.getFrameCount(sessionPtr) }
 
-    override fun getVisibleFrameCount(): Int = if (sessionPtr == 0L) 0 else NativeEngine.getFilteredFrameCount(sessionPtr)
+    override fun getVisibleFrameCount(): Int = analysisGate.read { if (sessionPtr == 0L) 0 else NativeEngine.getFilteredFrameCount(sessionPtr) }
 
     override fun getAppliedDisplayFilter(): String = activeDisplayFilter
 
     fun getVisiblePacketSummary(index: Int): PacketSummary? {
-        if (index !in 0 until getVisibleFrameCount()) return null
-        return getPacketSummaries(index, 1).firstOrNull()
+        return analysisGate.read {
+            if (index !in 0 until getVisibleFrameCount()) return@read null
+            return@read getPacketSummaries(index, 1).firstOrNull()
+        }
     }
 
     fun findVisibleFramePosition(frameNumber: Long): Int? {
-        var low = 0
-        var high = getVisibleFrameCount() - 1
-        while (low <= high) {
-            val middle = low + (high - low) / 2
-            val middleFrame = getVisiblePacketSummary(middle)?.frameNumber ?: return null
-            when {
-                middleFrame < frameNumber -> low = middle + 1
-                middleFrame > frameNumber -> high = middle - 1
-                else -> return middle
+        return analysisGate.read {
+            var low = 0
+            var high = getVisibleFrameCount() - 1
+            while (low <= high) {
+                val middle = low + (high - low) / 2
+                val middleFrame = getVisiblePacketSummary(middle)?.frameNumber ?: return@read null
+                when {
+                    middleFrame < frameNumber -> low = middle + 1
+                    middleFrame > frameNumber -> high = middle - 1
+                    else -> return@read middle
+                }
             }
+            return@read null
         }
-        return null
     }
 
     override fun getPacketSummaries(start: Int, count: Int): List<PacketSummary> {
-        if (timeDisplayFormat == TimeDisplayFormat.Delta) {
-            val rawStart = (start - 1).coerceAtLeast(0)
-            val raw = getRawPacketSummaries(rawStart, count + if (start > 0) 1 else 0)
-            return raw.drop(if (start > 0) 1 else 0).mapIndexed { index, summary ->
-                val rawIndex = index + if (start > 0) 1 else 0
-                val timestamp = summary.time.toDoubleOrNull() ?: 0.0
-                val previous = raw.getOrNull(rawIndex - 1)?.time?.toDoubleOrNull() ?: timestamp
-                summary.copy(time = String.format(Locale.US, "+%.6f", timestamp - previous))
+        return analysisGate.read {
+            if (timeDisplayFormat == TimeDisplayFormat.Delta) {
+                val rawStart = (start - 1).coerceAtLeast(0)
+                val raw = getRawPacketSummaries(rawStart, count + if (start > 0) 1 else 0)
+                return@read raw.drop(if (start > 0) 1 else 0).mapIndexed { index, summary ->
+                    val rawIndex = index + if (start > 0) 1 else 0
+                    val timestamp = summary.time.toDoubleOrNull() ?: 0.0
+                    val previous = raw.getOrNull(rawIndex - 1)?.time?.toDoubleOrNull() ?: timestamp
+                    summary.copy(time = String.format(Locale.US, "+%.6f", timestamp - previous))
+                }
             }
-        }
-        return getRawPacketSummaries(start, count).map { summary ->
-            summary.copy(time = formatPacketTime(summary.time.toDoubleOrNull() ?: 0.0))
+            return@read getRawPacketSummaries(start, count).map { summary ->
+                summary.copy(time = formatPacketTime(summary.time.toDoubleOrNull() ?: 0.0))
+            }
         }
     }
 
     fun getSummaryCacheStats(): SummaryCacheStats {
-        if (sessionPtr == 0L) return SummaryCacheStats()
-        val json = JSONObject(NativeEngine.getSummaryCacheStats(sessionPtr))
-        return SummaryCacheStats(
-            frames = json.optInt("frames", 0),
-            valid = json.optInt("valid", 0),
-            hits = json.optLong("hits", 0L),
-            misses = json.optLong("misses", 0L)
-        )
+        return analysisGate.read {
+            if (sessionPtr == 0L) return@read SummaryCacheStats()
+            val json = JSONObject(NativeEngine.getSummaryCacheStats(sessionPtr))
+            return@read SummaryCacheStats(
+                frames = json.optInt("frames", 0),
+                valid = json.optInt("valid", 0),
+                hits = json.optLong("hits", 0L),
+                misses = json.optLong("misses", 0L)
+            )
+        }
     }
 
     override fun getFirstPacketTimestamp(): Double = firstPacketTimestamp
 
-    override fun getRawPacketSummaries(start: Int, count: Int): List<PacketSummary> {        if (sessionPtr == 0L || start < 0 || count <= 0) return emptyList()
-        val coreSummaries = NativeEngine.getPacketSummaries(sessionPtr, start, count)
-        return coreSummaries.map { core ->
-            PacketSummary(
-                frameNumber = core.num.toLong(),
-                time = String.format(Locale.US, "%.6f", core.time),
-                source = core.source,
-                destination = core.destination,
-                protocol = core.protocol,
-                length = core.length,
-                sourcePort = core.sourcePort.takeIf { it >= 0 },
-                destinationPort = core.destinationPort.takeIf { it >= 0 },
-                info = core.info
-            )
+    override fun getRawPacketSummaries(start: Int, count: Int): List<PacketSummary> {
+        return analysisGate.read {
+            if (sessionPtr == 0L || start < 0 || count <= 0) return@read emptyList()
+            val coreSummaries = NativeEngine.getPacketSummaries(sessionPtr, start, count)
+            return@read coreSummaries.map { core ->
+                PacketSummary(
+                    frameNumber = core.num.toLong(),
+                    time = String.format(Locale.US, "%.6f", core.time),
+                    source = core.source,
+                    destination = core.destination,
+                    protocol = core.protocol,
+                    length = core.length,
+                    sourcePort = core.sourcePort.takeIf { it >= 0 },
+                    destinationPort = core.destinationPort.takeIf { it >= 0 },
+                    info = core.info
+                )
+            }
         }
     }
 
@@ -208,18 +332,20 @@ class PacketRepository(
         start: Int,
         count: Int
     ): ScopedPacketSummaryQuery? {
-        if (sessionPtr == 0L || start < 0 || count <= 0) return null
-        val boundedCount = count.coerceIn(1, 100)
-        val response = runCatching {
-            NativeEngine.queryPacketSummaries(
-                sessionPtr = sessionPtr,
-                displayFilter = filter.trim(),
-                start = start,
-                count = boundedCount
-            )
-        }.getOrNull() ?: return null
-        return runCatching { parseScopedPacketSummaryQuery(JSONObject(response), start) }
-            .getOrNull()
+        return analysisGate.read {
+            if (sessionPtr == 0L || start < 0 || count <= 0) return@read null
+            val boundedCount = count.coerceIn(1, 100)
+            val response = runCatching {
+                NativeEngine.queryPacketSummaries(
+                    sessionPtr = sessionPtr,
+                    displayFilter = filter.trim(),
+                    start = start,
+                    count = boundedCount
+                )
+            }.getOrNull() ?: return@read null
+            return@read runCatching { parseScopedPacketSummaryQuery(JSONObject(response), start) }
+                .getOrNull()
+        }
     }
 
     /** Kept internal so the Native/Kotlin JSON contract can be tested without JNI. */
@@ -272,79 +398,171 @@ class PacketRepository(
     }
 
     override fun getPacketDetails(frameNumber: Long): ProtocolNode? {
-        if (sessionPtr == 0L) return null
-        val index = (frameNumber - 1).toInt()
-        val jsonString = NativeEngine.getPacketDetails(sessionPtr, index)
-        if (jsonString.isEmpty()) return null
+        return analysisGate.read {
+            if (sessionPtr == 0L) return@read null
+            val index = packetIndex(frameNumber)
+            val jsonString = NativeEngine.getPacketDetails(sessionPtr, index)
+            if (jsonString.isEmpty()) return@read null
 
-        return try {
-            parseProtocolNode(JSONObject(jsonString))
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    fun getPacketFollowFilters(frameNumber: Long): PacketFollowFilters {
-        val root = getPacketDetails(frameNumber)
-            ?: throw IllegalStateException("Packet details are not available.")
-        return PacketFollowFilters(
-            sipCall = root.findDisplayFilter("sip.Call-ID"),
-            udpStream = root.findDisplayFilter("udp.stream"),
-            tcpStream = root.findDisplayFilter("tcp.stream")
-        )
-    }
-
-    fun getPacketBytes(frameNumber: Long): ByteArray {
-        if (sessionPtr == 0L) return ByteArray(0)
-        return NativeEngine.getPacketBytes(sessionPtr, (frameNumber - 1).toInt())
-    }
-
-    fun getHttpObjects(): List<HttpObjectEntry> {
-        if (sessionPtr == 0L) throw IllegalStateException("No capture is open.")
-        val json = JSONObject(NativeEngine.getHttpObjects(sessionPtr))
-        json.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
-        val objects = json.optJSONArray("objects") ?: return emptyList()
-        return buildList {
-            for (index in 0 until objects.length()) {
-                val item = objects.getJSONObject(index)
-                add(
-                    HttpObjectEntry(
-                        id = item.optInt("id", index),
-                        frameNumber = item.optLong("frameNumber"),
-                        hostname = item.optString("hostname"),
-                        contentType = item.optString("contentType")
-                            .substringBefore(';')
-                            .trim()
-                            .ifBlank { "application/octet-stream" },
-                        filename = item.optString("filename")
-                            .ifBlank { "http-object-${item.optLong("frameNumber")}-${index + 1}" },
-                        size = item.optLong("size")
-                    )
-                )
+            return@read try {
+                val json = JSONObject(jsonString)
+                // JNI returns an empty object when the frame cannot be dissected.
+                if (json.length() == 0) null else parseProtocolNode(json)
+            } catch (e: Exception) {
+                null
             }
         }
     }
 
-    fun getHttpObjectPayload(objectId: Int): ByteArray {
-        if (sessionPtr == 0L) throw IllegalStateException("No capture is open.")
-        return NativeEngine.getHttpObjectPayload(sessionPtr, objectId)
+    /**
+     * TLS-313: the frame's tree and data sources from one dissection, or null
+     * when the snapshot cannot be produced.  A stale or unavailable analysis is
+     * "unknown", not "no decrypted sources", so the caller falls back to the
+     * plain tree and the ordinary field policy.
+     */
+    override fun currentPacketDetailSnapshot(frameNumber: Long): PacketDetailSnapshot? =
+        try {
+            getPacketDetailSnapshot(frameNumber)
+        } catch (_: StaleCaptureAnalysisException) {
+            null
+        } catch (_: PacketDataSourceException) {
+            null
+        } catch (_: IllegalStateException) {
+            null
+        }
+
+    override fun tlsDecryptionConfigured(): Boolean = currentAnalysisRevision().configured
+
+    /** Tree and descriptors always refer to the same dissection. No implicit range recovery here. */
+    fun getPacketDetailSnapshot(
+        frameNumber: Long,
+        expectedAnalysis: CaptureAnalysisRevision = currentAnalysisRevision()
+    ): PacketDetailSnapshot = analysisGate.read {
+        if (!isAnalysisCurrent(expectedAnalysis)) throw StaleCaptureAnalysisException()
+        // Other readers may evict between the two JNI calls. Retry the entire detail once.
+        repeat(2) { attempt ->
+            try {
+                val json = try { JSONObject(NativeEngine.getPacketDetails(sessionPtr, packetIndex(frameNumber))) }
+                catch (_: Exception) { throw PacketDataSourceException("INVALID_RESPONSE") }
+                if (json.length() == 0) throw PacketDataSourceException("NOT_READY")
+                val snapshot = PacketDataSourceParser.detailRef(json, frameNumber, expectedAnalysis.dissectionGeneration)
+                val sources = snapshot?.let { getPacketDataSources(it, expectedAnalysis) }.orEmpty()
+                return@read PacketDetailSnapshot(frameNumber, parseProtocolNode(json), snapshot, sources)
+            } catch (e: PacketDataSourceException) {
+                if (e.errorCode != "STALE_GENERATION" || attempt != 0) throw e
+            }
+        }
+        throw PacketDataSourceException("STALE_GENERATION")
     }
 
-    @Synchronized
+    fun getPacketDataSources(
+        snapshot: PacketDataSnapshotRef, expectedAnalysis: CaptureAnalysisRevision
+    ): List<PacketDataSourceDescriptor> = analysisGate.read {
+        checkDataSnapshot(snapshot, expectedAnalysis)
+        PacketDataSourceParser.sources(
+            NativeEngine.getPacketDataSources(sessionPtr, snapshot.snapshotId, snapshot.dissectionGeneration), snapshot
+        )
+    }
+
+    fun readPacketDataSource(
+        snapshot: PacketDataSnapshotRef, source: PacketDataSourceDescriptor, offset: Int, length: Int,
+        expectedAnalysis: CaptureAnalysisRevision
+    ): PacketDataSourceChunk = analysisGate.read {
+        checkDataSnapshot(snapshot, expectedAnalysis)
+        PacketDataSourceParser.validateRange(source, offset, length)
+        PacketDataSourceParser.chunk(
+            NativeEngine.readPacketDataSource(
+                sessionPtr, snapshot.snapshotId, source.id, offset, length, snapshot.dissectionGeneration
+            ), snapshot, source, offset, length
+        )
+    }
+
+    private fun checkDataSnapshot(snapshot: PacketDataSnapshotRef, expected: CaptureAnalysisRevision) {
+        if (!isAnalysisCurrent(expected)) throw StaleCaptureAnalysisException()
+        if (snapshot.dissectionGeneration != expected.dissectionGeneration) {
+            throw PacketDataSourceException("STALE_GENERATION")
+        }
+    }
+
+    /** User frame numbers are 1-based; callers never convert before entering the repository. */
+    internal fun packetIndex(frameNumber: Long): Int {
+        require(frameNumber in 1..Int.MAX_VALUE.toLong()) { "Invalid frame number." }
+        return (frameNumber - 1).toInt()
+    }
+
+    fun getPacketFollowFilters(frameNumber: Long): PacketFollowFilters {
+        return analysisGate.read {
+            val root = getPacketDetails(frameNumber)
+                ?: throw IllegalStateException("Packet details are not available.")
+            return@read PacketFollowFilters(
+                sipCall = root.findDisplayFilter("sip.Call-ID"),
+                udpStream = root.findDisplayFilter("udp.stream"),
+                tcpStream = root.findDisplayFilter("tcp.stream")
+            )
+        }
+    }
+
+    fun getPacketBytes(frameNumber: Long): ByteArray {
+        return analysisGate.read {
+            if (sessionPtr == 0L) return@read ByteArray(0)
+            return@read NativeEngine.getPacketBytes(sessionPtr, packetIndex(frameNumber))
+        }
+    }
+
+    fun getHttpObjects(): List<HttpObjectEntry> {
+        return analysisGate.read {
+            if (sessionPtr == 0L) throw IllegalStateException("No capture is open.")
+            val json = JSONObject(NativeEngine.getHttpObjects(sessionPtr))
+            json.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+            val objects = json.optJSONArray("objects") ?: return@read emptyList()
+            return@read buildList {
+                for (index in 0 until objects.length()) {
+                    val item = objects.getJSONObject(index)
+                    add(
+                        HttpObjectEntry(
+                            id = item.optInt("id", index),
+                            frameNumber = item.optLong("frameNumber"),
+                            hostname = item.optString("hostname"),
+                            contentType = item.optString("contentType")
+                                .substringBefore(';')
+                                .trim()
+                                .ifBlank { "application/octet-stream" },
+                            filename = item.optString("filename")
+                                .ifBlank { "http-object-${item.optLong("frameNumber")}-${index + 1}" },
+                            size = item.optLong("size")
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun getHttpObjectPayload(
+        objectId: Int,
+        expectedAnalysis: CaptureAnalysisRevision = currentAnalysisRevision()
+    ): ByteArray {
+        return analysisGate.read {
+            if (!isAnalysisCurrent(expectedAnalysis)) throw StaleCaptureAnalysisException()
+            if (sessionPtr == 0L) throw IllegalStateException("No capture is open.")
+            return@read NativeEngine.getHttpObjectPayload(sessionPtr, objectId)
+        }
+    }
+
     override fun applyDisplayFilter(
         filter: String,
         expectedSessionHandle: Long
     ): DisplayFilterResult {
-        if (sessionPtr == 0L || sessionPtr != expectedSessionHandle) {
-            return DisplayFilterResult(success = false, filteredCount = 0, error = "No capture is open.")
+        return analysisGate.read {
+            if (sessionPtr == 0L || sessionPtr != expectedSessionHandle) {
+                return@read DisplayFilterResult(success = false, filteredCount = 0, error = "No capture is open.")
+            }
+            val json = JSONObject(NativeEngine.applyDisplayFilter(sessionPtr, filter.trim()))
+            val success = json.optBoolean("success", false)
+            val error = json.optString("error").ifBlank { null }
+            val count = json.optInt("count", getVisibleFrameCount())
+            if (success) activeDisplayFilter = filter.trim()
+            return@read DisplayFilterResult(success = success, filteredCount = count, error = error)
         }
-        val json = JSONObject(NativeEngine.applyDisplayFilter(sessionPtr, filter.trim()))
-        val success = json.optBoolean("success", false)
-        val error = json.optString("error").ifBlank { null }
-        val count = json.optInt("count", getVisibleFrameCount())
-        if (success) activeDisplayFilter = filter.trim()
-        return DisplayFilterResult(success = success, filteredCount = count, error = error)
     }
 
     /** Backward-compatible entry point for non-coordinated legacy callers. */
@@ -352,74 +570,141 @@ class PacketRepository(
         applyDisplayFilter(filter, sessionPtr)
 
     override fun validateDisplayFilter(filter: String): Result<Unit> {
-        if (sessionPtr == 0L) return Result.failure(IllegalStateException("No capture is open."))
-        val json = JSONObject(NativeEngine.validateDisplayFilter(sessionPtr, filter.trim()))
-        return if (json.optBoolean("success", false)) {
-            Result.success(Unit)
-        } else {
-            Result.failure(IllegalArgumentException(json.optString("error").ifBlank { "Invalid display filter." }))
+        return analysisGate.read {
+            if (sessionPtr == 0L) return@read Result.failure(IllegalStateException("No capture is open."))
+            val json = JSONObject(NativeEngine.validateDisplayFilter(sessionPtr, filter.trim()))
+            return@read if (json.optBoolean("success", false)) {
+                Result.success(Unit)
+            } else {
+                Result.failure(IllegalArgumentException(json.optString("error").ifBlank { "Invalid display filter." }))
+            }
         }
     }
 
     fun searchPackets(mode: PacketSearchMode, query: String): List<Long> {
-        if (sessionPtr == 0L || query.isBlank()) return emptyList()
-        return NativeEngine.searchPackets(sessionPtr, mode.nativeName, query.trim()).map { it.toLong() }
+        return analysisGate.read {
+            if (sessionPtr == 0L || query.isBlank()) return@read emptyList()
+            return@read NativeEngine.searchPackets(sessionPtr, mode.nativeName, query.trim()).map { it.toLong() }
+        }
     }
 
     override fun searchPacketFrames(mode: PacketSearchMode, query: String): List<Long> =
         searchPackets(mode, query)
 
     override fun getExpertInfoSummary(): ExpertInfoSummary {
-        if (sessionPtr == 0L) return ExpertInfoSummary()
-        val json = JSONObject(NativeEngine.getExpertInfoSummary(sessionPtr))
-        val items = json.optJSONArray("items").toExpertItems()
-        return ExpertInfoSummary(
-            warningPackets = json.optInt("warnings", 0),
-            errorPackets = json.optInt("errors", 0),
-            items = items,
-            totalItems = json.optInt("totalItems", items.size),
-            truncated = json.optBoolean("truncated", false)
+        return analysisGate.read {
+            if (sessionPtr == 0L) return@read ExpertInfoSummary()
+            val json = JSONObject(NativeEngine.getExpertInfoSummary(sessionPtr))
+            val items = json.optJSONArray("items").toExpertItems()
+            return@read ExpertInfoSummary(
+                warningPackets = json.optInt("warnings", 0),
+                errorPackets = json.optInt("errors", 0),
+                items = items,
+                totalItems = json.optInt("totalItems", items.size),
+                truncated = json.optBoolean("truncated", false)
+            )
+        }
+    }
+
+    /**
+     * Explicit plaintext access for the TLS UI. Not part of AgentReadSession.
+     * Run on IO; cancel through cancelLongRunningOperations, then reject late results
+     * with isAnalysisCurrent(expectedAnalysis) before publishing them to a UI.
+     */
+    fun followTlsStream(
+        frameNumber: Long,
+        expectedAnalysis: CaptureAnalysisRevision,
+        maxBytes: Int = TLS_FOLLOW_PREVIEW_LIMIT
+    ): TlsFollowResult = analysisGate.read {
+        if (!isAnalysisCurrent(expectedAnalysis)) throw StaleCaptureAnalysisException()
+        TlsFollowParser.validateRequest(expectedAnalysis.dissectionGeneration, maxBytes)
+        val result = TlsFollowParser.parse(
+            NativeEngine.followTlsStream(sessionPtr, packetIndex(frameNumber),
+                expectedAnalysis.dissectionGeneration, maxBytes),
+            expectedAnalysis.dissectionGeneration, maxBytes
         )
+        if (!isAnalysisCurrent(expectedAnalysis)) throw StaleCaptureAnalysisException()
+        result
+    }
+
+    /**
+     * A one-byte probe validates the connection and actual follower readiness, including
+     * when an ACK/response contains no TLS tree. It still scans complete context on IO.
+     * Do not retain that preview or equate configured secrets with decrypted data.
+     */
+    fun getPacketTlsFollowAction(
+        frameNumber: Long, expectedAnalysis: CaptureAnalysisRevision
+    ): PacketTlsFollowAction {
+        val preview = followTlsStream(frameNumber, expectedAnalysis, maxBytes = 1)
+        return try { PacketTlsFollowAction.fromResult(preview) }
+        finally { preview.records.forEach { it.bytes.fill(0) } }
+    }
+
+    /**
+     * TLS-308: bounded full-stream export. Runs under the same analysis read gate as
+     * [followTlsStream] so the session/generation lease is held for the whole native write, and
+     * rejects a changed analysis before and after. It never grows the preview's JSON budget: the
+     * native side streams the plaintext to [outputPath] in bounded chunks and, on cancellation or
+     * failure, removes the partial file. Call on IO; on a thrown [TlsFollowException] or a failed
+     * result the caller must not keep [outputPath].
+     */
+    fun exportTlsFollowStream(
+        frameNumber: Long,
+        expectedAnalysis: CaptureAnalysisRevision,
+        outputPath: String
+    ): TlsFollowExportResult = analysisGate.read {
+        if (!isAnalysisCurrent(expectedAnalysis)) throw StaleCaptureAnalysisException()
+        val result = TlsFollowParser.parseExport(
+            NativeEngine.exportTlsFollowStream(sessionPtr, packetIndex(frameNumber),
+                expectedAnalysis.dissectionGeneration, outputPath, TLS_FOLLOW_EXPORT_LIMIT),
+            expectedAnalysis.dissectionGeneration, TLS_FOLLOW_EXPORT_LIMIT
+        )
+        if (!isAnalysisCurrent(expectedAnalysis)) throw StaleCaptureAnalysisException()
+        result
     }
 
     override fun followStream(frameNumber: Long, protocol: String): FollowStreamResult {
-        if (sessionPtr == 0L) {
-            return FollowStreamResult(protocol = protocol, streamId = -1, records = emptyList(), error = "No capture is open.")
-        }
-        val json = JSONObject(NativeEngine.followStream(sessionPtr, (frameNumber - 1).toInt(), protocol.lowercase()))
-        val recordsJson = json.optJSONArray("records")
-        val records = buildList {
-            if (recordsJson != null) {
-                for (i in 0 until recordsJson.length()) {
-                    val item = recordsJson.getJSONObject(i)
-                    add(
-                        FollowStreamRecord(
-                            frameNumber = item.optLong("frameNumber"),
-                            direction = item.optString("direction"),
-                            source = item.optString("source"),
-                            destination = item.optString("destination"),
-                            length = item.optInt("length"),
-                            payload = item.optBoolean("payload", false),
-                            text = item.optString("text", item.optString("ascii")),
-                            ascii = item.optString("ascii"),
-                            hex = item.optString("hex")
+        return analysisGate.read {
+            if (sessionPtr == 0L) {
+                return@read FollowStreamResult(protocol = protocol, streamId = -1, records = emptyList(), error = "No capture is open.")
+            }
+            val json = JSONObject(NativeEngine.followStream(sessionPtr, (frameNumber - 1).toInt(), protocol.lowercase()))
+            val recordsJson = json.optJSONArray("records")
+            val records = buildList {
+                if (recordsJson != null) {
+                    for (i in 0 until recordsJson.length()) {
+                        val item = recordsJson.getJSONObject(i)
+                        add(
+                            FollowStreamRecord(
+                                frameNumber = item.optLong("frameNumber"),
+                                direction = item.optString("direction"),
+                                source = item.optString("source"),
+                                destination = item.optString("destination"),
+                                length = item.optInt("length"),
+                                payload = item.optBoolean("payload", false),
+                                text = item.optString("text", item.optString("ascii")),
+                                ascii = item.optString("ascii"),
+                                hex = item.optString("hex")
+                            )
                         )
-                    )
+                    }
                 }
             }
+            return@read FollowStreamResult(
+                protocol = json.optString("protocol", protocol),
+                streamId = json.optInt("streamId", -1),
+                records = records,
+                scope = json.optString("scope", "current filtered packet set"),
+                directionKnown = json.optBoolean("directionKnown", false),
+                error = json.optString("error").ifBlank { null }
+            )
         }
-        return FollowStreamResult(
-            protocol = json.optString("protocol", protocol),
-            streamId = json.optInt("streamId", -1),
-            records = records,
-            scope = json.optString("scope", "current filtered packet set"),
-            directionKnown = json.optBoolean("directionKnown", false),
-            error = json.optString("error").ifBlank { null }
-        )
     }
 
     fun setNameResolutionEnabled(enabled: Boolean) {
-        if (sessionPtr != 0L) NativeEngine.setNameResolutionEnabled(sessionPtr, enabled)
+        return tlsTransaction.changeDissectionSettings {
+            if (sessionPtr != 0L) NativeEngine.setNameResolutionEnabled(sessionPtr, enabled)
+        }
     }
 
     /**
@@ -429,12 +714,14 @@ class PacketRepository(
      * process-wide native setting, so it must not be keyed on [sessionPtr].
      */
     fun setRtpHeuristicEnabled(enabled: Boolean): RtpHeuristicResult {
-        val root = runCatching { JSONObject(NativeEngine.setRtpHeuristicEnabled(enabled)) }.getOrNull()
-            ?: return RtpHeuristicResult(enabled = enabled, error = "Malformed RTP heuristic response.")
-        return RtpHeuristicResult(
-            enabled = root.optBoolean("enabled", enabled),
-            error = root.optString("error", "")
-        )
+        return tlsTransaction.changeDissectionSettings {
+            val root = runCatching { JSONObject(NativeEngine.setRtpHeuristicEnabled(enabled)) }.getOrNull()
+                ?: return@changeDissectionSettings RtpHeuristicResult(enabled = enabled, error = "Malformed RTP heuristic response.")
+            return@changeDissectionSettings RtpHeuristicResult(
+                enabled = root.optBoolean("enabled", enabled),
+                error = root.optString("error", "")
+            )
+        }
     }
 
     /**
@@ -446,22 +733,24 @@ class PacketRepository(
      * setting, so the reply — not the request — decides the effective state.
      */
     fun setEspDecryptionMode(mode: EspDecryptionMode): EspDecryptionResult {
-        val root = runCatching {
-            JSONObject(NativeEngine.setEspDecryptionMode(sessionPtr, mode.nativeValue))
-        }.getOrNull() ?: return EspDecryptionResult(
-            mode = mode,
-            enabled = false,
-            decoded = false,
-            framesScanned = 0,
-            error = "Malformed ESP decryption response."
-        )
-        return EspDecryptionResult(
-            mode = mode,
-            enabled = root.optBoolean("enabled", false),
-            decoded = root.optBoolean("decoded", false),
-            framesScanned = root.optInt("framesScanned", 0),
-            error = root.optString("error", "")
-        )
+        return tlsTransaction.changeDissectionSettings {
+            val root = runCatching {
+                JSONObject(NativeEngine.setEspDecryptionMode(sessionPtr, mode.nativeValue))
+            }.getOrNull() ?: return@changeDissectionSettings EspDecryptionResult(
+                mode = mode,
+                enabled = false,
+                decoded = false,
+                framesScanned = 0,
+                error = "Malformed ESP decryption response."
+            )
+            return@changeDissectionSettings EspDecryptionResult(
+                mode = mode,
+                enabled = root.optBoolean("enabled", false),
+                decoded = root.optBoolean("decoded", false),
+                framesScanned = root.optInt("framesScanned", 0),
+                error = root.optString("error", "")
+            )
+        }
     }
 
     @Synchronized
@@ -469,25 +758,27 @@ class PacketRepository(
         rule: DecodeAsRule,
         expectedSessionHandle: Long = sessionPtr
     ): DisplayFilterResult {
-        if (sessionPtr == 0L || sessionPtr != expectedSessionHandle) {
-            return DisplayFilterResult(success = false, filteredCount = 0, error = "No capture is open.")
-        }
-        if (rule.protocol.isBlank() || rule.ports.isEmpty()) {
-            return DisplayFilterResult(success = false, filteredCount = getVisibleFrameCount(), error = "Protocol and port are required.")
-        }
-
-        for (port in rule.ports) {
-            val json = JSONObject(NativeEngine.applyDecodeAs(sessionPtr, rule.transport.nativeTable, port, rule.protocol.trim()))
-            if (!json.optBoolean("success", false)) {
-                return DisplayFilterResult(
-                    success = false,
-                    filteredCount = getVisibleFrameCount(),
-                    error = json.optString("error").ifBlank { "Unable to apply Decode As rule." }
-                )
+        return tlsTransaction.changeDissectionSettings {
+            if (sessionPtr == 0L || sessionPtr != expectedSessionHandle) {
+                return@changeDissectionSettings DisplayFilterResult(success = false, filteredCount = 0, error = "No capture is open.")
             }
-            appliedDecodeAsEntries += rule.transport.nativeTable to port
+            if (rule.protocol.isBlank() || rule.ports.isEmpty()) {
+                return@changeDissectionSettings DisplayFilterResult(success = false, filteredCount = getVisibleFrameCount(), error = "Protocol and port are required.")
+            }
+
+            for (port in rule.ports) {
+                val json = JSONObject(NativeEngine.applyDecodeAs(sessionPtr, rule.transport.nativeTable, port, rule.protocol.trim()))
+                if (!json.optBoolean("success", false)) {
+                    return@changeDissectionSettings DisplayFilterResult(
+                        success = false,
+                        filteredCount = getVisibleFrameCount(),
+                        error = json.optString("error").ifBlank { "Unable to apply Decode As rule." }
+                    )
+                }
+                appliedDecodeAsEntries += rule.transport.nativeTable to port
+            }
+            return@changeDissectionSettings DisplayFilterResult(success = true, filteredCount = getVisibleFrameCount())
         }
-        return DisplayFilterResult(success = true, filteredCount = getVisibleFrameCount())
     }
 
     @Synchronized
@@ -495,59 +786,69 @@ class PacketRepository(
         rule: DecodeAsRule,
         expectedSessionHandle: Long = sessionPtr
     ) {
-        if (sessionPtr == 0L || sessionPtr != expectedSessionHandle) return
-        rule.ports.forEach { port ->
-            NativeEngine.resetDecodeAs(sessionPtr, rule.transport.nativeTable, port)
-            appliedDecodeAsEntries -= rule.transport.nativeTable to port
+        return tlsTransaction.changeDissectionSettings {
+            if (sessionPtr == 0L || sessionPtr != expectedSessionHandle) return@changeDissectionSettings
+            rule.ports.forEach { port ->
+                NativeEngine.resetDecodeAs(sessionPtr, rule.transport.nativeTable, port)
+                appliedDecodeAsEntries -= rule.transport.nativeTable to port
+            }
         }
     }
 
     fun exportPacketDetailsText(frameNumber: Long, output: OutputStream) {
-        val root = getPacketDetails(frameNumber) ?: throw IllegalStateException("Packet details are not available.")
-        output.writer(Charsets.UTF_8).use { writer ->
-            writer.appendLine("Packet $frameNumber")
-            writer.appendLine()
-            renderProtocolNode(root, writer::appendLine)
+        return analysisGate.read {
+            val root = getPacketDetails(frameNumber) ?: throw IllegalStateException("Packet details are not available.")
+            output.writer(Charsets.UTF_8).use { writer ->
+                writer.appendLine("Packet $frameNumber")
+                writer.appendLine()
+                renderProtocolNode(root, writer::appendLine)
+            }
         }
     }
 
     fun exportPacketBytesHex(frameNumber: Long, range: IntRange?, output: OutputStream) {
-        val bytes = getPacketBytes(frameNumber).selectedRange(range)
-        output.writer(Charsets.UTF_8).use { writer ->
-            var offset = range?.first?.coerceAtLeast(0) ?: 0
-            bytes.asIterable().chunked(16).forEach { row ->
-                val hex = row.joinToString(" ") { "%02X".format(it.toInt() and 0xff) }
-                val ascii = row.joinToString("") { byte ->
-                    val value = byte.toInt() and 0xff
-                    if (value in 32..126) value.toChar().toString() else "."
+        return analysisGate.read {
+            val bytes = getPacketBytes(frameNumber).selectedRange(range)
+            output.writer(Charsets.UTF_8).use { writer ->
+                var offset = range?.first?.coerceAtLeast(0) ?: 0
+                bytes.asIterable().chunked(16).forEach { row ->
+                    val hex = row.joinToString(" ") { "%02X".format(it.toInt() and 0xff) }
+                    val ascii = row.joinToString("") { byte ->
+                        val value = byte.toInt() and 0xff
+                        if (value in 32..126) value.toChar().toString() else "."
+                    }
+                    writer.appendLine("%08X  %-47s  %s".format(offset, hex, ascii))
+                    offset += row.size
                 }
-                writer.appendLine("%08X  %-47s  %s".format(offset, hex, ascii))
-                offset += row.size
             }
         }
     }
 
     fun exportFilteredCapture(outputFile: File) {
-        if (sessionPtr == 0L) throw IllegalStateException("No capture is open.")
-        val result = JSONObject(NativeEngine.exportVisibleCapture(sessionPtr, outputFile.absolutePath))
-        if (!result.optBoolean("success", false)) {
-            throw IllegalStateException(result.optString("error").ifBlank { "Unable to export capture." })
+        return analysisGate.read {
+            if (sessionPtr == 0L) throw IllegalStateException("No capture is open.")
+            val result = JSONObject(NativeEngine.exportVisibleCapture(sessionPtr, outputFile.absolutePath))
+            if (!result.optBoolean("success", false)) {
+                throw IllegalStateException(result.optString("error").ifBlank { "Unable to export capture." })
+            }
         }
     }
 
     override fun buildCaptureStatistics(bucketSeconds: Double): CaptureStatistics {
-        if (sessionPtr == 0L) return CaptureStatistics()
-        val json = JSONObject(NativeEngine.buildStatistics(sessionPtr, bucketSeconds.coerceAtLeast(0.001)))
-        if (json.optBoolean("cancelled", false)) {
-            throw NativeOperationCancelledException()
+        return analysisGate.read {
+            if (sessionPtr == 0L) return@read CaptureStatistics()
+            val json = JSONObject(NativeEngine.buildStatistics(sessionPtr, bucketSeconds.coerceAtLeast(0.001)))
+            if (json.optBoolean("cancelled", false)) {
+                throw NativeOperationCancelledException()
+            }
+            json.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+            val statistics = parseCaptureStatistics(json)
+            val transactions = buildRequestResponseTransactions(loadVisibleSummaries())
+            return@read statistics.copy(
+                dnsTransactions = transactions.first,
+                httpTransactions = transactions.second
+            )
         }
-        json.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
-        val statistics = parseCaptureStatistics(json)
-        val transactions = buildRequestResponseTransactions(loadVisibleSummaries())
-        return statistics.copy(
-            dnsTransactions = transactions.first,
-            httpTransactions = transactions.second
-        )
     }
 
     fun buildCaptureStatistics(): CaptureStatistics = buildCaptureStatistics(1.0)
@@ -558,18 +859,22 @@ class PacketRepository(
      * 一次性写到 [outputDir]。返回 native 结果 JSON；失败时 success=false。
      */
     fun exportPerfResults(outputDir: String): String {
-        if (sessionPtr == 0L) return """{"success":false,"error":"No capture is open."}"""
-        return NativeEngine.exportPerfResults(sessionPtr, outputDir)
+        return analysisGate.read {
+            if (sessionPtr == 0L) return@read """{"success":false,"error":"No capture is open."}"""
+            return@read NativeEngine.exportPerfResults(sessionPtr, outputDir)
+        }
     }
 
     override fun buildCommunicationAnalysis(): CommunicationAnalysis {
-        if (sessionPtr == 0L) return CommunicationAnalysis()
-        val json = JSONObject(NativeEngine.buildCommunicationAnalysis(sessionPtr))
-        if (json.optBoolean("cancelled", false)) {
-            throw NativeOperationCancelledException()
+        return analysisGate.read {
+            if (sessionPtr == 0L) return@read CommunicationAnalysis()
+            val json = JSONObject(NativeEngine.buildCommunicationAnalysis(sessionPtr))
+            if (json.optBoolean("cancelled", false)) {
+                throw NativeOperationCancelledException()
+            }
+            json.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+            return@read parseCommunicationAnalysis(json)
         }
-        json.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
-        return parseCommunicationAnalysis(json)
     }
 
     /** Kept internal so the Native/Kotlin contract can be verified without JNI. */
@@ -792,6 +1097,17 @@ class PacketRepository(
         val severity = json.optString("severity", "none")
         val generated = json.optBoolean("generated", false)
         val hidden = json.optBoolean("hidden", false)
+        val sourceId = (json.opt("dataSourceId") as? String)?.takeIf { it.matches(Regex("[a-z0-9-]{1,96}")) }
+        // Old JSON has no source identity. Only explicitly confirmed raw offsets retain
+        // legacy selection; missing derived metadata must never infer raw from a position.
+        val confirmedOffset = if (json.has("offsetValid")) json.opt("offsetValid") == true else sourceId == "raw"
+        fun validOffsetNumber(key: String): Boolean {
+            val number = json.opt(key)
+            return (number is Int || number is Long) && (number as Number).toLong() in 0..Int.MAX_VALUE.toLong()
+        }
+        val offsetValid = confirmedOffset && sourceId != null && !generated &&
+            validOffsetNumber("start") && validOffsetNumber("length") && start >= 0 && length > 0 &&
+            start.toLong() + length <= Int.MAX_VALUE
 
         val childrenJson = json.optJSONArray("children")
         val children = mutableListOf<ProtocolNode>()
@@ -811,7 +1127,10 @@ class PacketRepository(
             severity = severity,
             generated = generated,
             hidden = hidden,
-            children = children
+            children = children,
+            fieldType = json.optString("type").takeIf { it.isNotBlank() },
+            dataSourceId = sourceId,
+            offsetValid = offsetValid
         )
     }
 

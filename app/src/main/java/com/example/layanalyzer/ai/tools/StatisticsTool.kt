@@ -40,6 +40,7 @@ class StatisticsTool(
 
     override val definition = AgentToolDefinition(
         name = "get_statistics",
+        version = "2",
         description = "Capture statistics: protocol hierarchy, conversations, endpoints, " +
             "I/O graph over time, packet lengths, and TCP/DNS/TLS/HTTP metrics. Request only the sections " +
             "you need. Conversations and endpoints are ranked by bytes descending.",
@@ -107,8 +108,12 @@ class StatisticsTool(
         }
         context.ensureStillValid(context.snapshot)
 
+        val tlsConfigured = when (val state = context.repository.tlsDecryptionConfigured(context.snapshot)) {
+            is AgentAnalysisResult.Failure -> throw AgentToolException(state.error)
+            is AgentAnalysisResult.Success -> state.value
+        }
         val projection = withContext(ioDispatcher) {
-            project(statistics, sections, topN)
+            project(statistics, sections, topN, tlsConfigured)
         }
 
         val data = buildMap<String, Any?> {
@@ -151,7 +156,8 @@ class StatisticsTool(
     private fun project(
         statistics: CaptureStatistics,
         sections: Set<AgentStatisticsSection>,
-        topN: Int
+        topN: Int,
+        tlsConfigured: Boolean
     ): Projection {
         val data = mutableMapOf<String, Any?>()
         var returned = 0
@@ -201,22 +207,22 @@ class StatisticsTool(
         }
 
         if (AgentStatisticsSection.Tcp in sections) {
-            val metrics = AgentStatisticsProjections.tcp(statistics, topN)
+            val metrics = AgentStatisticsProjections.tcp(statistics, topN, tlsConfigured)
             data["tcp"] = metrics.toAgentJson()
             recordList(metrics.events.size, statistics.tcpSummaryTotal)
         }
         if (AgentStatisticsSection.Dns in sections) {
-            val metrics = AgentStatisticsProjections.dns(statistics, topN)
+            val metrics = AgentStatisticsProjections.dns(statistics, topN, tlsConfigured)
             data["dns"] = metrics.toAgentJson()
             recordList(metrics.events.size, statistics.dnsSummaryTotal)
         }
         if (AgentStatisticsSection.Tls in sections) {
-            val metrics = AgentStatisticsProjections.tls(statistics, topN)
+            val metrics = AgentStatisticsProjections.tls(statistics, topN, tlsConfigured)
             data["tls"] = metrics.toAgentJson()
             recordList(metrics.events.size, statistics.tlsSummaryTotal)
         }
         if (AgentStatisticsSection.Http in sections) {
-            val metrics = AgentStatisticsProjections.http(statistics, topN)
+            val metrics = AgentStatisticsProjections.http(statistics, topN, tlsConfigured)
             data["http"] = metrics.toAgentJson()
             recordList(metrics.events.size, statistics.httpSummaryTotal)
         }

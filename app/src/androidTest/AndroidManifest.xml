@@ -1,0 +1,19 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:networkSecurityConfig="@xml/tls402_client_security">
+        <!-- Separate test-APK process: its own debug user-CA policy, never the main APK's. -->
+        <activity android:name="com.example.layanalyzer.Tls402ClientActivity" android:exported="true" />
+        <activity android:name="com.example.layanalyzer.Tls311GrantActivity" android:exported="true" />
+        <!-- Only in the test APK; contains synthetic TLS-311 fixtures, never user documents. -->
+        <provider
+            android:name="com.example.layanalyzer.Tls311DocumentsProvider"
+            android:authorities="com.layeranalyzer.tls311.test.documents"
+            android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS"
+            android:grantUriPermissions="true">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+    </application>
+</manifest>

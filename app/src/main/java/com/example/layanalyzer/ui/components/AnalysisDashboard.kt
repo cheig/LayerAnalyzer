@@ -7,30 +7,35 @@ package com.example.layanalyzer.ui.components
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +43,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,13 +88,22 @@ fun AnalysisDashboard(
         if (summary.error != null) {
             Text(summary.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            summary.cards.forEach { card ->
-                HealthCardView(card, onPacketClick, onApplyFilter)
+        if (summary.cards.isNotEmpty()) {
+            AnalyzerCard(Modifier.fillMaxWidth()) {
+                Row(Modifier.horizontalScroll(rememberScrollState()).height(IntrinsicSize.Min)) {
+                    summary.cards.forEachIndexed { index, card ->
+                        if (index > 0) {
+                            VerticalDivider(
+                                modifier = Modifier.fillMaxHeight().padding(vertical = AnalyzerSpacing.CardPadding),
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+                        HealthCardView(card, onPacketClick, onApplyFilter)
+                    }
+                }
             }
-            if (summary.cards.isEmpty() && summary.isLoading) {
-                Text(stringResource(R.string.analyzing), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp))
-            }
+        } else if (summary.isLoading) {
+            Text(stringResource(R.string.analyzing), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp))
         }
         if (templates.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
@@ -145,29 +158,75 @@ fun AnalysisDashboard(
 @Composable
 private fun HealthCardView(card: HealthCard, onPacketClick: (Long) -> Unit, onApplyFilter: (String) -> Unit) {
     val color = when (card.severity) {
-        HealthSeverity.Error -> MaterialTheme.colorScheme.errorContainer
-        HealthSeverity.Warning -> MaterialTheme.colorScheme.tertiaryContainer
-        HealthSeverity.Notice -> MaterialTheme.colorScheme.secondaryContainer
-        HealthSeverity.Healthy -> MaterialTheme.colorScheme.surfaceVariant
+        HealthSeverity.Error -> MaterialTheme.colorScheme.error
+        HealthSeverity.Warning -> MaterialTheme.colorScheme.tertiary
+        HealthSeverity.Notice -> MaterialTheme.colorScheme.onSurfaceVariant
+        HealthSeverity.Healthy -> MaterialTheme.colorScheme.primary
     }
-    Card(
-        modifier = Modifier.width(172.dp),
-        shape = RoundedCornerShape(6.dp),
-        colors = CardDefaults.cardColors(containerColor = color),
-        onClick = { card.frameNumber?.let(onPacketClick) }
+    val icon = when (card.severity) {
+        HealthSeverity.Error -> Icons.Default.ErrorOutline
+        HealthSeverity.Warning -> Icons.Default.WarningAmber
+        HealthSeverity.Notice -> Icons.Default.Info
+        HealthSeverity.Healthy -> Icons.Default.CheckCircleOutline
+    }
+    val status = stringResource(
+        when (card.severity) {
+            HealthSeverity.Error -> R.string.agent_severity_error
+            HealthSeverity.Warning -> R.string.agent_severity_warning
+            HealthSeverity.Notice -> R.string.agent_severity_notice
+            HealthSeverity.Healthy -> R.string.health_no_issues
+        }
+    )
+    Column(
+        modifier = Modifier.width(192.dp).padding(AnalyzerSpacing.CardPadding),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(Modifier.padding(10.dp)) {
-            Text(card.title, style = MaterialTheme.typography.labelLarge)
-            Text(card.value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(card.detail, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (card.truncated) {
-                Text(stringResource(R.string.result_truncated, card.returned, card.total), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (card.frameNumber != null) {
-                Button(onClick = { onPacketClick(card.frameNumber) }, modifier = Modifier.padding(top = 4.dp)) { Text(stringResource(R.string.view_frame, card.frameNumber)) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(icon, contentDescription = status, tint = color, modifier = Modifier.size(18.dp))
+            Text(
+                card.title,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(card.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
+        Text(
+            card.detail,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (card.truncated) {
+            Text(
+                stringResource(R.string.result_truncated, card.returned, card.total),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.tertiary
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            card.frameNumber?.let { frame ->
+                TextButton(onClick = { onPacketClick(frame) }, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.view_frame, frame))
+                }
             }
             card.filter?.let { filter ->
-                AssistChip(onClick = { onApplyFilter(filter) }, label = { Text(stringResource(R.string.generate_filter)) })
+                if (card.frameNumber == null) {
+                    TextButton(onClick = { onApplyFilter(filter) }) {
+                        Text(stringResource(R.string.generate_filter))
+                    }
+                } else {
+                    IconButton(onClick = { onApplyFilter(filter) }) {
+                        Icon(
+                            Icons.Default.FilterAlt,
+                            contentDescription = stringResource(R.string.generate_filter),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         }
     }

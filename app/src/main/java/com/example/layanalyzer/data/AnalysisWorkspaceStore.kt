@@ -30,7 +30,8 @@ class AnalysisWorkspaceStore(
     }
 
     fun clear(fingerprint: String) {
-        preferences.edit().remove(key(fingerprint)).apply()
+        if (!preferences.edit().remove(key(fingerprint)).commit())
+            throw com.example.layanalyzer.capture.tls.TlsAssetException(com.example.layanalyzer.capture.tls.TlsAssetErrorCode.IO_ERROR)
     }
 
     private fun key(fingerprint: String) = "workspace_$fingerprint"

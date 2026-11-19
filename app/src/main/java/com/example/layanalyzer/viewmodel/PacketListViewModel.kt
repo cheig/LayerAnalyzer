@@ -9,11 +9,33 @@ import android.content.Intent
 import android.net.Uri
 import android.os.StatFs
 import android.provider.OpenableColumns
+import android.provider.DocumentsContract
+import com.example.layanalyzer.data.TlsCaptureBundle
+import com.example.layanalyzer.data.TlsCaptureExportKind
+import com.example.layanalyzer.data.TlsRawCaptureWriter
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlin.coroutines.coroutineContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.layanalyzer.BuildConfig
 import com.example.layanalyzer.capture.LiveCaptureStore
 import com.example.layanalyzer.capture.LiveCaptureVpnService
+import com.example.layanalyzer.capture.LiveCaptureSettingsStore
+import com.example.layanalyzer.capture.SharedPreferencesCaptureSettingsPersistence
+import com.example.layanalyzer.capture.TlsInterceptionPolicy
+import com.example.layanalyzer.capture.TlsModeChangePolicy
+import com.example.layanalyzer.capture.TlsStartBlockReason
+import com.example.layanalyzer.capture.TlsStartFacts
+import com.example.layanalyzer.capture.TlsStartGate
+import com.example.layanalyzer.capture.TlsStartReadiness
+import com.example.layanalyzer.capture.tls.TlsCaState
+import com.example.layanalyzer.capture.tls.TlsCertificateManager
+import com.example.layanalyzer.capture.tls.TlsCaManagerHolder
+import com.example.layanalyzer.capture.tls.TlsConnectionPreviewStore
+import com.example.layanalyzer.capture.tls.TlsConnectionSnapshot
 import com.example.layanalyzer.R
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -23,6 +45,21 @@ import androidx.annotation.StringRes
 import com.example.layanalyzer.data.PacketPagingSource
 import com.example.layanalyzer.data.PacketRepository
 import com.example.layanalyzer.data.CaptureSessionCoordinator
+import com.example.layanalyzer.data.CaptureAnalysisRevision
+import com.example.layanalyzer.data.CaptureAnalysisSource
+import com.example.layanalyzer.data.CaptureArtifactRepository
+import com.example.layanalyzer.data.CaptureArtifactState
+import com.example.layanalyzer.data.CaptureOpenFailure
+import com.example.layanalyzer.data.CaptureOpenNotice
+import com.example.layanalyzer.data.CaptureOpenPlan
+import com.example.layanalyzer.data.CaptureOpenPlanner
+import com.example.layanalyzer.data.CaptureOpenSecrets
+import com.example.layanalyzer.data.CaptureOpenScope
+import com.example.layanalyzer.data.SavedCaptureOpenInfo
+import com.example.layanalyzer.data.TlsAnalysisSecretLease
+import com.example.layanalyzer.capture.tls.TlsAssetErrorCode
+import com.example.layanalyzer.capture.tls.TlsAssetException
+import com.example.layanalyzer.model.CaptureArtifactManifest
 import com.example.layanalyzer.data.AgentAnalysisResult
 import com.example.layanalyzer.data.CaptureFileValidator
 import com.example.layanalyzer.data.SearchQueryValidator
@@ -84,6 +121,13 @@ import com.example.layanalyzer.model.OpenProgress
 import com.example.layanalyzer.model.PacketSearchMode
 import com.example.layanalyzer.model.PacketSearchState
 import com.example.layanalyzer.model.PacketContextActionsState
+import com.example.layanalyzer.model.PacketTlsFollowAction
+import com.example.layanalyzer.model.TlsErrorCode
+import com.example.layanalyzer.model.TlsCaptureSettingsJson
+import com.example.layanalyzer.model.TlsFollowException
+import com.example.layanalyzer.model.TlsFollowResult
+import com.example.layanalyzer.model.TlsFollowUnavailableReason
+import com.example.layanalyzer.model.TLS_FOLLOW_PREVIEW_LIMIT
 import com.example.layanalyzer.model.PacketSummary
 import com.example.layanalyzer.model.RecentCapture
 import com.example.layanalyzer.model.StatisticsUiState
@@ -95,8 +139,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -131,9 +177,61 @@ class PacketListViewModel(
     private val repository: PacketRepository,
     private val sessionCoordinator: CaptureSessionCoordinator,
     context: Context,
-    private val agentDiagnostics: AgentDiagnosticsRecorder? = null
+    private val agentDiagnostics: AgentDiagnosticsRecorder? = null,
+    private val captureVolumeFreeBytes: (() -> Long)? = null
 ) : ViewModel() {
     private val appContext = context.applicationContext
+    private val tlsSecretStore by lazy { com.example.layanalyzer.capture.tls.TlsSecretStore(appContext) }
+
+    /**
+     * The local asset entry point for a saved live capture (TLS-301/302). It is only
+     * touched by [openSavedLiveCapture]; ordinary URI/recent opens never read a manifest.
+     */
+    private val captureArtifactRepository by lazy { CaptureArtifactRepository(appContext) }
+    private val tlsCaptureBundle by lazy { TlsCaptureBundle(appContext) }
+    private val captureLifecycle by lazy { com.example.layanalyzer.data.CaptureArtifactLifecycle(appContext) }
+    private var captureExportJob: Job? = null
+    private var activeArtifactId: String? = null
+    private data class PendingCaptureExport(
+        val kind: TlsCaptureExportKind, val path: String, val captureId: String?,
+        val generation: Long, val filtered: Boolean, val confirmed: Boolean
+    )
+    private var pendingCaptureExport: PendingCaptureExport? = null
+    private var tlsCaptureSession: Pair<Long, Long>? = null
+    private var tlsCaptureId = UUID.randomUUID().toString()
+    @Synchronized
+    private fun tlsImportTarget(): TlsKeyLogImportTarget? {
+        val session = sessionCoordinator.currentToken() ?: return null
+        val analysis = repository.currentAnalysisRevision()
+        if (!analysis.ready || analysis.sessionHandle != session.sessionHandle) return null
+        val identity = session.sessionHandle to session.sessionGeneration
+        if (identity != tlsCaptureSession) {
+            tlsCaptureSession = identity
+            val file = repository.currentFile() ?: return null
+            tlsCaptureId = captureLifecycle.identityForFile(File(file.localPath))
+        }
+        return TlsKeyLogImportTarget(tlsCaptureId, session, analysis)
+    }
+    private val tlsImportController = TlsKeyLogImportController(viewModelScope, object : TlsKeyLogImportBackend {
+        override fun currentTarget() = tlsImportTarget()
+        override fun currentAnalysis() = repository.currentAnalysisRevision()
+        override fun acquire(target: TlsKeyLogImportTarget,
+                             parsed: com.example.layanalyzer.capture.tls.KeyLogParseResult.Success,
+                             checkCancelled: () -> Unit): com.example.layanalyzer.data.TlsAnalysisSecretLease {
+            return tlsSecretStore.acquireImportedLease(target.captureId, parsed, checkCancelled)
+        }
+        override suspend fun configure(target: TlsKeyLogImportTarget,
+                                       lease: com.example.layanalyzer.data.TlsAnalysisSecretLease?,
+                                       progress: (Int, Int) -> Unit) =
+            configureTlsSecrets(lease, progress, target.session, target.analysis)
+    })
+    val tlsKeyLogImportState = tlsImportController.state
+    fun beginTlsKeyLogSelection(): Boolean = tlsImportController.beginSelection()
+    fun importTlsKeyLog(uri: Uri?) = tlsImportController.selected(uri?.let { selected ->
+        { appContext.contentResolver.openInputStream(selected) ?: throw java.io.IOException() }
+    })
+    fun clearTlsKeyLog() = tlsImportController.clear()
+    fun cancelTlsKeyLogImport() = tlsImportController.cancel()
     private fun text(@StringRes id: Int, vararg args: Any): String = appContext.getString(id, *args)
     private val prefs = appContext.getSharedPreferences("recent_captures", Context.MODE_PRIVATE)
     private val sessionPrefs = appContext.getSharedPreferences("active_session", Context.MODE_PRIVATE)
@@ -141,7 +239,28 @@ class PacketListViewModel(
         appContext.getSharedPreferences(RtpHeuristicPreferenceOps.PREFERENCE_FILE, Context.MODE_PRIVATE)
     private val workspaceStore = AnalysisWorkspaceStore(appContext)
     private val templateStore = ScenarioTemplateStore(appContext)
+
+    /**
+     * The persisted VPN capture settings, with the TLS decryption block nested
+     * under it (TLS-304). The store is the only writer; the settings screen edits
+     * a draft and only [startLiveCapture] commits, so cancelling an edit leaves the
+     * stored document untouched (design §10.1/§12).
+     */
+    private val captureSettingsStore =
+        LiveCaptureSettingsStore(SharedPreferencesCaptureSettingsPersistence(appContext))
+
+    /**
+     * Read-only CA status for the settings screen. Use the same manager as the
+     * wizard and service; [TlsCertificateManager.status] never generates, resets
+     * or unseals the root here.
+     */
+    private val tlsCaManager by lazy { TlsCaManagerHolder.get(appContext) }
+
+    /** Filesystem/Keystore work, so it runs off the main thread. */
+    suspend fun loadTlsCaState(): TlsCaState = withContext(Dispatchers.IO) { tlsCaManager.status().state }
+
     private var openJob: Job? = null
+    private var startCaptureJob: Job? = null
     private var filterJob: Job? = null
     private var filterValidationJob: Job? = null
     private var searchJob: Job? = null
@@ -150,6 +269,9 @@ class PacketListViewModel(
     private var communicationJob: Job? = null
     private var httpObjectsJob: Job? = null
     private var packetContextJob: Job? = null
+    private var tlsFollowJob: Job? = null
+    private var tlsFollowExportJob: Job? = null
+    private var tlsFollowGeneration: Long = 0
     private var pendingEvidenceDestination: Uri? = null
     private var preferencesJob: Job? = null
     private var analysisGeneration: Long = 0
@@ -183,6 +305,34 @@ class PacketListViewModel(
     private val _largeCaptureWarning = MutableStateFlow<LargeCaptureWarning?>(null)
     val largeCaptureWarning = _largeCaptureWarning.asStateFlow()
 
+    /**
+     * The facts of the last saved-capture open (TLS-310): which scope the analysis input
+     * covers, how many packets were dropped, whether retained secrets were applied, and
+     * the capture's vantage. Null for an ordinary URI/recent open, or after [closeFile].
+     * It is counts and fixed enums only — never a secret byte or a secret path (C03 6).
+     */
+    private val _savedCaptureOpenInfo = MutableStateFlow<SavedCaptureOpenInfo?>(null)
+    val savedCaptureOpenInfo = _savedCaptureOpenInfo.asStateFlow()
+
+    /** Dismisses the one-shot post-open summary (TLS-310); the session is unaffected. */
+    fun dismissSavedCaptureOpenInfo() {
+        _savedCaptureOpenInfo.value = null
+    }
+
+    /**
+     * Why the last start request for an intercepted capture was refused (TLS-315 step 1:
+     * features, configuration, CA material, storage). Null while nothing is blocked. It is
+     * decided before the service is asked to run, so a refusal never publishes a running
+     * capture state; a TLS-disabled configuration never sets it (C03 1, acceptance 2).
+     */
+    private val _tlsStartBlock = MutableStateFlow<TlsStartBlockReason?>(null)
+    val tlsStartBlock = _tlsStartBlock.asStateFlow()
+
+    /** Clears the refusal notice; the next start attempt re-evaluates the conditions. */
+    fun clearTlsStartBlock() {
+        _tlsStartBlock.value = null
+    }
+
     private val _recentFiles = MutableStateFlow(loadRecentFiles())
     val recentFiles = _recentFiles.asStateFlow()
 
@@ -212,6 +362,16 @@ class PacketListViewModel(
 
     private val _packetContextActions = MutableStateFlow(PacketContextActionsState())
     val packetContextActions = _packetContextActions.asStateFlow()
+
+    /**
+     * TLS-308 dedicated TLS follow viewer. Null when closed. The result is the bounded (1 MiB)
+     * preview; the full stream is never held here, it is exported through the native file writer.
+     */
+    private val _tlsFollowViewer = MutableStateFlow<TlsFollowViewerState?>(null)
+    val tlsFollowViewer = _tlsFollowViewer.asStateFlow()
+
+    private val _tlsFollowExportState = MutableStateFlow(ExportUiState())
+    val tlsFollowExportState = _tlsFollowExportState.asStateFlow()
 
     private val _highlightedFrames = MutableStateFlow<Set<Long>>(emptySet())
     val highlightedFrames = _highlightedFrames.asStateFlow()
@@ -298,6 +458,23 @@ class PacketListViewModel(
         LiveCaptureState()
     )
 
+    /**
+     * The live TLS summary the capture service publishes (TLS-306). It is already a
+     * [StateFlow] gated by the connection store's own C10 250 ms budget, so
+     * collecting it never repaints per received byte; null means no capture is
+     * intercepting and the preview says so.
+     */
+    val tlsConnectionSnapshot: StateFlow<TlsConnectionSnapshot?> = TlsConnectionPreviewStore.snapshot
+
+    /**
+     * The ViewModel projection of that snapshot onto the preview's counts
+     * (design §10.2). Pure: it reads no clock, disk or Compose state, so it is the
+     * host-JVM unit under test rather than the composable.
+     */
+    val tlsConnectionSummary: StateFlow<TlsConnectionSummary?> = TlsConnectionPreviewStore.snapshot
+        .map { snapshot -> snapshot?.let(TlsConnectionUiProjection::summary) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     val hasOpenFile = currentFile.stateIn(
         viewModelScope,
         SharingStarted.Eagerly,
@@ -305,6 +482,15 @@ class PacketListViewModel(
     )
 
     init {
+        tlsImportController.syncAnalysis(repository.currentAnalysisRevision())
+        viewModelScope.launch {
+            repository.analysisRevisions.drop(1).collect { revision ->
+                tlsImportController.syncAnalysis(revision)
+                markAnalysisStale(cancelNative = false)
+                pagerGeneration.value += 1
+                if (revision.sessionHandle == 0L) _currentFile.value = null
+            }
+        }
         viewModelScope.launch {
             sessionCoordinator.filterRefreshEvents.collect { refresh ->
                 val session = refresh.session
@@ -402,6 +588,13 @@ class PacketListViewModel(
             _openError.value = null
             _openProgress.value = OpenProgress(text(R.string.progress_opening_file, recent.displayName))
             try {
+                val artifactId = withContext(Dispatchers.IO) {
+                    captureArtifactRepository.captureIdForAnalysisFile(File(recent.localPath))
+                }
+                if (artifactId != null) {
+                    openArtifactCapture(artifactId)
+                    return@launch
+                }
                 openPreparedFile(
                     PreparedCapture(
                         file = File(recent.localPath),
@@ -428,6 +621,41 @@ class PacketListViewModel(
         _openError.value = null
     }
 
+    /** Transfers the lease into the existing atomic analysis transaction. */
+    suspend fun configureTlsSecrets(
+        lease: com.example.layanalyzer.data.TlsAnalysisSecretLease?,
+        progress: (Int, Int) -> Unit = { _, _ -> },
+        expectedSession: com.example.layanalyzer.data.CaptureSessionToken? = sessionCoordinator.currentToken(),
+        expectedAnalysis: com.example.layanalyzer.data.CaptureAnalysisRevision = repository.currentAnalysisRevision()
+    ): com.example.layanalyzer.data.TlsAnalysisResult {
+        markAnalysisStale()
+        filterValidationJob?.cancel()
+        preferencesJob?.cancel()
+        val result = try {
+            sessionCoordinator.configureTlsSecrets(lease, expectedSession, expectedAnalysis, progress)
+        } finally {
+            if (repository.currentSessionHandle() == 0L) {
+                _currentFile.value = null
+                _openError.value = text(R.string.error_tls_reopen_capture)
+                sessionPrefs.edit().clear().apply()
+            }
+        }
+        if (result.success && repository.isAnalysisCurrent(result.analysis)) {
+            // The transaction only knows the observation; the import page owns the text.
+            // Report it here so retained-secret opens surface it too, not just imports.
+            tlsImportController.recordObservation(result.analysis, result.plaintextStats)
+            val session = sessionCoordinator.state.value
+            _displayFilterUiState.value = _displayFilterUiState.value.copy(
+                appliedExpression = session.appliedDisplayFilter,
+                visibleCount = result.visibleFrameCount,
+                totalCount = session.frameCount
+            )
+            _filterResult.value = DisplayFilterResult(true, result.visibleFrameCount)
+            pagerGeneration.value += 1
+        }
+        return result
+    }
+
     fun selectWorkspacePage(page: WorkspacePage) {
         _workspacePage.value = page
     }
@@ -437,18 +665,24 @@ class PacketListViewModel(
             _openError.value = text(R.string.error_close_before_delete)
             return
         }
-        val file = File(recent.localPath)
-        val deleted = !file.exists() || file.delete()
-        if (!deleted) {
-            _openError.value = text(R.string.error_delete_capture, recent.displayName)
-            return
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { captureLifecycle.purgeFile(File(recent.localPath)) }
+                _recentFiles.value = loadRecentFiles()
+            } catch (error: com.example.layanalyzer.capture.tls.TlsAssetException) {
+                _openError.value = if (error.code == com.example.layanalyzer.capture.tls.TlsAssetErrorCode.IN_USE)
+                    text(R.string.error_close_before_delete) else text(R.string.error_delete_capture, recent.displayName)
+            } catch (_: java.io.IOException) {
+                _openError.value = text(R.string.error_delete_capture, recent.displayName)
+            }
         }
-        File(file.parentFile, "${file.name}.report.json").delete()
-        _recentFiles.value = _recentFiles.value.filterNot { it.localPath == recent.localPath }
-        persistRecentFiles(_recentFiles.value)
     }
 
     fun closeFile() {
+        cancelCaptureExport()
+        pendingCaptureExport = null
+        activeArtifactId = null
+        tlsImportController.invalidate()
         sessionGeneration++
         sessionCoordinator.invalidateSession()
         openJob?.cancel()
@@ -460,12 +694,17 @@ class PacketListViewModel(
         _currentFile.value = null
         _workspacePage.value = WorkspacePage.Packets
         _openProgress.value = null
+        _savedCaptureOpenInfo.value = null
         _displayFilter.value = ""
         _displayFilterUiState.value = DisplayFilterUiState()
         _filterResult.value = null
         _searchState.value = PacketSearchState()
         _decodeAsRules.value = emptyList()
         _packetContextActions.value = PacketContextActionsState()
+        tlsFollowJob?.cancel()
+        tlsFollowExportJob?.cancel()
+        _tlsFollowViewer.value = null
+        _tlsFollowExportState.value = ExportUiState()
         _highlightedFrames.value = emptySet()
         _healthSummary.value = CaptureHealthSummary()
         _workspace.value = null
@@ -492,6 +731,8 @@ class PacketListViewModel(
         communicationJob?.cancel()
         httpObjectsJob?.cancel()
         packetContextJob?.cancel()
+        tlsFollowJob?.cancel()
+        tlsFollowExportJob?.cancel()
         _expertSummary.value = ExpertInfoSummary()
         _statisticsState.value = StatisticsUiState(bucketSeconds = _statisticsState.value.bucketSeconds)
         _httpObjectsState.value = HttpObjectsState()
@@ -555,6 +796,7 @@ class PacketListViewModel(
         markAnalysisStale(cancelNative = false)
         val requestedFilter = _displayFilterUiState.value.draftExpression.trim()
         val generation = analysisGeneration
+        val analysisRevision = repository.currentAnalysisRevision()
         val expectedSession = sessionCoordinator.currentToken()
         beginAnalysisJob(AnalysisScope.CurrentFilter, text(R.string.job_applying_filter), repository.getVisibleFrameCount().toLong())
         filterJob = viewModelScope.launch {
@@ -563,7 +805,7 @@ class PacketListViewModel(
                 val result = withContext(Dispatchers.IO) {
                     sessionCoordinator.applyUserFilter(requestedFilter, expectedSession)
                 }
-                if (!isActive || generation != analysisGeneration) return@launch
+                if (!isActive || (generation != analysisGeneration || !repository.isAnalysisCurrent(analysisRevision))) return@launch
                 _filterResult.value = result
                 _analysisJob.value = if (result.success) {
                     _analysisJob.value.copy(phase = AnalysisJobPhase.Completed, processed = result.filteredCount.toLong(), message = text(R.string.job_filter_ready))
@@ -597,7 +839,7 @@ class PacketListViewModel(
                     )
                 }
             } finally {
-                if (generation == analysisGeneration) {
+                if ((generation == analysisGeneration && repository.isAnalysisCurrent(analysisRevision))) {
                     _isFiltering.value = false
                     filterJob = null
                 }
@@ -669,6 +911,7 @@ class PacketListViewModel(
         }
         val requestGeneration = searchRequestGeneration
         val generation = analysisGeneration
+        val analysisRevision = repository.currentAnalysisRevision()
         beginAnalysisJob(AnalysisScope.CurrentFilter, text(R.string.job_searching_packets), repository.getVisibleFrameCount().toLong())
         searchJob = viewModelScope.launch {
             _searchState.value = state.copy(isSearching = true, error = null)
@@ -680,7 +923,7 @@ class PacketListViewModel(
                 }
                 if (
                     !isActive ||
-                    generation != analysisGeneration ||
+                    (generation != analysisGeneration || !repository.isAnalysisCurrent(analysisRevision)) ||
                     requestGeneration != searchRequestGeneration
                 ) {
                     return@launch
@@ -712,7 +955,7 @@ class PacketListViewModel(
                 )
             } finally {
                 if (
-                    generation == analysisGeneration &&
+                    (generation == analysisGeneration && repository.isAnalysisCurrent(analysisRevision)) &&
                     requestGeneration == searchRequestGeneration
                 ) {
                     if (_searchState.value.isSearching) {
@@ -882,6 +1125,129 @@ class PacketListViewModel(
                 onSuccess = { _analysisJob.value = _analysisJob.value.copy(phase = AnalysisJobPhase.Completed, message = text(R.string.job_export_ready)); ExportUiState(message = text(R.string.export_filtered_complete), shareResult = it) },
                 onFailure = { _analysisJob.value = _analysisJob.value.copy(phase = AnalysisJobPhase.Failed, errorCode = "EXPORT_FAILED", message = it.message); ExportUiState(error = it.message ?: text(R.string.error_export_filtered_capture)) }
             )
+        }
+    }
+
+    /** Freeze the authorized source before SAF; a file switch invalidates this selection. */
+    fun prepareCaptureExport(kind: TlsCaptureExportKind, confirmed: Boolean): Boolean {
+        val file = _currentFile.value ?: return false
+        if (kind == TlsCaptureExportKind.SelectedPlaintext) return false
+        if (kind == TlsCaptureExportKind.CompleteDecryptableSession &&
+            (!confirmed || activeArtifactId == null || _displayFilter.value.isNotBlank() ||
+                _displayFilterUiState.value.appliedExpression.isNotBlank())) {
+            _exportState.value = ExportUiState(error = text(R.string.tls_capture_export_failed))
+            return false
+        }
+        pendingCaptureExport = PendingCaptureExport(kind, file.localPath, activeArtifactId,
+            sessionGeneration, _displayFilter.value.isNotBlank() ||
+                _displayFilterUiState.value.appliedExpression.isNotBlank(), confirmed)
+        return true
+    }
+
+    fun saveCaptureExport(destination: Uri?) {
+        val request = pendingCaptureExport.also { pendingCaptureExport = null } ?: return
+        if (destination == null) return
+        captureExportJob?.cancel()
+        captureExportJob = viewModelScope.launch {
+            val owner = coroutineContext[Job]
+            _exportState.value = ExportUiState(isExporting = true)
+            try {
+                withContext(Dispatchers.IO) {
+                    val work = coroutineContext
+                    val check = {
+                        work.ensureActive()
+                        if (sessionGeneration != request.generation || _currentFile.value?.localPath != request.path) {
+                            throw CancellationException()
+                        }
+                    }
+                    tlsCaptureBundle.withWorkspace { directory ->
+                        val staged = File(directory, "export.tmp")
+                        staged.outputStream().use { output ->
+                            check()
+                            if (request.kind == TlsCaptureExportKind.CompleteDecryptableSession) {
+                                tlsCaptureBundle.writeComplete(request.captureId ?: error("CAPTURE_CONTEXT_MISSING"),
+                                    output, request.filtered, request.confirmed, check)
+                            } else {
+                                File(request.path).inputStream().use { TlsRawCaptureWriter.copy(it, output, check) }
+                            }
+                        }
+                        check()
+                        appContext.contentResolver.openOutputStream(destination, "wt")?.use { output ->
+                            staged.inputStream().use { input ->
+                                val buffer = ByteArray(64 * 1024)
+                                try {
+                                    while (true) {
+                                        check()
+                                        val count = input.read(buffer)
+                                        if (count < 0) break
+                                        output.write(buffer, 0, count)
+                                    }
+                                } finally { buffer.fill(0) }
+                            }
+                        } ?: error("DESTINATION_UNAVAILABLE")
+                        check()
+                    }
+                }
+                if (captureExportJob === owner) {
+                    _exportState.value = ExportUiState(message = text(R.string.tls_capture_export_saved))
+                }
+            } catch (error: Exception) {
+                // No app-private plaintext survives. Revoke the incomplete destination when possible.
+                // Keep the return to Main and the terminal UI update non-cancellable too.
+                // Returning directly from NonCancellable + IO to a cancelled owner discards
+                // the result, leaving isExporting=true after the files have been cleaned.
+                withContext(kotlinx.coroutines.NonCancellable) {
+                    val cleaned = withContext(Dispatchers.IO) {
+                        runCatching {
+                            DocumentsContract.deleteDocument(appContext.contentResolver, destination)
+                        }.getOrDefault(false) || runCatching {
+                            appContext.contentResolver.openOutputStream(destination, "wt")?.use { it.flush() }
+                                ?: error("DESTINATION_UNAVAILABLE")
+                            true
+                        }.getOrDefault(false)
+                    }
+                    if (captureExportJob === owner) _exportState.value = ExportUiState(error = text(
+                        if (!cleaned) R.string.tls_capture_export_destination_cleanup
+                        else if (error is CancellationException) R.string.tls_capture_export_cancelled
+                        else R.string.tls_capture_export_failed
+                    ))
+                }
+            }
+        }
+    }
+
+    fun cancelCaptureExport() { captureExportJob?.cancel() }
+
+    fun importTlsCaptureBundle(uri: Uri) {
+        openJob?.cancel()
+        prepareForFileSwitch()
+        openJob = viewModelScope.launch {
+            _openError.value = null
+            _openProgress.value = OpenProgress(text(R.string.tls_capture_import_progress))
+            try {
+                val id = withContext(Dispatchers.IO) {
+                    val work = coroutineContext
+                    appContext.contentResolver.openInputStream(uri)?.use {
+                        tlsCaptureBundle.importComplete(it) { work.ensureActive() }
+                    } ?: error("BUNDLE_UNAVAILABLE")
+                }
+                openArtifactCapture(id)
+            } catch (_: CancellationException) {
+                _openProgress.value = null
+            } catch (_: Exception) {
+                _openProgress.value = null
+                _openError.value = text(R.string.tls_capture_import_failed)
+            }
+        }
+    }
+
+    private suspend fun openArtifactCapture(captureId: String) {
+        when (val resolution = resolveSavedCaptureOpen(captureArtifactRepository.legacyCaptureFile(captureId))) {
+            is SavedCaptureOpenResolution.Open -> {
+                val plan = resolution.plan
+                openPreparedFile(PreparedCapture(plan.analysisFile, "$captureId.pcap", plan.byteLength), plan)
+            }
+            else -> error("CAPTURE_CONTEXT_MISSING")
         }
     }
 
@@ -1292,30 +1658,109 @@ class PacketListViewModel(
         _exportState.value = ExportUiState()
     }
 
+    /** The saved capture settings, used to seed the settings screen's draft. */
+    fun loadLiveCaptureSettings(): LiveCaptureSettings = captureSettingsStore.load()
+
+    /**
+     * Starts a capture with one frozen configuration (TLS-304), after an explicit
+     * start-condition check (TLS-315 step 1, design §10.3).
+     *
+     * The check runs *before* the service is asked to run and, for an enabled TLS
+     * configuration, reads the CA state off the main thread. A refusal publishes a
+     * fixed [TlsStartBlockReason] the settings screen renders and returns without
+     * touching the service, so no "running" state — and no capture that mints a root
+     * no application has been asked to trust — is ever published on failure (C03 7,
+     * acceptance 2). A TLS-disabled configuration short-circuits to ready: turning the
+     * feature off changes nothing about the existing flow and adds no CA gate (C03 1).
+     *
+     * A live capture is never reconfigured (step 4): the request is refused while one
+     * runs, because the mode belongs to the run that started with it and an intercepted
+     * TLS connection cannot migrate back to end-to-end.
+     */
     fun startLiveCapture(settings: LiveCaptureSettings) {
-        val intent = Intent(appContext, LiveCaptureVpnService::class.java).apply {
-            putExtra(LiveCaptureVpnService.EXTRA_EXCLUDE_SELF, settings.excludeSelf)
-            putExtra(LiveCaptureVpnService.EXTRA_CAPTURE_IPV6, settings.captureIpv6)
-            putExtra(LiveCaptureVpnService.EXTRA_MAX_DURATION_MINUTES, settings.maxDurationMinutes)
-            putExtra(LiveCaptureVpnService.EXTRA_MAX_SIZE_MEGABYTES, settings.maxSizeMegabytes)
-            putExtra(LiveCaptureVpnService.EXTRA_SEGMENT_SIZE_MEGABYTES, settings.segmentSizeMegabytes)
-            putStringArrayListExtra(
-                LiveCaptureVpnService.EXTRA_ALLOWED_APPLICATIONS,
-                ArrayList(settings.allowedApplications)
-            )
+        if (!TlsModeChangePolicy.acceptsNewRun(LiveCaptureStore.state.value.isCapturing)) return
+        startCaptureJob?.cancel()
+        startCaptureJob = viewModelScope.launch {
+            val readiness = tlsStartReadiness(settings)
+            if (readiness is TlsStartReadiness.Blocked) {
+                _tlsStartBlock.value = readiness.reason
+                return@launch
+            }
+            // The gate is the decision; freezing is the belt to its braces and is the
+            // only value that ever reaches the service (settings screen also blocks Start).
+            val frozen = TlsInterceptionPolicy.frozenForCapture(settings)
+            if (frozen == null) {
+                _tlsStartBlock.value = TlsStartBlockReason.CONFIGURATION_INVALID
+                return@launch
+            }
+            _tlsStartBlock.value = null
+            captureSettingsStore.save(frozen)
+            val intent = Intent(appContext, LiveCaptureVpnService::class.java).apply {
+                putExtra(LiveCaptureVpnService.EXTRA_EXCLUDE_SELF, frozen.excludeSelf)
+                putExtra(LiveCaptureVpnService.EXTRA_CAPTURE_IPV6, frozen.captureIpv6)
+                putExtra(LiveCaptureVpnService.EXTRA_MAX_DURATION_MINUTES, frozen.maxDurationMinutes)
+                putExtra(LiveCaptureVpnService.EXTRA_MAX_SIZE_MEGABYTES, frozen.maxSizeMegabytes)
+                putExtra(LiveCaptureVpnService.EXTRA_SEGMENT_SIZE_MEGABYTES, frozen.segmentSizeMegabytes)
+                putStringArrayListExtra(
+                    LiveCaptureVpnService.EXTRA_ALLOWED_APPLICATIONS,
+                    ArrayList(frozen.allowedApplications)
+                )
+                // The frozen TLS block. Disabled settings are written out too, so the
+                // service's decode is the single gate and "enabled" is never inferred.
+                // Only settings go on the Intent: no private key, no CA material and no
+                // token ever does — the service resolves those from local assets
+                // (step 2, C05/C08).
+                putExtra(LiveCaptureVpnService.EXTRA_TLS_SETTINGS, TlsCaptureSettingsJson.encode(frozen.tls))
+            }
+            ContextCompat.startForegroundService(appContext, intent)
         }
-        ContextCompat.startForegroundService(appContext, intent)
     }
 
+    /**
+     * The pure start-condition decision of [TlsStartGate], fed with this device's facts.
+     * The CA read is filesystem/Keystore work, so it runs on IO; a failed stat is treated
+     * as "not a storage problem" rather than as a refusal.
+     */
+    private suspend fun tlsStartReadiness(settings: LiveCaptureSettings): TlsStartReadiness {
+        if (!settings.tls.enabled) return TlsStartReadiness.Ready
+        val caState = withContext(Dispatchers.IO) { tlsCaManager.status().state }
+        return TlsStartGate.evaluate(
+            tls = settings.tls,
+            configurationValid = TlsInterceptionPolicy.canStart(settings),
+            facts = TlsStartFacts(
+                featureBuilt = BuildConfig.TLS_ENABLED,
+                caState = caState,
+                freeBytes = freeSpaceOnCaptureVolume()
+            )
+        )
+    }
+
+    private fun freeSpaceOnCaptureVolume(): Long =
+        runCatching { captureVolumeFreeBytes?.invoke() ?: StatFs(appContext.filesDir.absolutePath).availableBytes }
+            .getOrDefault(Long.MAX_VALUE)
+
     fun stopLiveCapture() {
+        // A stop can arrive while the CA readiness read is still on IO. Cancel
+        // that pending request before it can publish a Start after this Stop.
+        startCaptureJob?.cancel()
+        startCaptureJob = null
         val intent = Intent(appContext, LiveCaptureVpnService::class.java).setAction(LiveCaptureVpnService.ACTION_STOP)
         appContext.startService(intent)
     }
 
+    /**
+     * Opens the saved live capture as the whole capture it is (TLS-310, design §8.5).
+     *
+     * It no longer opens the first `outputPath` segment alone: it resolves the capture's
+     * `captureId`, merges every manifest segment into one read-only analysis file, and
+     * loads the capture's retained secrets through the coordinator transaction inside the
+     * same open. A legacy single-file capture with no manifest still opens exactly as
+     * before (and never resolves a keylog — C08).
+     */
     fun openSavedLiveCapture() {
         val path = LiveCaptureStore.state.value.outputPath ?: return
-        val file = File(path)
-        if (!file.exists()) {
+        val savedCapture = File(path)
+        if (!savedCapture.exists()) {
             _openError.value = text(R.string.error_saved_capture_missing)
             return
         }
@@ -1323,15 +1768,35 @@ class PacketListViewModel(
         prepareForFileSwitch()
         openJob = viewModelScope.launch {
             _openError.value = null
-                _openProgress.value = OpenProgress(text(R.string.progress_opening_file, file.name))
+            _savedCaptureOpenInfo.value = null
+            _openProgress.value = OpenProgress(text(R.string.progress_opening_file, savedCapture.name))
             try {
-                openPreparedFile(
-                    PreparedCapture(
-                        file = file,
-                        displayName = file.name,
-                        sizeBytes = file.length()
-                    )
-                )
+                when (val resolution = resolveSavedCaptureOpen(savedCapture)) {
+                    is SavedCaptureOpenResolution.DirectOpen ->
+                        openPreparedFile(
+                            PreparedCapture(
+                                file = savedCapture,
+                                displayName = savedCapture.name,
+                                sizeBytes = savedCapture.length()
+                            )
+                        )
+                    is SavedCaptureOpenResolution.Unavailable -> {
+                        _openProgress.value = null
+                        _openError.value = text(openFailureMessage(resolution.failure))
+                    }
+                    is SavedCaptureOpenResolution.Open -> {
+                        val plan = resolution.plan
+                        openPreparedFile(
+                            PreparedCapture(
+                                file = plan.analysisFile,
+                                displayName = savedCapture.name,
+                                sizeBytes = plan.byteLength
+                            ),
+                            plan
+                        )
+                    }
+                    SavedCaptureOpenResolution.None -> _openProgress.value = null
+                }
             } catch (e: CancellationException) {
                 _openProgress.value = null
             } catch (e: Exception) {
@@ -1341,11 +1806,131 @@ class PacketListViewModel(
         }
     }
 
+    /** The outcome of resolving a saved capture's assets, before anything is opened. */
+    private sealed interface SavedCaptureOpenResolution {
+        /** The file is not a manifest capture; open it the classic way. */
+        data object DirectOpen : SavedCaptureOpenResolution
+
+        data class Open(val plan: CaptureOpenPlan.Open) : SavedCaptureOpenResolution
+
+        data class Unavailable(val failure: CaptureOpenFailure) : SavedCaptureOpenResolution
+
+        /** The user cancelled the merge; nothing was published. */
+        data object None : SavedCaptureOpenResolution
+    }
+
+    /**
+     * Resolves the capture's manifest, merged file and retained secrets, then derives the
+     * open plan. Blocking file I/O, so it runs off the main thread. The disk-full case
+     * degrades to a single segment with an explicit incomplete context, exactly as §8.5
+     * requires; the original PCAP and every segment are never modified.
+     */
+    private suspend fun resolveSavedCaptureOpen(savedCapture: File): SavedCaptureOpenResolution =
+        withContext(Dispatchers.IO) {
+            // Retain THIS operation's cancellation state even after cancelOpen clears
+            // openJob or another open replaces it.
+            val opening = currentCoroutineContext()
+            val captureId = CaptureOpenPlanner.captureIdFor(savedCapture)
+                ?: return@withContext SavedCaptureOpenResolution.DirectOpen
+            // Close before regenerating merged-analysis.pcap. Transient-key teardown
+            // must never delete the newly merged file of a subsequent open.
+            repository.closeFile()
+            _currentFile.value = null
+            val manifest = (captureArtifactRepository.read(captureId) as? CaptureArtifactState.Present)?.manifest
+            val source = try {
+                captureArtifactRepository.openForAnalysis(captureId, isCancelled = { !opening.isActive })
+            } catch (error: TlsAssetException) {
+                return@withContext diskFullFallback(captureId, manifest, error) { !opening.isActive }
+            } catch (_: Exception) {
+                return@withContext SavedCaptureOpenResolution.Unavailable(CaptureOpenFailure.IO_ERROR)
+            }
+            when (source) {
+                is CaptureAnalysisSource.Cancelled -> SavedCaptureOpenResolution.None
+                else -> {
+                    val secrets = resolveOpenSecrets(captureId, manifest, source)
+                    when (val plan = CaptureOpenPlanner.plan(captureId, source, secrets, manifest)) {
+                        is CaptureOpenPlan.Open -> SavedCaptureOpenResolution.Open(plan)
+                        is CaptureOpenPlan.Unavailable -> SavedCaptureOpenResolution.Unavailable(plan.failure)
+                        is CaptureOpenPlan.Cancelled -> SavedCaptureOpenResolution.None
+                    }
+                }
+            }
+        }
+
+    /** The §8.5 no-space degradation: open one segment, marked explicitly incomplete. */
+    private fun diskFullFallback(
+        captureId: String,
+        manifest: CaptureArtifactManifest?,
+        error: TlsAssetException,
+        isCancelled: () -> Boolean
+    ): SavedCaptureOpenResolution {
+        val failure = CaptureOpenPlanner.failureFor(error.code)
+        if (failure != CaptureOpenFailure.NO_SPACE || manifest == null) {
+            return SavedCaptureOpenResolution.Unavailable(failure)
+        }
+        val firstSegment = manifest.segments.firstOrNull()?.file
+            ?: return SavedCaptureOpenResolution.Unavailable(CaptureOpenFailure.NO_SPACE)
+        val single = try {
+            captureArtifactRepository.openSingleSegmentForAnalysis(
+                captureId,
+                firstSegment,
+                isCancelled = isCancelled
+            )
+        } catch (fallbackError: TlsAssetException) {
+            return SavedCaptureOpenResolution.Unavailable(CaptureOpenPlanner.failureFor(fallbackError.code))
+        } catch (_: Exception) {
+            return SavedCaptureOpenResolution.Unavailable(CaptureOpenFailure.IO_ERROR)
+        }
+        if (single is CaptureAnalysisSource.Cancelled) return SavedCaptureOpenResolution.None
+        val secrets = resolveOpenSecrets(captureId, manifest, single)
+        return when (val plan = CaptureOpenPlanner.singleSegmentFallback(captureId, single, secrets, manifest)) {
+            is CaptureOpenPlan.Open -> SavedCaptureOpenResolution.Open(plan)
+            is CaptureOpenPlan.Unavailable -> SavedCaptureOpenResolution.Unavailable(plan.failure)
+            is CaptureOpenPlan.Cancelled -> SavedCaptureOpenResolution.None
+        }
+    }
+
+    /**
+     * Resolves the capture's retained secrets strictly through the manifest and the
+     * capture's own asset directory (C08). The decision itself is [CaptureOpenPlanner]'s;
+     * this only supplies the store facts. No manifest, TLS off, or a manifest that names a
+     * superseded asset resolves to [CaptureOpenSecrets.Absent] — never a guess.
+     */
+    private fun resolveOpenSecrets(
+        captureId: String,
+        manifest: CaptureArtifactManifest?,
+        source: CaptureAnalysisSource
+    ): CaptureOpenSecrets {
+        val expected = manifest?.tls?.secretsAssetId
+        if (manifest == null || !manifest.tls.enabled ||
+            source !is CaptureAnalysisSource.Merged || expected == null
+        ) {
+            return CaptureOpenPlanner.resolveSecrets(manifest, source, expected, null)
+        }
+        return try {
+            val current = tlsSecretStore.currentAsset(captureId)?.assetId
+            CaptureOpenPlanner.resolveSecrets(manifest, source, expected, current)
+        } catch (error: TlsAssetException) {
+            CaptureOpenPlanner.resolveSecrets(manifest, source, expected, null, error.code)
+        } catch (_: Exception) {
+            CaptureOpenPlanner.resolveSecrets(manifest, source, expected, null, TlsAssetErrorCode.IO_ERROR)
+        }
+    }
+
+    @StringRes
+    private fun openFailureMessage(failure: CaptureOpenFailure): Int = when (failure) {
+        CaptureOpenFailure.NOT_FOUND -> R.string.error_saved_capture_missing
+        CaptureOpenFailure.CORRUPT -> R.string.error_saved_capture_corrupt
+        CaptureOpenFailure.NO_SPACE -> R.string.error_saved_capture_no_space
+        CaptureOpenFailure.IO_ERROR -> R.string.error_open_live_capture
+    }
+
     fun clearLiveCaptureError() {
         LiveCaptureStore.clearError()
     }
 
     fun preparePacketContextActions(frameNumber: Long) {
+        val expected = repository.currentAnalysisRevision()
         packetContextJob?.cancel()
         _packetContextActions.value = PacketContextActionsState(
             frameNumber = frameNumber,
@@ -1356,7 +1941,7 @@ class PacketListViewModel(
                 withContext(Dispatchers.IO) { repository.getPacketFollowFilters(frameNumber) }
             }
             if (result.exceptionOrNull() is CancellationException) return@launch
-            if (_packetContextActions.value.frameNumber != frameNumber) return@launch
+            if (!repository.isAnalysisCurrent(expected) || _packetContextActions.value.frameNumber != frameNumber) return@launch
             _packetContextActions.value = result.fold(
                 onSuccess = { PacketContextActionsState(frameNumber = frameNumber, followFilters = it) },
                 onFailure = {
@@ -1366,6 +1951,144 @@ class PacketListViewModel(
                     )
                 }
             )
+            val filters = result.getOrNull() ?: return@launch
+            if (filters.tcpStream == null) {
+                _packetContextActions.value = _packetContextActions.value.copy(tlsFollow = PacketTlsFollowAction(
+                    dissectionGeneration = expected.dissectionGeneration,
+                    unavailableReason = TlsFollowUnavailableReason.NotTls
+                ))
+                return@launch
+            }
+            // Preserve immediate access to existing filters while checking the entire TLS connection.
+            _packetContextActions.value = _packetContextActions.value.copy(tlsFollow = PacketTlsFollowAction(isLoading = true))
+            val tls = runCatching {
+                withContext(Dispatchers.IO) { repository.getPacketTlsFollowAction(frameNumber, expected) }
+            }
+            if (tls.exceptionOrNull() is CancellationException) return@launch
+            if (!repository.isAnalysisCurrent(expected) || _packetContextActions.value.frameNumber != frameNumber) return@launch
+            _packetContextActions.value = _packetContextActions.value.copy(tlsFollow = tls.getOrElse { error ->
+                PacketTlsFollowAction(
+                    dissectionGeneration = expected.dissectionGeneration,
+                    errorCode = (error as? TlsFollowException)?.errorCode?.let(TlsErrorCode::fromWire)
+                        ?: TlsErrorCode.IO_ERROR
+                )
+            })
+        }
+    }
+
+    /**
+     * TLS-308: load the dedicated TLS follow preview for [frameNumber] and show the viewer. Only the
+     * bounded 1 MiB preview is read; the full stream is a separate streaming export. A changed
+     * analysis, a stale coroutine or a quick frame switch never publishes an old body: the previous
+     * viewer is cleared first, and a request generation plus the analysis revision are re-checked
+     * before publishing.
+     */
+    fun openTlsFollow(frameNumber: Long) {
+        val expected = repository.currentAnalysisRevision()
+        val generation = ++tlsFollowGeneration
+        tlsFollowJob?.cancel()
+        _tlsFollowViewer.value = null
+        _tlsFollowExportState.value = ExportUiState()
+        tlsFollowJob = viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    repository.followTlsStream(frameNumber, expected, TLS_FOLLOW_PREVIEW_LIMIT)
+                }
+            }
+            if (result.exceptionOrNull() is CancellationException) return@launch
+            if (generation != tlsFollowGeneration || !repository.isAnalysisCurrent(expected)) return@launch
+            result.fold(
+                onSuccess = { preview -> _tlsFollowViewer.value = TlsFollowViewerState(frameNumber, preview) },
+                onFailure = {
+                    // Malformed or otherwise unusable responses are surfaced honestly; no body is shown.
+                    _tlsFollowExportState.value = ExportUiState(error = text(R.string.error_tls_follow_open))
+                }
+            )
+        }
+    }
+
+    fun closeTlsFollow() {
+        tlsFollowJob?.cancel()
+        tlsFollowExportJob?.cancel()
+        _tlsFollowViewer.value = null
+        _tlsFollowExportState.value = ExportUiState()
+    }
+
+    fun clearTlsFollowExportState() {
+        _tlsFollowExportState.value = ExportUiState()
+    }
+
+    /**
+     * TLS-308 bounded full-stream export. Holds the analysis read gate through [PacketRepository],
+     * writes to an app-private file, and only keeps the file when the native report is a genuine
+     * success with a digest. A cancelled or failed export deletes the partial file so a half file is
+     * never shared as a completed export.
+     */
+    fun exportTlsFollowForShare() {
+        val viewer = _tlsFollowViewer.value ?: return
+        val expected = repository.currentAnalysisRevision()
+        tlsFollowExportJob?.cancel()
+        tlsFollowExportJob = viewModelScope.launch {
+            _tlsFollowExportState.value = ExportUiState(isExporting = true)
+            val exported = try {
+                withContext(Dispatchers.IO) {
+                    repository.withCaptureExport(expected) {
+                        val file = createExportFile(
+                            TlsFollowUiState.defaultExportFileName(viewer.frameNumber, viewer.result.streamId)
+                        )
+                        try {
+                            val report = repository.exportTlsFollowStream(viewer.frameNumber, expected, file.absolutePath)
+                            when (val outcome = TlsFollowUiState.exportOutcome(report)) {
+                                is TlsFollowExportOutcome.Success -> ExportResult(
+                                    filePath = file.absolutePath,
+                                    displayName = file.name,
+                                    mimeType = "application/octet-stream"
+                                ) to text(
+                                    if (outcome.truncated) R.string.tls_follow_export_truncated
+                                    else R.string.tls_follow_exported,
+                                    outcome.byteLength
+                                )
+                                TlsFollowExportOutcome.Cancelled -> {
+                                    file.delete()
+                                    null
+                                }
+                                is TlsFollowExportOutcome.Failed -> {
+                                    file.delete()
+                                    throw TlsFollowException(outcome.errorCode.wireName)
+                                }
+                            }
+                        } catch (error: Throwable) {
+                            file.delete()
+                            throw error
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                if (repository.isAnalysisCurrent(expected)) {
+                    _tlsFollowExportState.value = ExportUiState(error = text(R.string.tls_follow_export_cancelled))
+                }
+                return@launch
+            } catch (e: Exception) {
+                if (repository.isAnalysisCurrent(expected)) {
+                    _tlsFollowExportState.value = ExportUiState(error = text(R.string.error_tls_follow_export))
+                }
+                return@launch
+            }
+            if (!repository.isAnalysisCurrent(expected)) return@launch
+            _tlsFollowExportState.value = if (exported == null) {
+                ExportUiState(error = text(R.string.tls_follow_export_cancelled))
+            } else {
+                ExportUiState(message = exported.second, shareResult = exported.first)
+            }
+        }
+    }
+
+    /** Cancel an in-flight export: ask native to stop and delete the partial file. */
+    fun cancelTlsFollowExport() {
+        repository.cancelLongRunningOperations()
+        tlsFollowExportJob?.cancel()
+        if (repository.isAnalysisCurrent(repository.currentAnalysisRevision())) {
+            _tlsFollowExportState.value = ExportUiState(error = text(R.string.tls_follow_export_cancelled))
         }
     }
 
@@ -1375,17 +2098,26 @@ class PacketListViewModel(
         }
     }
 
+    fun setPacketHighlights(frames: Set<Long>, highlighted: Boolean) {
+        _highlightedFrames.value = if (highlighted) {
+            _highlightedFrames.value + frames
+        } else {
+            _highlightedFrames.value - frames
+        }
+    }
+
     fun loadHttpObjects() {
         if (_currentFile.value == null || _httpObjectsState.value.isLoading) return
         httpObjectsJob?.cancel()
         val generation = analysisGeneration
+        val analysisRevision = repository.currentAnalysisRevision()
         httpObjectsJob = viewModelScope.launch {
             _httpObjectsState.value = _httpObjectsState.value.copy(isLoading = true, error = null)
             val result = runCatching {
                 withContext(Dispatchers.IO) { repository.getHttpObjects() }
             }
             if (result.exceptionOrNull() is CancellationException) return@launch
-            if (generation != analysisGeneration) return@launch
+            if ((generation != analysisGeneration || !repository.isAnalysisCurrent(analysisRevision))) return@launch
             _httpObjectsState.value = result.fold(
                 onSuccess = { HttpObjectsState(analyzed = true, objects = it) },
                 onFailure = {
@@ -1396,62 +2128,68 @@ class PacketListViewModel(
     }
 
     fun exportHttpObjectForShare(entry: HttpObjectEntry) {
+        val expected = repository.currentAnalysisRevision()
         viewModelScope.launch {
             _exportState.value = ExportUiState(isExporting = true)
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    val payload = repository.getHttpObjectPayload(entry.id)
-                    check(payload.isNotEmpty() || entry.size == 0L) {
-                        text(R.string.error_http_object_payload)
+                    repository.withCaptureExport(expected) {
+                        val payload = repository.getHttpObjectPayload(entry.id, expected)
+                        check(payload.isNotEmpty() || entry.size == 0L) {
+                            text(R.string.error_http_object_payload)
+                        }
+                        val displayName = sanitizeFileName(entry.filename)
+                        val file = createExportFile("${System.currentTimeMillis()}-$displayName")
+                        file.outputStream().use { it.write(payload) }
+                        ExportResult(file.absolutePath, displayName, entry.contentType)
                     }
-                    val displayName = sanitizeFileName(entry.filename)
-                    val file = createExportFile("${System.currentTimeMillis()}-$displayName")
-                    file.outputStream().use { it.write(payload) }
-                    ExportResult(file.absolutePath, displayName, entry.contentType)
                 }
             }
             _exportState.value = result.fold(
-                onSuccess = { ExportUiState(message = text(R.string.http_object_exported), shareResult = it) },
+                onSuccess = { if (repository.isAnalysisCurrent(expected)) ExportUiState(message = text(R.string.http_object_exported), shareResult = it) else ExportUiState() },
                 onFailure = { ExportUiState(error = it.message ?: text(R.string.error_export_http_object)) }
             )
         }
     }
 
     fun exportAllHttpObjectsForShare() {
+        val expected = repository.currentAnalysisRevision()
         val objects = _httpObjectsState.value.objects
         if (objects.isEmpty()) return
         viewModelScope.launch {
             _exportState.value = ExportUiState(isExporting = true)
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    val displayName = "http-objects-${System.currentTimeMillis()}.zip"
-                    val file = createExportFile(displayName)
-                    val usedNames = mutableSetOf<String>()
-                    ZipOutputStream(file.outputStream()).use { zip ->
-                        objects.forEach { entry ->
-                            val payload = repository.getHttpObjectPayload(entry.id)
-                            check(payload.isNotEmpty() || entry.size == 0L) {
-                                text(R.string.error_http_object_payload)
+                    repository.withCaptureExport(expected) {
+                        val displayName = "http-objects-${System.currentTimeMillis()}.zip"
+                        val file = createExportFile(displayName)
+                        val usedNames = mutableSetOf<String>()
+                        ZipOutputStream(file.outputStream()).use { zip ->
+                            objects.forEach { entry ->
+                                val payload = repository.getHttpObjectPayload(entry.id, expected)
+                                check(payload.isNotEmpty() || entry.size == 0L) {
+                                    text(R.string.error_http_object_payload)
+                                }
+                                val baseName = sanitizeFileName(entry.filename)
+                                var name = baseName
+                                var suffix = 2
+                                while (!usedNames.add(name)) {
+                                    val extension = baseName.substringAfterLast('.', "")
+                                    val stem = baseName.substringBeforeLast('.', baseName)
+                                    name = if (extension.isBlank()) "$stem-$suffix" else "$stem-$suffix.$extension"
+                                    suffix++
+                                }
+                                zip.putNextEntry(ZipEntry(name))
+                                zip.write(payload)
+                                zip.closeEntry()
                             }
-                            val baseName = sanitizeFileName(entry.filename)
-                            var name = baseName
-                            var suffix = 2
-                            while (!usedNames.add(name)) {
-                                val extension = baseName.substringAfterLast('.', "")
-                                val stem = baseName.substringBeforeLast('.', baseName)
-                                name = if (extension.isBlank()) "$stem-$suffix" else "$stem-$suffix.$extension"
-                                suffix++
-                            }
-                            zip.putNextEntry(ZipEntry(name))
-                            zip.write(payload)
-                            zip.closeEntry()
                         }
+                        ExportResult(file.absolutePath, displayName, "application/zip")
                     }
-                    ExportResult(file.absolutePath, displayName, "application/zip")
                 }
             }
             _exportState.value = result.fold(
-                onSuccess = { ExportUiState(message = text(R.string.http_objects_exported), shareResult = it) },
+                onSuccess = { if (repository.isAnalysisCurrent(expected)) ExportUiState(message = text(R.string.http_objects_exported), shareResult = it) else ExportUiState() },
                 onFailure = { ExportUiState(error = it.message ?: text(R.string.error_export_http_objects)) }
             )
         }
@@ -1546,6 +2284,7 @@ class PacketListViewModel(
         }
         expertJob?.cancel()
         val generation = analysisGeneration
+        val analysisRevision = repository.currentAnalysisRevision()
         beginAnalysisJob(currentScope(), text(R.string.job_analyzing_expert), repository.getVisibleFrameCount().toLong())
         _expertSummary.value = _expertSummary.value.copy(isLoading = true, error = null)
         expertJob = viewModelScope.launch {
@@ -1555,7 +2294,7 @@ class PacketListViewModel(
                 }
             }
             if (result.exceptionOrNull() is CancellationException) return@launch
-            if (generation != analysisGeneration) return@launch
+            if ((generation != analysisGeneration || !repository.isAnalysisCurrent(analysisRevision))) return@launch
             _expertSummary.value = result.fold(
                 onSuccess = {
                     val next = it.copy(isLoading = false, analyzed = true, error = null)
@@ -1599,6 +2338,7 @@ class PacketListViewModel(
         val bucketSeconds = _statisticsState.value.bucketSeconds
         statisticsJob?.cancel()
         val generation = analysisGeneration
+        val analysisRevision = repository.currentAnalysisRevision()
         beginAnalysisJob(currentScope(), text(R.string.job_building_statistics), repository.getVisibleFrameCount().toLong())
         _statisticsState.value = _statisticsState.value.copy(
             isLoading = true,
@@ -1612,11 +2352,11 @@ class PacketListViewModel(
                 }
             }
             if (result.exceptionOrNull() is CancellationException) return@launch
-            if (generation != analysisGeneration) return@launch
+            if ((generation != analysisGeneration || !repository.isAnalysisCurrent(analysisRevision))) return@launch
             _statisticsState.value = result.fold(
                 onSuccess = {
                     val next = StatisticsUiState(statistics = it, bucketSeconds = bucketSeconds)
-                    if (generation == analysisGeneration) refreshHealthSummary(it)
+                    if ((generation == analysisGeneration && repository.isAnalysisCurrent(analysisRevision))) refreshHealthSummary(it)
                     _analysisJob.value = _analysisJob.value.copy(phase = AnalysisJobPhase.Completed, processed = it.packetCount.toLong(), message = text(R.string.job_statistics_ready))
                     next.copy(job = _statisticsState.value.job.copy(phase = AnalysisJobPhase.Completed, processed = it.packetCount.toLong(), message = text(R.string.job_statistics_ready)))
                 },
@@ -1924,7 +2664,12 @@ class PacketListViewModel(
             }
             persistRecentFiles(_recentFiles.value)
         }
-        viewModelScope.launch(Dispatchers.IO) { workspaceStore.save(workspace) }
+        val expected = repository.currentAnalysisRevision()
+        viewModelScope.launch(Dispatchers.IO) {
+            if (repository.isAnalysisCurrent(expected)) {
+                runCatching { repository.withCaptureExport(expected) { workspaceStore.save(workspace) } }
+            }
+        }
     }
 
     fun setStatisticsBucket(seconds: Double) {
@@ -1948,13 +2693,14 @@ class PacketListViewModel(
         }
         communicationJob?.cancel()
         val generation = analysisGeneration
+        val analysisRevision = repository.currentAnalysisRevision()
         communicationJob = viewModelScope.launch {
             beginAnalysisJob(currentScope(), text(R.string.job_analyzing_communication), repository.getVisibleFrameCount().toLong())
             _communicationAnalysis.value = _communicationAnalysis.value.copy(isLoading = true, error = null)
             val result = runCatching {
                 withContext(Dispatchers.IO) { repository.buildCommunicationAnalysis() }
             }
-            if (result.exceptionOrNull() is CancellationException || generation != analysisGeneration) return@launch
+            if (result.exceptionOrNull() is CancellationException || (generation != analysisGeneration || !repository.isAnalysisCurrent(analysisRevision))) return@launch
             _communicationAnalysis.value = result.fold(
                 onSuccess = { _analysisJob.value = _analysisJob.value.copy(phase = AnalysisJobPhase.Completed, processed = it.sipTotal.toLong() + it.rtpTotal + it.rtcpTotal + it.coreTotal, message = text(R.string.job_communication_ready)); it.copy(isLoading = false, error = null) },
                 onFailure = { _analysisJob.value = _analysisJob.value.copy(phase = AnalysisJobPhase.Failed, errorCode = "COMMUNICATION_FAILED", message = it.message); CommunicationAnalysis(isLoading = false, error = it.message ?: text(R.string.error_analyze_communication)) }
@@ -1985,80 +2731,188 @@ class PacketListViewModel(
         _analysisJob.value = _analysisJob.value.copy(phase = AnalysisJobPhase.Cancelled, message = text(R.string.job_cancelled))
     }
 
-    private suspend fun openPreparedFile(prepared: PreparedCapture) {
+    /**
+     * Opens [prepared] into the native session. When [plan] is present (TLS-310's saved
+     * live capture), the retained secrets are loaded through the coordinator transaction
+     * after the file is open, and a failed or cancelled open deletes the derived merged
+     * file it owns — never the original PCAP or a segment.
+     */
+    private suspend fun openPreparedFile(prepared: PreparedCapture, plan: CaptureOpenPlan.Open? = null) {
+        val opening = currentCoroutineContext()
         if (!prepared.file.exists()) {
+            plan?.derivedAnalysisFile?.delete()
             throw IllegalStateException(text(R.string.error_file_missing, prepared.displayName))
         }
+        if (plan == null) _savedCaptureOpenInfo.value = null
 
-        val result = withContext(Dispatchers.IO) {
-            @Suppress("ApplySharedPref")
-            sessionPrefs.edit().clear().commit()
-            repository.openFile(
-                path = prepared.file.absolutePath,
-                displayName = prepared.displayName,
-                sizeBytes = prepared.sizeBytes
-            ) { framesIndexed, bytesRead, totalBytes ->
-                _openProgress.value = OpenProgress(
-                    message = text(R.string.progress_indexing_file, prepared.displayName),
-                    framesIndexed = framesIndexed,
-                    bytesRead = bytesRead,
-                    totalBytes = totalBytes
-                )
-                openJob?.isActive != false
+        var sessionOpened = false
+        try {
+            val result = withContext(Dispatchers.IO) {
+                @Suppress("ApplySharedPref")
+                sessionPrefs.edit().clear().commit()
+                repository.openFile(
+                    path = prepared.file.absolutePath,
+                    displayName = prepared.displayName,
+                    sizeBytes = prepared.sizeBytes
+                ) { framesIndexed, bytesRead, totalBytes ->
+                    _openProgress.value = OpenProgress(
+                        message = text(R.string.progress_indexing_file, prepared.displayName),
+                        framesIndexed = framesIndexed,
+                        bytesRead = bytesRead,
+                        totalBytes = totalBytes
+                    )
+                    opening.isActive
+                }
             }
-        }
 
-        val info = result.getOrThrow()
-        val coordinatorToken = sessionCoordinator.onSessionOpened(info)
-        repository.setTimeDisplayFormat(_preferences.value.timeDisplayFormat)
-        repository.setNameResolutionEnabled(_preferences.value.nameResolutionEnabled)
-        // Process-wide native state, so it has to be re-synced for every new
-        // session. `Probe` is per-capture by definition: it samples *this*
-        // capture and only leaves decryption on when the sample decodes.
-        withContext(Dispatchers.IO) {
-            repository.setEspDecryptionMode(_preferences.value.espDecryptionMode)
-        }.let { reportEspDecryptionOutcome(it) }
-        _currentFile.value = info
-        _workspacePage.value = WorkspacePage.Packets
-        _openProgress.value = null
-        _displayFilter.value = ""
-        _filterResult.value = DisplayFilterResult(success = true, filteredCount = info.frameCount)
-        _displayFilterUiState.value = DisplayFilterUiState(
-            syntaxStatus = FilterSyntaxStatus.Valid,
-            visibleCount = info.frameCount,
-            totalCount = info.frameCount
-        )
-        _searchState.value = PacketSearchState()
-        _decodeAsRules.value = emptyList()
-        _healthSummary.value = CaptureHealthSummary()
-        rememberRecent(info)
-        sessionPrefs.edit()
-            .putString("path", info.localPath)
-            .putString("displayName", info.displayName)
-            .putLong("sizeBytes", info.sizeBytes)
-            .putString("displayFilter", "")
-            .remove("selectedFrame")
-            .apply()
-        pagerGeneration.value += 1
-        viewModelScope.launch(Dispatchers.IO) {
-            val fingerprint = sessionCoordinator.prepareFingerprint(coordinatorToken, prepared.file)
-                .getOrNull() ?: return@launch
-            val restored = workspaceStore.load(fingerprint) ?: AnalysisWorkspace(fingerprint, info.displayName)
-            withContext(Dispatchers.Main) {
-                if (sessionCoordinator.isCurrent(coordinatorToken) &&
-                    repository.currentFile()?.localPath == info.localPath
-                ) {
-                    _workspace.value = restored
-                    if (restored.displayFilter.isNotBlank()) {
-                        updateDisplayFilter(restored.displayFilter)
-                        applyDisplayFilter()
+            val info = result.getOrThrow()
+            sessionOpened = true
+            val coordinatorToken = sessionCoordinator.onSessionOpened(info)
+            repository.setTimeDisplayFormat(_preferences.value.timeDisplayFormat)
+            repository.setNameResolutionEnabled(_preferences.value.nameResolutionEnabled)
+            // Process-wide native state, so it has to be re-synced for every new
+            // session. `Probe` is per-capture by definition: it samples *this*
+            // capture and only leaves decryption on when the sample decodes.
+            withContext(Dispatchers.IO) {
+                repository.setEspDecryptionMode(_preferences.value.espDecryptionMode)
+            }.let { reportEspDecryptionOutcome(it) }
+            _currentFile.value = info
+            activeArtifactId = plan?.takeIf { it.scope == CaptureOpenScope.WholeCapture }?.captureId
+            _workspacePage.value = WorkspacePage.Packets
+            _openProgress.value = null
+            _displayFilter.value = ""
+            _filterResult.value = DisplayFilterResult(success = true, filteredCount = info.frameCount)
+            _displayFilterUiState.value = DisplayFilterUiState(
+                syntaxStatus = FilterSyntaxStatus.Valid,
+                visibleCount = info.frameCount,
+                totalCount = info.frameCount
+            )
+            _searchState.value = PacketSearchState()
+            _decodeAsRules.value = emptyList()
+            _healthSummary.value = CaptureHealthSummary()
+            rememberRecent(info)
+            sessionPrefs.edit()
+                .putString("path", info.localPath)
+                .putString("displayName", info.displayName)
+                .putLong("sizeBytes", info.sizeBytes)
+                .putString("displayFilter", "")
+                .remove("selectedFrame")
+                .apply()
+            pagerGeneration.value += 1
+            if (plan != null) {
+                _savedCaptureOpenInfo.value = describeOpenPlan(plan)
+                if (plan.requiresSecretLease) applyRetainedSecrets(plan)
+            }
+            viewModelScope.launch(Dispatchers.IO) {
+                val fingerprint = sessionCoordinator.prepareFingerprint(coordinatorToken, prepared.file)
+                    .getOrNull() ?: return@launch
+                val restored = workspaceStore.load(fingerprint) ?: AnalysisWorkspace(fingerprint, info.displayName)
+                withContext(Dispatchers.Main) {
+                    if (sessionCoordinator.isCurrent(coordinatorToken) &&
+                        repository.currentFile()?.localPath == info.localPath
+                    ) {
+                        _workspace.value = restored
+                        if (restored.displayFilter.isNotBlank()) {
+                            updateDisplayFilter(restored.displayFilter)
+                            applyDisplayFilter()
+                        }
                     }
                 }
             }
+        } finally {
+            // A failed or cancelled open must leave no derived merged file behind. The
+            // reverse-of-acquisition teardown: native configuration and the secret lease
+            // are already unwound by the transaction on the failure path, so only the
+            // derived file remains here.
+            if (!sessionOpened) plan?.derivedAnalysisFile?.delete()
         }
     }
 
+    /**
+     * Loads the capture's retained secrets inside the coordinator transaction, after the
+     * file is open (TLS-310 step 1). The lease is consumed by the transaction whether the
+     * configuration succeeds or rolls back; a failure leaves the capture open and
+     * undecrypted and says so, rather than pretending the text is complete.
+     */
+    private suspend fun applyRetainedSecrets(plan: CaptureOpenPlan.Open) {
+        val assetId = plan.secretAssetId ?: return
+        _openProgress.value = OpenProgress(text(R.string.progress_tls_loading_keys))
+        var acquired = false
+        try {
+            val result = com.example.layanalyzer.data.withTlsAnalysisLease(acquire = { checkCancelled ->
+                tlsSecretStore.acquireLease(plan.captureId, assetId, checkCancelled).also { acquired = true }
+            }) { lease ->
+                configureTlsSecrets(lease, progress = { done, total ->
+                    _openProgress.value = OpenProgress(
+                        message = text(R.string.progress_tls_loading_keys),
+                        framesIndexed = done,
+                        totalBytes = total.toLong()
+                    )
+                })
+            }
+            _savedCaptureOpenInfo.value = _savedCaptureOpenInfo.value?.copy(
+                decryptionComplete = plan.decryptionComplete && result.success
+            )
+            if (!result.success) _openError.value = text(R.string.error_tls_configure_capture)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            if (acquired) throw error
+            _openError.value = text(R.string.error_tls_configure_capture)
+            _savedCaptureOpenInfo.value = _savedCaptureOpenInfo.value?.copy(decryptionComplete = false)
+        } finally {
+            _openProgress.value = null
+        }
+    }
+
+    /** Renders the honest open summary: scope, drops, secret state and vantage (step 2). */
+    private fun describeOpenPlan(plan: CaptureOpenPlan.Open): SavedCaptureOpenInfo {
+        val parts = ArrayList<String>(4)
+        parts += when (plan.scope) {
+            CaptureOpenScope.WholeCapture ->
+                text(R.string.saved_capture_open_scope_whole, plan.totalFrames.toInt())
+            CaptureOpenScope.SingleSegment ->
+                text(R.string.saved_capture_open_scope_single_segment)
+            CaptureOpenScope.LegacySingleFile ->
+                text(R.string.saved_capture_open_scope_legacy)
+        }
+        if (CaptureOpenNotice.DISK_FULL_FALLBACK in plan.notices) {
+            parts += text(R.string.saved_capture_open_disk_full_fallback)
+        }
+        if (plan.packetDrops > 0L) parts += text(R.string.saved_capture_open_drops, plan.packetDrops)
+        when {
+            CaptureOpenNotice.SECRETS_UNAVAILABLE in plan.notices ->
+                parts += text(R.string.saved_capture_open_secrets_unavailable)
+            CaptureOpenNotice.SECRETS_INCOMPLETE in plan.notices ->
+                parts += text(R.string.saved_capture_open_secrets_incomplete)
+            CaptureOpenNotice.SECRETS_ABSENT in plan.notices ->
+                parts += text(R.string.saved_capture_open_no_secrets)
+        }
+        if (CaptureOpenNotice.CAPTURE_INTERRUPTED in plan.notices) {
+            parts += text(R.string.saved_capture_open_interrupted)
+        }
+        if (plan.contextIncomplete) parts += text(R.string.saved_capture_open_incomplete_context)
+        if (plan.retention == com.example.layanalyzer.model.CaptureRetentionPolicy.KeepCaptureTransientSecrets)
+            parts += text(R.string.saved_capture_open_transient_secrets)
+        return SavedCaptureOpenInfo(
+            captureId = plan.captureId,
+            message = parts.joinToString(separator = " "),
+            scope = plan.scope,
+            totalFrames = plan.totalFrames,
+            packetDrops = plan.packetDrops,
+            decryptionComplete = plan.decryptionComplete,
+            contextIncomplete = plan.contextIncomplete,
+            captureMode = plan.captureMode,
+            vantage = plan.vantage,
+            notices = plan.notices
+        )
+    }
+
     private fun prepareForFileSwitch() {
+        cancelCaptureExport()
+        pendingCaptureExport = null
+        activeArtifactId = null
+        tlsImportController.invalidate()
         sessionGeneration++
         sessionCoordinator.invalidateSession()
         filterJob?.cancel()
@@ -2076,7 +2930,7 @@ class PacketListViewModel(
         check(requiredBytes == 0L || availableBytes >= requiredBytes + MIN_FREE_SPACE_BYTES) {
             text(R.string.error_private_storage)
         }
-        enforceCaptureQuota(capturesDir, requiredBytes)
+        enforceCaptureQuota(requiredBytes)
         val target = uniqueCaptureFile(capturesDir, metadata.displayName)
         val temporary = File(capturesDir, ".${target.name}.${UUID.randomUUID()}.partial")
         val totalBytes = metadata.sizeBytes
@@ -2162,10 +3016,14 @@ class PacketListViewModel(
     }
 
     private fun createExportFile(fileName: String): File {
-        val dir = File(appContext.filesDir, "exports").apply { mkdirs() }
-        var totalBytes = dir.listFiles().orEmpty().filter { it.isFile }.sumOf { it.length() }
-        dir.listFiles().orEmpty()
-            .filter { it.isFile }
+        val source = repository.currentFile() ?: error("No capture is open.")
+        val dir = captureLifecycle.exportDirectory(File(source.localPath))
+        val cached = com.example.layanalyzer.data.CaptureFiles.children(File(appContext.filesDir, "exports"))
+            .flatMap { entry ->
+                if (entry.isDirectory) com.example.layanalyzer.data.CaptureFiles.children(entry) else listOf(entry)
+            }.filter { it.isFile }
+        var totalBytes = cached.sumOf { it.length() }
+        cached
             .sortedBy { it.lastModified() }
             .forEach { file ->
                 val length = file.length()
@@ -2196,23 +3054,12 @@ class PacketListViewModel(
             .forEach { it.delete() }
     }
 
-    private fun enforceCaptureQuota(capturesDir: File, requiredBytes: Long) {
-        val protectedPaths = buildSet {
-            repository.currentFile()?.localPath?.let(::add)
-            LiveCaptureStore.state.value.outputPath?.let(::add)
+    private fun enforceCaptureQuota(requiredBytes: Long) {
+        val protectedFiles = buildList {
+            repository.currentFile()?.localPath?.let { add(File(it)) }
+            LiveCaptureStore.state.value.outputPath?.let { add(File(it)) }
         }
-        var totalBytes = capturesDir.listFiles().orEmpty()
-            .filter { it.isFile }
-            .sumOf { it.length() }
-        val candidates = capturesDir.listFiles().orEmpty()
-            .filter { it.isFile && it.absolutePath !in protectedPaths && !it.name.endsWith(".partial") }
-            .sortedBy { it.lastModified() }
-        for (file in candidates) {
-            if (totalBytes + requiredBytes <= CAPTURE_QUOTA_BYTES) break
-            val length = file.length()
-            if (file.delete()) totalBytes -= length
-        }
-        check(totalBytes + requiredBytes <= CAPTURE_QUOTA_BYTES) {
+        check(captureLifecycle.enforceQuota(CAPTURE_QUOTA_BYTES, requiredBytes, protectedFiles)) {
             text(R.string.error_capture_quota)
         }
     }
@@ -2300,7 +3147,7 @@ class PacketListViewModel(
                 for (i in 0 until array.length()) {
                     val item = array.getJSONObject(i)
                     val path = item.getString("localPath")
-                    if (File(path).exists()) {
+                    if (File(path).exists() || captureArtifactRepository.captureIdForAnalysisFile(File(path)) != null) {
                         add(
                             RecentCapture(
                                 displayName = item.getString("displayName"),
@@ -2318,6 +3165,7 @@ class PacketListViewModel(
     }
 
     override fun onCleared() {
+        tlsImportController.invalidate()
         sessionGeneration++
         openJob?.cancel()
         filterJob?.cancel()

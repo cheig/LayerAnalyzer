@@ -41,6 +41,17 @@ add_shared_lib(wsutil)
 add_shared_lib(wiretap)
 add_shared_lib(wireshark)
 
+# TLS-405: r1's name-resolution caches leak on each epan_new/reset. Reject an
+# unpatched dependency at configure time instead of silently regressing after
+# downloading the original archive. Both ABIs use the same backport marker.
+execute_process(COMMAND "${CMAKE_NM}" -D --defined-only "${LIB_DIR}/libwireshark.so"
+    OUTPUT_VARIABLE WIRESHARK_DEFINED_SYMBOLS RESULT_VARIABLE WIRESHARK_NM_RESULT)
+if(NOT WIRESHARK_NM_RESULT EQUAL 0 OR
+   NOT WIRESHARK_DEFINED_SYMBOLS MATCHES "layanalyzer_addr_resolv_scope_fix_v1")
+    message(FATAL_ERROR "Wireshark needs the TLS-405 address-resolution lifetime fix. Install the pinned r3 bundle with tools/fetch_native_deps.py.")
+endif()
+unset(WIRESHARK_DEFINED_SYMBOLS)
+
 # --- Vendored spandsp subset (RTP4-BLD-01) ---
 # G.722 / G.726 and the bitstream + allocator + vector helpers they link
 # against. Third-party C sources, copied verbatim from freeswitch/spandsp at
@@ -87,6 +98,10 @@ set(LAYANALYZER_SOURCES
     layanalyzer/internal/EngineState.cpp
     layanalyzer/jni/EngineLifecycle.cpp
     layanalyzer/session/WiresharkSession.cpp
+    layanalyzer/tls/TlsDecryptionConfig.cpp
+    layanalyzer/tls/TlsDataSources.cpp
+    layanalyzer/tls/TlsClientHelloProjection.cpp
+    layanalyzer/tls/TlsFollowStream.cpp
     layanalyzer/projection/TreeFieldReader.cpp
     layanalyzer/projection/ProtocolProjection.cpp
     layanalyzer/jni/PacketListJni.cpp
@@ -155,9 +170,37 @@ set(LAYANALYZER_SOURCES
     layanalyzer/rtp/RtpPayloadExtractor.cpp
     layanalyzer/rtp/RtpSetupInfo.cpp
     layanalyzer/projection/ByteFormatter.cpp
+    # P2-1: GBK/GB18030/EUC-KR -> UTF-8 for display text (labels, columns,
+    # follow-stream previews). Uses Wireshark's own charsets API.
+    layanalyzer/projection/TextEncoding.cpp
     layanalyzer/export/PcapWriter.cpp
 )
 add_library(${CMAKE_PROJECT_NAME} SHARED ${LAYANALYZER_SOURCES})
+
+# The OFF adapter exports explicit unsupported responses without loading Go.
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE layanalyzer/tls/TlsProxyAdapter.cpp)
+option(LAYANALYZER_ENABLE_TLS "Build the lazily loaded production TLS bridge" ON)
+if(LAYANALYZER_ENABLE_TLS)
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE LAYANALYZER_ENABLE_TLS=1)
+    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/../../../../native_go/tlsbridge/include)
+    target_link_libraries(${CMAKE_PROJECT_NAME} dl)
+endif()
+
+# Optional, lazily loaded P0 smoke. No DT_NEEDED entry for the Go runtime.
+option(LAYANALYZER_TLS_PROBE "Build debug-only TLS experiments" OFF)
+if(LAYANALYZER_TLS_PROBE)
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(FATAL_ERROR "TLS probes require a Debug native build")
+    endif()
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+        layanalyzer/tls/TlsProbeAdapter.cpp
+        layanalyzer/tls/TlsDissectionProbe.cpp)
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE LAYANALYZER_TLS_PROBE=1)
+    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/../../../../native_go/tlsbridge/cmd/androidbridge)
+    target_link_libraries(${CMAKE_PROJECT_NAME} dl)
+endif()
 
 target_compile_features(${CMAKE_PROJECT_NAME} PRIVATE cxx_std_17)
 
@@ -612,10 +655,14 @@ target_link_libraries(hev_socks5_tunnel PUBLIC
 
 add_library(layanalyzer_tunnel SHARED
     tunnel-jni.cpp
+    tunnel-lwip-lifecycle.c
 )
 target_compile_features(layanalyzer_tunnel PRIVATE cxx_std_17)
+target_compile_definitions(layanalyzer_tunnel PRIVATE FD_SET_DEFINED SOCKLEN_T_DEFINED)
 target_include_directories(layanalyzer_tunnel PRIVATE
     "${HEV_TASK_PUBLIC_INCLUDE_DIR}"
+    "${HEV_LWIP_DIR}/src/include"
+    "${HEV_LWIP_DIR}/src/ports/include"
 )
 target_link_libraries(layanalyzer_tunnel PRIVATE
     ${log-lib}

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -26,7 +25,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -137,18 +135,12 @@ internal fun AgentToolActivityRow(
     val arguments = activity.argumentsSummary.trim()
     val canExpand = arguments.isNotEmpty()
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp)
-    ) {
+    AnalyzerListItem(modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .let { if (canExpand) it.clickable { expanded = !expanded } else it }
-                .padding(horizontal = 12.dp, vertical = 9.dp)
+                .padding(horizontal = AnalyzerSpacing.CardPadding, vertical = 12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AgentToolStatusIcon(activity.status)

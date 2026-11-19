@@ -87,7 +87,8 @@ class SbomTest(unittest.TestCase):
         self.review = release.read_json(release.ROOT / 'docs/dependency-licenses.json')
         self.inventory = copy.deepcopy(self.review)
         self.inventory['build'] = {'versionName': '1.0', 'ndkVersion': '27.0.12077973',
-                                   'abis': ['arm64-v8a'], 'g729': True, 'ilbc': False}
+                                   'abis': ['arm64-v8a'], 'g729': True, 'ilbc': False,
+                                   'tlsEnabled': False, 'tlsProbe': False, 'tlsBridge': None}
         self.deps = release.read_json(release.ROOT / 'native_build/native-deps.json')
         self.sources = release.read_json(release.ROOT / 'native_build/native-sources.json')
         self.provenance = release.read_json(release.ROOT / self.sources['verificationRecord'])
@@ -103,7 +104,7 @@ class SbomTest(unittest.TestCase):
     def fixture_binary(self, kind='apk', omit=None, extra=None):
         prefix = 'lib/' if kind == 'apk' else 'base/lib/'
         names = {n for n in self.deps['files'] if n.startswith('arm64-v8a/') and n.endswith('.so')}
-        names |= {'arm64-v8a/' + n for n in ['liblayanalyzer.so', 'liblayanalyzer_tunnel.so', 'libc++_shared.so']}
+        names |= {'arm64-v8a/' + n for n in ['liblayanalyzer.so', 'liblayanalyzer_tunnel.so', 'libc++_shared.so', 'libandroidx.graphics.path.so']}
         if omit:
             names.remove('arm64-v8a/' + omit)
         if extra:
@@ -111,6 +112,8 @@ class SbomTest(unittest.TestCase):
         with zipfile.ZipFile(self.stage / ('app.' + kind), 'w') as archive:
             for name in names:
                 archive.writestr(prefix + name, b'fixture library')
+        if kind == 'apk':
+            self.inventory['build']['apkSha256'] = release.digest(self.stage / 'app.apk')
 
     def test_complete_input_coverage(self):
         sbom = self.build_sbom()
@@ -165,7 +168,7 @@ class SbomTest(unittest.TestCase):
         self.fixture_binary('aab')
         sbom = self.build_sbom()
         for kind in ['apk', 'aab']:
-            self.assertEqual(13, sum(f['SPDXID'].startswith(f'SPDXRef-{kind}-Library-') for f in sbom['files']))
+            self.assertEqual(14, sum(f['SPDXID'].startswith(f'SPDXRef-{kind}-Library-') for f in sbom['files']))
 
     def test_missing_packaged_library_rejected(self):
         self.fixture_binary(omit='libwireshark.so')

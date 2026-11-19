@@ -47,10 +47,7 @@ Those are GitHub's repository downloads, not extra assets uploaded by this workf
 7. Download that CI APK for device installation and core-flow validation. Record
    results in the draft and publish manually when ready. The workflow never publishes.
 
-Current packaging keeps Wireshark 4.0.10 / r1 libraries and r2 corresponding source.
-Upgrades/backports remain follow-up maintenance; known issues are documented in
-[the maintenance assessment](wireshark-security-maintenance.md). A draft is not
-public APK distribution or device validation; source tags and CI logs remain public.
+Use the pinned r3 native libraries. The resolver fix is not a security upgrade; see [the maintenance assessment](wireshark-security-maintenance.md).
 
 Retries keep matching assets and upload only missing ones. Published releases,
 drafts for another commit, and unexpected or changed assets are rejected; no
@@ -62,20 +59,24 @@ uploads. Rerunning an older tag uses that tag's original workflow and attachment
 ## Local packaging and validation
 
 Use a clean committed checkout and a fresh signed build matching that commit.
-Windows uses `gradlew.bat`; supply signing environment variables from CONTRIBUTING.
+Windows uses `gradlew.bat`; supply the four signing environment variables from
+[CONTRIBUTING](../CONTRIBUTING.md#正式签名与发布). Set `RELEASE_TAG` to the reviewed tag
+matching the candidate versionName and `LOCKED_GO` to the locked Go executable.
+The commands below stage local files only; they do not publish a release.
 
 ```sh
-./gradlew -I tools/runtime_license_inventory.init.gradle testReleaseUnitTest lintRelease assembleRelease :app:exportRuntimeLicenseInventory
-python tools/verify_release_apk.py --apk app/build/outputs/apk/release/app-release.apk --inventory build/license-audit/releaseRuntimeClasspath.json --tag v1.0.0
+./gradlew -I tools/runtime_license_inventory.init.gradle -PlayanalyzerEnableTls=true -PlayanalyzerTlsProbe=false -PlayanalyzerTlsGo="$LOCKED_GO" testReleaseUnitTest lintRelease assembleRelease :app:exportRuntimeLicenseInventory
+python tools/verify_release_apk.py --apk app/build/outputs/apk/release/app-release.apk --inventory build/license-audit/releaseRuntimeClasspath.json --tag "$RELEASE_TAG"
 python tools/stage_release.py create-apk --staging build/release-staging --inventory build/license-audit/releaseRuntimeClasspath.json --apk app/build/outputs/apk/release/app-release.apk
-python tools/stage_release.py verify-apk --staging build/release-staging --tag v1.0.0
+python tools/stage_release.py verify-apk --staging build/release-staging --tag "$RELEASE_TAG"
 ```
 
 After downloading both attachments, run `sha256sum -c SHA256SUMS` in their directory.
 The Python verifier additionally rejects extra files. Run tool checks with:
 
 ```sh
-python -m unittest discover -s tools/tests -p 'test_release*.py' -v
+python -m pip install -r tools/ci-requirements.txt
+python tools/run_required_tests.py unittest tools/tests
 python tools/check_source_checkout.py
 ```
 

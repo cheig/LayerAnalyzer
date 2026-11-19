@@ -1,0 +1,4 @@
+# Host-only fixture tools; never packaged in the Android application.
+cryptography==46.0.3
+h2==4.3.0
+jsonschema==4.23.0

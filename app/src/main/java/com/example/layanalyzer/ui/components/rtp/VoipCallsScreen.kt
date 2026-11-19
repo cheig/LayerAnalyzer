@@ -27,11 +27,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +50,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.layanalyzer.R
+import com.example.layanalyzer.ui.components.AnalyzerListItem
+import com.example.layanalyzer.ui.components.AnalyzerSpacing
 import com.example.layanalyzer.data.LinkedRtpStream
 import com.example.layanalyzer.data.MosEstimator
 import com.example.layanalyzer.data.RtpLinkReason
@@ -241,7 +241,6 @@ private fun ColumnScope.ReadyContent(
         }
         items(visible, key = { it.callId }) { call ->
             VoipCallCard(call = call, onClick = { onOpenCall(call.callId) })
-            HorizontalDivider()
         }
         if (state.unlinked.isNotEmpty()) {
             item {
@@ -304,16 +303,12 @@ private fun VoipCallCard(call: VoipCall, onClick: () -> Unit) {
     val notApplicable = notApplicableText()
     val nameMissing = call.from.isBlank() || call.to.isBlank()
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
+    AnalyzerListItem(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = AnalyzerSpacing.CardPadding, vertical = 12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

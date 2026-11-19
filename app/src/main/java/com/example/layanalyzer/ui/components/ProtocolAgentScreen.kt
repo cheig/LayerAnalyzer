@@ -49,8 +49,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -555,8 +553,8 @@ fun ProtocolAgentScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .testTag(AgentTestTags.REPORT_LIST),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(AnalyzerSpacing.CardPadding),
+                verticalArrangement = Arrangement.spacedBy(AnalyzerSpacing.CardGap)
             ) {
                 // One folded row replaces the scope, model and scenario-rule
                 // cards: static choices the user made once, which used to hold
@@ -1262,21 +1260,16 @@ private fun AgentRunConfigBar(
         if (expanded) R.string.agent_run_config_collapse else R.string.agent_run_config_expand
     )
 
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
+    AnalyzerCard(Modifier.fillMaxWidth()) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 40.dp)
+                    .heightIn(min = 48.dp)
                     .clickable(role = Role.Button) { onExpandedChange(!expanded) }
                     .testTag(AgentTestTags.RUN_CONFIG_TOGGLE)
                     .semantics { contentDescription = toggleDescription }
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = AnalyzerSpacing.CardPadding),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -1314,7 +1307,7 @@ private fun AgentRunConfigBar(
 
             if (expanded) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Column(Modifier.padding(horizontal = 12.dp)) {
+                Column(Modifier.padding(horizontal = AnalyzerSpacing.CardPadding)) {
                     AgentScopeControls(
                         currentFile = currentFile,
                         displayFilter = displayFilter,
@@ -1580,11 +1573,8 @@ private fun AgentGatewayAccountCard(
     state: GatewayAccountUiState,
     onRefresh: () -> Unit
 ) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(Modifier.padding(12.dp)) {
+    AnalyzerCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AnalyzerSpacing.CardPadding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AgentSectionLabel(stringResource(R.string.agent_gateway_account_title))
                 Spacer(Modifier.weight(1f))
@@ -2366,83 +2356,80 @@ private fun AgentCompletenessBadge(completeness: AgentReportCompleteness) {
 
 @Composable
 private fun AgentErrorCard(error: AgentError, onRetry: () -> Unit) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-    ) {
-        Column(Modifier.padding(12.dp)) {
+    AnalyzerCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AnalyzerSpacing.CardPadding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.ErrorOutline,
                     null,
                     Modifier.size(17.dp),
-                    tint = MaterialTheme.colorScheme.onErrorContainer
+                    tint = MaterialTheme.colorScheme.error
                 )
                 Spacer(Modifier.width(7.dp))
                 Text(
                     text = stringResource(R.string.agent_phase_failed),
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.error
                 )
             }
             Spacer(Modifier.height(5.dp))
             Text(
                 text = error.userMessage,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = agentErrorSuggestion(error.code),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.agent_error_code, error.code.name),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onErrorContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
             error.details["remoteCode"]?.toString()?.takeIf { it.isNotBlank() }?.let { code ->
                 Text(
                     text = stringResource(R.string.agent_error_remote_code, code),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             error.details["httpStatus"]?.toString()?.takeIf { it.isNotBlank() }?.let { status ->
                 Text(
                     text = stringResource(R.string.agent_error_http_status, status),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             error.details["remoteMessage"]?.toString()?.takeIf { it.isNotBlank() }?.let { reason ->
                 Text(
                     text = stringResource(R.string.agent_error_remote_message, reason),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             error.details["reason"]?.toString()?.takeIf { it.isNotBlank() }?.let { reason ->
                 Text(
                     text = stringResource(R.string.agent_error_reason, reason),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             error.details["retryCount"]?.toString()?.takeIf { it.isNotBlank() }?.let { count ->
                 Text(
                     text = stringResource(R.string.agent_error_retry_count, count),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             error.details["stage"]?.toString()?.takeIf { it.isNotBlank() }?.let { stage ->
                 Text(
                     text = stringResource(R.string.agent_error_stage, stage),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             error.details["diagnosticId"]?.toString()?.takeIf { it.isNotBlank() }?.let { id ->
@@ -2451,7 +2438,7 @@ private fun AgentErrorCard(error: AgentError, onRetry: () -> Unit) {
                     Text(
                         text = stringResource(R.string.agent_error_diagnostic_id, id),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     IconButton(
@@ -2462,7 +2449,7 @@ private fun AgentErrorCard(error: AgentError, onRetry: () -> Unit) {
                             Icons.Default.ContentCopy,
                             contentDescription = stringResource(R.string.agent_copy_diagnostic_id),
                             modifier = Modifier.size(13.dp),
-                            tint = MaterialTheme.colorScheme.onErrorContainer
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -2481,12 +2468,9 @@ private fun AgentErrorCard(error: AgentError, onRetry: () -> Unit) {
 
 @Composable
 private fun AgentCancelledCard(onRetry: () -> Unit) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
+    AnalyzerCard(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.padding(12.dp),
+            Modifier.padding(AnalyzerSpacing.CardPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
@@ -2968,11 +2952,8 @@ private fun AgentSavedSessionRow(
     onOpen: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(Modifier.padding(12.dp)) {
+    AnalyzerListItem(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AnalyzerSpacing.CardPadding)) {
             Text(
                 text = saved.userQuestion.ifBlank {
                     remember(saved.summary) { ReportMarkdown.preview(saved.summary) }
@@ -3096,7 +3077,7 @@ private fun AgentSavedSessionDialog(
             val visibleFindings = saved.report.findings.filterNot { it.isHostConfirmedToolResult }
             LazyColumn(
                 modifier = Modifier.height(420.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(AnalyzerSpacing.CardGap)
             ) {
                 if (saved.userQuestion.isNotBlank()) {
                     item {
@@ -3150,11 +3131,8 @@ private fun AgentPastReportRow(
     round: AgentConversationRound,
     onOpen: () -> Unit
 ) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(Modifier.padding(12.dp)) {
+    AnalyzerListItem(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AnalyzerSpacing.CardPadding)) {
             if (round.question.isNotBlank()) {
                 Text(
                     text = round.question,
@@ -3209,7 +3187,7 @@ private fun AgentPastReportDialog(
                 round.report.findings.filterNot { it.isHostConfirmedToolResult }
             LazyColumn(
                 modifier = Modifier.height(420.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(AnalyzerSpacing.CardGap)
             ) {
                 if (round.question.isNotBlank()) {
                     item {
@@ -3252,11 +3230,8 @@ private fun AgentLocalDataCard(
     onClear: () -> Unit,
     onExportDiagnostics: () -> Unit
 ) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(Modifier.padding(12.dp)) {
+    AnalyzerCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AnalyzerSpacing.CardPadding)) {
             AgentSectionLabel(stringResource(R.string.agent_local_data_title))
             Spacer(Modifier.height(4.dp))
             Text(

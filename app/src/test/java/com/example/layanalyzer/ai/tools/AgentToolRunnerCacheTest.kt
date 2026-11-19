@@ -137,9 +137,31 @@ class AgentToolRunnerCacheTest {
 
             runner.execute(tool.call("call-1"), harness.snapshot, AgentPrivacyMode.RedactedMetadata)
             // A Decode As rule or a name-resolution toggle bumps this version.
-            val reconfigured = harness.snapshot.copy(analysisConfigVersion = 2)
+            harness.coordinator.bumpAnalysisConfigVersion()
+            val reconfigured = checkNotNull(harness.repository.createSnapshot(harness.snapshot.scope).getOrNull())
             runner.execute(tool.call("call-2"), reconfigured, AgentPrivacyMode.RedactedMetadata)
 
+            assertEquals(2, tool.executionCount)
+        }
+    }
+
+    @Test
+    fun `different TLS epochs never reuse a cache entry after reopening the same capture`() = runBlocking {
+        AgentToolTestHarness.create().use { harness ->
+            val tool = countingTool()
+            val runner = runner(harness, tool)
+            assertTrue(harness.coordinator.configureTlsSecrets(null).success)
+            val a = checkNotNull(harness.repository.createSnapshot(harness.snapshot.scope).getOrNull())
+            assertTrue(runner.execute(tool.call("a"), a, AgentPrivacyMode.RedactedMetadata).success)
+            val info = checkNotNull(harness.source.currentFile())
+            harness.coordinator.registerOpenedSession(info).getOrThrow()
+            assertTrue(harness.coordinator.configureTlsSecrets(null).success)
+            val b = checkNotNull(harness.repository.createSnapshot(harness.snapshot.scope).getOrNull())
+            assertEquals(a.analysisConfigVersion, b.analysisConfigVersion)
+            assertEquals(a.captureFingerprint, b.captureFingerprint)
+            assertNotEquals(a.analysisCacheIdentity, b.analysisCacheIdentity)
+            assertTrue(runner.execute(tool.call("b"), b, AgentPrivacyMode.RedactedMetadata).success)
+            assertTrue(runner.execute(tool.call("b-again"), b, AgentPrivacyMode.RedactedMetadata).success)
             assertEquals(2, tool.executionCount)
         }
     }

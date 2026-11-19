@@ -20,7 +20,7 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.annotation:annotation-experimental:1.4.0
+androidx.annotation:annotation-experimental:1.4.1
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 
@@ -76,7 +76,7 @@ Copyright 2019 The Android Open Source Project
 androidx.cardview:cardview:1.0.0
 Copyright 2018 The Android Open Source Project
 
-androidx.collection:collection-jvm:1.4.0
+androidx.collection:collection-jvm:1.4.4
 Copyright (C) 2017 The Android Open Source Project
 Copyright (C) 2019 The Android Open Source Project
 Copyright 2018 The Android Open Source Project
@@ -84,20 +84,20 @@ Copyright 2020 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.animation:animation-android:1.6.6
+androidx.compose.animation:animation-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 
-androidx.compose.animation:animation-core-android:1.6.6
+androidx.compose.animation:animation-core-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.foundation:foundation-android:1.6.6
+androidx.compose.foundation:foundation-android:1.7.5
 Copyright 2018 The Android Open Source Project
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
@@ -105,31 +105,31 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.foundation:foundation-layout-android:1.6.6
+androidx.compose.foundation:foundation-layout-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 
-androidx.compose.material3:material3-android:1.2.1
+androidx.compose.material3:material3-android:1.3.1
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 Copyright 2024 The Android Open Source Project
 
-androidx.compose.material:material-icons-core-android:1.6.6
+androidx.compose.material:material-icons-core-android:1.7.5
 Copyright 2020 The Android Open Source Project
 Copyright 2024 The Android Open Source Project
 
-androidx.compose.material:material-icons-extended-android:1.6.6
+androidx.compose.material:material-icons-extended-android:1.7.5
 Copyright 2024 The Android Open Source Project
 
-androidx.compose.material:material-ripple-android:1.6.6
+androidx.compose.material:material-ripple-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 
-androidx.compose.runtime:runtime-android:1.6.6
+androidx.compose.runtime:runtime-android:1.7.5
 Copyright 2016-2019 JetBrains s.r.o.
 Copyright 2016-2020 JetBrains s.r.o.
 Copyright 2019 The Android Open Source Project
@@ -138,22 +138,22 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.runtime:runtime-saveable-android:1.6.6
+androidx.compose.runtime:runtime-saveable-android:1.7.5
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 
-androidx.compose.ui:ui-android:1.6.6
+androidx.compose.ui:ui-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-geometry-android:1.6.6
+androidx.compose.ui:ui-geometry-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 
-androidx.compose.ui:ui-graphics-android:1.6.6
+androidx.compose.ui:ui-graphics-android:1.7.5
 Copyright 2018 The Android Open Source Project
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
@@ -161,7 +161,7 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-text-android:1.6.6
+androidx.compose.ui:ui-text-android:1.7.5
 Copyright 2018 The Android Open Source Project
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
@@ -170,21 +170,21 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-tooling-preview-android:1.6.6
+androidx.compose.ui:ui-tooling-preview-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-unit-android:1.6.6
+androidx.compose.ui:ui-unit-android:1.7.5
 Copyright 2018 The Android Open Source Project
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-util-android:1.6.6
+androidx.compose.ui:ui-util-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
@@ -521,3 +521,150 @@ including Base64.kt and ZipFiles.kt (Apache Harmony-derived code):
 /* Apache Harmony HEADER because the code in this class comes mostly from ZipFile, ZipEntry and
  * ZipConstants from android libcore.
  */
+
+
+TLS-406 runtime inventory review (2026-10-16)
+
+androidx.annotation:annotation-experimental:1.4.1
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+
+androidx.collection:collection-jvm:1.4.4
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.animation:animation-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.animation:animation-core-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.foundation:foundation-android:1.7.5
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.foundation:foundation-layout-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.material3:material3-android:1.3.1
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.material:material-icons-core-android:1.7.5
+Copyright 2020 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.material:material-icons-extended-android:1.7.5
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.material:material-ripple-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+
+androidx.compose.runtime:runtime-android:1.7.5
+Copyright 2016-2019 JetBrains s.r.o.
+Copyright 2016-2020 JetBrains s.r.o.
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.runtime:runtime-saveable-android:1.7.5
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+
+androidx.compose.ui:ui-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.ui:ui-geometry-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.compose.ui:ui-graphics-android:1.7.5
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.ui:ui-text-android:1.7.5
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2020 The Android Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.ui:ui-tooling-preview-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.compose.ui:ui-unit-android:1.7.5
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.compose.ui:ui-util-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.graphics:graphics-path:1.0.1
+Copyright 2022 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-runtime-compose-android:2.8.7
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.graphics:graphics-path:1.0.1 native C++ source
+Revision 8a05a22af450d589ef911d772a001a49dcb05b71 (official 1.0.1 release notes)
+Copyright (C) 2006 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2013 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Apache-2.0; full license accompanies this notice.

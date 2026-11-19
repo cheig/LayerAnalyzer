@@ -1,11 +1,15 @@
 # Native source and build provenance
 
+当前使用 [wireshark-4.0.10-r3](https://github.com/cheig/LayerAnalyzer_libs/releases/tag/wireshark-4.0.10-r3)。频繁切换 TLS 密钥会重建解析会话；两种 ABI 的 `libwireshark.so` 均已修复名称解析缓存的生命周期。其余 26 个库的哈希不变。见 [r3 来源清单](../native_build/provenance/wireshark-4.0.10-r3.json) 和[补丁](../native_build/patches/wireshark/addr-resolv-scope-lifetime.patch)。这不是安全版本升级。
+
+## 历史 r1/r2 对照
+
 核对日期：2026-10-06。适用范围为 `native-deps-wireshark-4.0.10-r1.zip` 与
 `native-sources-wireshark-4.0.10-r2.tar.gz`。本记录不表示已经修复 Wireshark 安全问题或完成远端发布。
 
 ## 固定输入与验证结果
 
-应用继续使用 [native-deps.json](../native_build/native-deps.json) 固定的 r1 库。
+以下为当时固定的 r1 库与 r2 对应源码的比较。
 九个源码项目、19 份本地源码补丁和额外支持文件已逐文件核对；两个 ABI 均已从独立解压目录完成构建。
 重建需要应用下述构建脚本兼容补丁。新产物保持为独立候选，没有替换应用固定库。
 

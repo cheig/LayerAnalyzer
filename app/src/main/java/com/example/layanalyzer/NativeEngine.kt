@@ -39,7 +39,113 @@ object NativeEngine {
      * Get Wireshark version
      */
     external fun getVersion(): String
+
+    /** Does not load the Go library or start an engine. */
+    external fun getTlsProxyCapabilities(): String
+    external fun startTlsProxy(
+        configJson: String, caCertificateDer: ByteArray, caPrivateKeyPkcs8: ByteArray,
+        callbacks: com.example.layanalyzer.capture.tls.TlsPlatformCallbacks
+    ): String
+    external fun stopTlsProxy(engineHandle: Long, timeoutMillis: Int): String
+    external fun pollTlsProxyEvents(engineHandle: Long, maxEvents: Int): String
+    external fun getTlsProxyStats(engineHandle: Long): String
+
+    /**
+     * The running run's gateway token, as the 43 ASCII characters of C05's
+     * base64url form.
+     *
+     * This is the one place the token crosses the boundary, and it crosses as a
+     * dedicated byte array: it is deliberately not part of [startTlsProxy]'s JSON
+     * result (C05), never logged, and cleared by [stopTlsProxy]. The returned
+     * array is the caller's copy and should be wiped when the run ends.
+     *
+     * Failure throws [IllegalStateException] whose message is one fixed code
+     * name — `UNSUPPORTED` without the `layanalyzerEnableTls` build,
+     * `STALE_GENERATION` when the handle does not name the running run,
+     * `INVALID_ARGUMENT` for a non-positive handle, `NOT_READY` from a Go
+     * callback thread. An empty or partial array is never returned as success.
+     */
+    external fun getTlsProxyToken(engineHandle: Long): ByteArray
+
+    /**
+     * Generates one fresh install CA in Go (RSA 3072) and returns exactly
+     * `[certificateDER, privateKeyPKCS8]`; each array has its own lifecycle.
+     * Blocking CPU work, not a Go callback: never call it on the main thread.
+     * Failure throws
+     * [com.example.layanalyzer.capture.tls.TlsCertificateException] carrying only
+     * a fixed code name - an empty or partial array is never a success.
+     * Requires the `layanalyzerEnableTls` build; otherwise it throws `UNSUPPORTED`.
+     */
+    external fun generateTlsCaMaterial(): Array<ByteArray>
+
+    // TLS-004 P0 only. JNI symbols exist exclusively in probe ON debug/emulator.
+    // This callback is exercised on a joined native worker, not a Go TLS worker.
+    fun interface TlsBridgeProbeCallback {
+        fun onProbeStarted(engineHandle: Long): Boolean
+    }
+
+    external fun getTlsBridgeProbeState(): String
+    external fun loadTlsBridgeProbe(missingLibrary: Boolean, expectedAbiVersion: Int): String
+    external fun startTlsBridgeProbe(callback: TlsBridgeProbeCallback?): String
+    external fun stopTlsBridgeProbe(engineHandle: Long): String
+
+    // TLS-005 optional P0 extension. Synchronous and bounded; Go owns the FD.
+    fun interface TlsSocketProbeCallback {
+        fun prepareSocket(fd: Int, networkGeneration: Long): String
+    }
+
+    external fun runTlsSocketProbe(
+        destinationIp: String, destinationPort: Int, networkGeneration: Long,
+        timeoutMillis: Int, callback: TlsSocketProbeCallback
+    ): String
+
+    // TLS-006 lab only: fixed loopback fixtures, protocol 0=1.2/h1, 1=1.3/h1,
+    // 2=1.3/h2. Exactly [metadata JSON UTF-8, TLS A keylog, TLS B keylog].
+    // Keys are dedicated byte buffers, never JSON/log fields; caller clears them.
+    external fun runTlsKeyLogProbe(
+        protocol: Int, rejectUpstreamRoot: Boolean, callback: TlsSocketProbeCallback
+    ): Array<ByteArray>
+
+    // TLS-008: callback copies the ephemeral token and starts the test VPN.
+    // Same dedicated buffers/cleanup contract as TLS-006. No production route.
+    interface TlsTunProbeCallback : TlsSocketProbeCallback {
+        fun prepareTun(gatewayPort: Int, token: ByteArray): Boolean
+    }
+
+    external fun runTlsTunProbe(protocol: Int, callback: TlsTunProbeCallback): Array<ByteArray>
+
+    // TLS-007 P0 only. One test capture/target TCP stream; never call from UI.
+    // Returns bounded test evidence, including synthetic follower bytes. Each
+    // call clears keylog preference and rebuilds epan before returning.
+    external fun runTlsDissectionProbe(
+        sessionPtr: Long, keyLogPath: String?, serverPort: Int,
+        http2: Boolean, withTaps: Boolean
+    ): String
     
+    /**
+     * Configure a private TLS keylog lease, or clear it with null. Each changed
+     * configuration needs a strictly increasing session-local secrets revision.
+     * Returns the C07 envelope with native dissectionGeneration and configured;
+     * success does not imply any packet decrypted. Does not perform priming.
+     * Call without a coordinator read lease; keep the file until clear/close.
+     * A failure with sessionClosed=true requires reopening the capture.
+     */
+    external fun configureTlsSecrets(
+        sessionPtr: Long, keyLogPath: String?, secretsGeneration: Long
+    ): String
+
+    /**
+     * Projects the TLS ClientHello of every frame in the current analysis into a
+     * bounded list of observations (client_random, destination address/port, frame
+     * timestamp and the 1-based frame number) for TLS-303's Kotlin correlator.
+     * Carries no secrets. maxFrames bounds the result (0 means the native default);
+     * a closed session reports NOT_READY and a generation mismatch STALE_GENERATION
+     * on the shared envelope.
+     */
+    external fun projectTlsClientHellos(
+        sessionPtr: Long, expectedGeneration: Long, maxFrames: Int
+    ): String
+
     /**
      * Cleanup resources
      */
@@ -132,6 +238,34 @@ object NativeEngine {
      */
     external fun getPacketDetails(sessionPtr: Long, packetIndex: Int): String
 
+    /**
+     * One frame of the TLS priming scan: dissects [packetIndex] in capture
+     * order and answers with plaintext counts and identity only
+     * (`schemaVersion`/`success`/`decryptedSources`/`decryptedBytes`/
+     * `observed`/`streamId`/`tlsVersion`). Never [getPacketDetails]'s protocol
+     * tree.
+     *
+     * The dissection itself is not optional -- the scan's in-order pass is what
+     * rebuilds Wireshark's cross-frame reassembly state -- so this is the cheap
+     * form of it, not a way to skip frames. Every frame is classified, because
+     * the counters are totals: one connection is one `tcp.stream`, and
+     * `tlsVersion` is the wire version of the records that carried the
+     * plaintext (0x0303 / 0x0304). A frame the dissectors reject returns `{}`,
+     * which callers must treat as a scan failure, not as "no plaintext".
+     */
+    external fun probeTlsPlaintext(sessionPtr: Long, packetIndex: Int): String
+
+    /** Describes the existing detail snapshot; STALE_GENERATION requires new details. */
+    external fun getPacketDataSources(
+        sessionPtr: Long, snapshotId: String, expectedGeneration: Long
+    ): String
+
+    /** Reads at most 256 KiB from copied source bytes, without another dissection. */
+    external fun readPacketDataSource(
+        sessionPtr: Long, snapshotId: String, sourceId: String,
+        offset: Int, length: Int, expectedGeneration: Long
+    ): String
+
     external fun getPacketBytes(sessionPtr: Long, packetIndex: Int): ByteArray
 
     external fun applyDisplayFilter(sessionPtr: Long, filter: String): String
@@ -154,6 +288,29 @@ object NativeEngine {
     external fun exportVisibleCapture(sessionPtr: Long, outputPath: String): String
 
     external fun followStream(sessionPtr: Long, packetIndex: Int, protocol: String): String
+
+    /**
+     * TLS application bytes for the complete selected TCP connection, including
+     * context outside the display filter. Uses the current primed analysis;
+     * maxBytes is 1..1 MiB. Preserve scope/incomplete/truncated/direction fields.
+     * Missing or unmatched secrets return NOT_READY with unavailableReason.
+     * Caller must hold the analysis read gate and reject stale publication.
+     */
+    external fun followTlsStream(
+        sessionPtr: Long, packetIndex: Int, expectedGeneration: Long, maxBytes: Int
+    ): String
+
+    /**
+     * TLS-308: bounded, chunked full-stream export. Writes the complete selected TCP connection's
+     * decrypted application bytes to [outputPath], holding the session and dissection-generation
+     * lease for the whole call instead of raising [followTlsStream]'s JSON preview budget. The
+     * envelope carries the SHA-256 of exactly the bytes written. Cancellation or failure removes the
+     * partial file and returns success=false, so a half file is never published as complete.
+     * maxBytes is 1..TLS_FOLLOW_EXPORT_LIMIT; exceeding it reports truncation honestly.
+     */
+    external fun exportTlsFollowStream(
+        sessionPtr: Long, packetIndex: Int, expectedGeneration: Long, outputPath: String, maxBytes: Int
+    ): String
 
     external fun getHttpObjects(sessionPtr: Long): String
 

@@ -36,6 +36,7 @@ class PacketFieldsTool(
 
     override val definition = AgentToolDefinition(
         name = "get_packet_fields",
+        version = "2",
         description = "Read specific protocol fields from a small set of frames. " +
             "Field names are Wireshark field abbreviations such as sip.Method or " +
             "tcp.analysis.retransmission. Returns one entry per occurrence, so repeated " +
@@ -162,8 +163,8 @@ class PacketFieldsTool(
             // Each frame is a separate guarded read: a capture swapped midway
             // through a multi-frame call must not contribute rows from two
             // different sessions to one payload.
-            val reading = context.repository.getPacketDetails(context.snapshot, frame)
-            val root = when (reading) {
+            val reading = context.repository.getPacketDetail(context.snapshot, frame)
+            val detail = when (reading) {
                 is AgentAnalysisResult.Failure ->
                     // An out-of-range frame is the model's mistake and worth
                     // reporting precisely; a stale session ends the whole call.
@@ -177,6 +178,7 @@ class PacketFieldsTool(
                 is AgentAnalysisResult.Success -> reading.value
             }
 
+            val root = detail.root
             if (root == null) {
                 // Dissection failed rather than the field being absent.
                 results += unavailable(frame, fields, fieldsTruncated)
@@ -184,7 +186,15 @@ class PacketFieldsTool(
             }
 
             val projection = withContext(ioDispatcher) {
-                ProtocolFieldProjector.project(root, fields, includeDisplayValue)
+                // TLS-313: a field that came out of a decrypted TLS source is
+                // marked so the host content policy can exclude it from cloud
+                // output by default.
+                ProtocolFieldProjector.project(
+                    root = root,
+                    requestedFields = fields,
+                    includeDisplayValue = includeDisplayValue,
+                    decryptedSourceIds = detail.decryptedSourceIds
+                )
             }
             results += AgentFrameFields(
                 frameNumber = frame,

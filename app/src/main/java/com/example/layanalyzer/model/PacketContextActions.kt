@@ -21,5 +21,25 @@ data class PacketContextActionsState(
     val frameNumber: Long? = null,
     val isLoading: Boolean = false,
     val followFilters: PacketFollowFilters = PacketFollowFilters(),
-    val error: String? = null
+    val error: String? = null,
+    val tlsFollow: PacketTlsFollowAction = PacketTlsFollowAction()
 )
+
+/** Metadata only: the context menu never stores decrypted bytes. P3 localizes these reasons. */
+@Immutable
+data class PacketTlsFollowAction(
+    val enabled: Boolean = false,
+    val isLoading: Boolean = false,
+    val dissectionGeneration: Long? = null,
+    val errorCode: TlsErrorCode? = TlsErrorCode.NOT_READY,
+    val unavailableReason: TlsFollowUnavailableReason? = null
+) {
+    companion object {
+        fun fromResult(result: TlsFollowResult) = PacketTlsFollowAction(
+            enabled = result.success && result.records.isNotEmpty() && result.byteLength > 0,
+            dissectionGeneration = result.dissectionGeneration,
+            errorCode = if (result.success) null else result.errorCode,
+            unavailableReason = result.unavailableReason
+        )
+    }
+}

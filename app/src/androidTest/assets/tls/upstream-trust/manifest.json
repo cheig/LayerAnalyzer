@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "upstream-trust",
+  "purpose": "TLS-204 upstream chain and name verification",
+  "source": "synthetic-local-test-only",
+  "privateKeysCommitted": false,
+  "identity": "upstream.fixture.test",
+  "ipIdentity": "127.0.0.1",
+  "certificates": [
+    {
+      "file": "root.der",
+      "role": "fixture-trust-root",
+      "sha256": "badfb286c843a5fbc7f1b63e4736e7949ba6adca22c2566e9ebcde5029b742e6",
+      "subject": "CN=LayerAnalyzer upstream trust fixture root",
+      "issuer": "CN=LayerAnalyzer upstream trust fixture root",
+      "notBefore": "2020-01-01T00:00:00",
+      "notAfter": "2045-01-01T00:00:00",
+      "ca": true
+    },
+    {
+      "file": "other-root.der",
+      "role": "fixture-decoy-root",
+      "sha256": "b68161c1d8b49600cc88b17c068b58f748c6f4c8648ae661b4903d23e6ae7dd7",
+      "subject": "CN=LayerAnalyzer upstream trust fixture decoy root",
+      "issuer": "CN=LayerAnalyzer upstream trust fixture decoy root",
+      "notBefore": "2020-01-01T00:00:00",
+      "notAfter": "2045-01-01T00:00:00",
+      "ca": true
+    },
+    {
+      "file": "leaf-valid-ec.der",
+      "role": "leaf-ec-valid",
+      "sha256": "428bac0374ff077fe41b529112690b8806f8ed7ab9517f561e580eeda7ef16f3",
+      "subject": "CN=upstream.fixture.test",
+      "issuer": "CN=LayerAnalyzer upstream trust fixture root",
+      "notBefore": "2020-01-01T00:00:00",
+      "notAfter": "2045-01-01T00:00:00",
+      "ca": false
+    },
+    {
+      "file": "leaf-valid-rsa.der",
+      "role": "leaf-rsa-valid",
+      "sha256": "93898f6d3d4a8d8492187d0068940a317d9ae5c4f8ca1714bf598bda5cbbd787",
+      "subject": "CN=upstream.fixture.test",
+      "issuer": "CN=LayerAnalyzer upstream trust fixture root",
+      "notBefore": "2020-01-01T00:00:00",
+      "notAfter": "2045-01-01T00:00:00",
+      "ca": false
+    },
+    {
+      "file": "leaf-wrong-name.der",
+      "role": "leaf-wrong-name",
+      "sha256": "d4c8bdf1696daab735b89468eddeaf53b4aa877264a54b6558a7baaa072c6eba",
+      "subject": "CN=other.fixture.test",
+      "issuer": "CN=LayerAnalyzer upstream trust fixture root",
+      "notBefore": "2020-01-01T00:00:00",
+      "notAfter": "2045-01-01T00:00:00",
+      "ca": false
+    },
+    {
+      "file": "leaf-expired.der",
+      "role": "leaf-expired",
+      "sha256": "492bef21e7ac24ad3d419955a9f62fe7fb3868e1bf9994ea57c2073eaf000cb9",
+      "subject": "CN=upstream.fixture.test",
+      "issuer": "CN=LayerAnalyzer upstream trust fixture root",
+      "notBefore": "1999-01-01T00:00:00",
+      "notAfter": "2000-01-01T00:00:00",
+      "ca": false
+    },
+    {
+      "file": "leaf-unknown-ca.der",
+      "role": "leaf-unknown-ca",
+      "sha256": "77f5f92b143363b125753ecce837464d36028a69f301eace6ec5f3f84a4f603f",
+      "subject": "CN=upstream.fixture.test",
+      "issuer": "CN=LayerAnalyzer upstream trust fixture decoy root",
+      "notBefore": "2020-01-01T00:00:00",
+      "notAfter": "2045-01-01T00:00:00",
+      "ca": false
+    }
+  ],
+  "cases": [
+    {
+      "leaf": "leaf-valid-ec.der",
+      "trust": [
+        "root.der"
+      ],
+      "identity": "upstream.fixture.test",
+      "expected": "verified"
+    },
+    {
+      "leaf": "leaf-valid-ec.der",
+      "trust": [
+        "root.der"
+      ],
+      "identity": "127.0.0.1",
+      "expected": "verified"
+    },
+    {
+      "leaf": "leaf-valid-rsa.der",
+      "trust": [
+        "root.der"
+      ],
+      "identity": "upstream.fixture.test",
+      "expected": "verified"
+    },
+    {
+      "leaf": "leaf-wrong-name.der",
+      "trust": [
+        "root.der"
+      ],
+      "identity": "upstream.fixture.test",
+      "expected": "name-mismatch"
+    },
+    {
+      "leaf": "leaf-wrong-name.der",
+      "trust": [
+        "root.der"
+      ],
+      "identity": "127.0.0.1",
+      "expected": "name-mismatch"
+    },
+    {
+      "leaf": "leaf-expired.der",
+      "trust": [
+        "root.der"
+      ],
+      "identity": "upstream.fixture.test",
+      "expected": "expired"
+    },
+    {
+      "leaf": "leaf-unknown-ca.der",
+      "trust": [
+        "root.der"
+      ],
+      "identity": "upstream.fixture.test",
+      "expected": "unknown-ca"
+    },
+    {
+      "leaf": "leaf-valid-ec.der",
+      "trust": [
+        "other-root.der"
+      ],
+      "identity": "upstream.fixture.test",
+      "expected": "unknown-ca"
+    }
+  ]
+}

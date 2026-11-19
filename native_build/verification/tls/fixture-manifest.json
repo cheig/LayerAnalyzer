@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:layeranalyzer:tls:fixture-manifest:v1",
+  "title": "LayerAnalyzer synthetic TLS fixture manifest v1",
+  "description": "Schema only. TLS-002 writes actual values to fixtures/manifest.json; this file is not a generated fixture or a passing result.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "fixtures"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/fixture"
+      }
+    },
+    "suiteVersion": {
+      "const": "tls-golden-v1"
+    },
+    "referenceVersions": {
+      "type": "object",
+      "required": [
+        "embedded",
+        "desktop"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "embedded": {
+          "const": "4.0.10"
+        },
+        "desktop": {
+          "const": "3.6.0"
+        }
+      }
+    },
+    "certificateChecks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "fixtureId",
+          "case",
+          "verified",
+          "verifyResult"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "fixtureId": {
+            "type": "string"
+          },
+          "case": {
+            "enum": [
+              "untrusted",
+              "wrong-name"
+            ]
+          },
+          "verified": {
+            "const": false
+          },
+          "verifyResult": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\:\\u0000-\\u001f]+$",
+      "description": "Forward-slash path relative to the generated manifest, confined to its directory after resolving symlinks. The checker must enforce confinement."
+    },
+    "file": {
+      "type": "object",
+      "required": [
+        "role",
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "enum": [
+            "pcap",
+            "keylog",
+            "wrong-keylog",
+            "ca-certificate",
+            "client-result",
+            "golden-body",
+            "upstream-pcap",
+            "untrusted-pcap",
+            "wrong-name-pcap",
+            "corrupt-keylog",
+            "missing-handshake",
+            "missing-segment"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "connectionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "keyDirection": {
+          "enum": [
+            "direct-test-connection",
+            "downstream-tls-a",
+            "upstream-tls-b"
+          ],
+          "description": "Direct synthetic fixture vs. MITM client-facing TLS A vs. server-facing TLS B. Wrong-keylog must refer to a different connectionId."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "pcap",
+                  "keylog",
+                  "wrong-keylog"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "connectionId"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "keylog",
+                  "wrong-keylog"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "keyDirection"
+            ]
+          }
+        }
+      ]
+    },
+    "fixture": {
+      "type": "object",
+      "required": [
+        "fixtureId",
+        "tlsVersion",
+        "alpn",
+        "source",
+        "expectedBody",
+        "files",
+        "generation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "fixtureId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "tlsVersion": {
+          "enum": [
+            "TLS1.2",
+            "TLS1.3"
+          ]
+        },
+        "alpn": {
+          "enum": [
+            "http/1.1",
+            "h2"
+          ]
+        },
+        "source": {
+          "const": "synthetic-local-test-only"
+        },
+        "expectedBody": {
+          "type": "object",
+          "required": [
+            "encoding",
+            "text",
+            "sha256"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "encoding": {
+              "const": "utf-8"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/file"
+          },
+          "allOf": [
+            {
+              "contains": {
+                "properties": {
+                  "role": {
+                    "const": "pcap"
+                  }
+                }
+              }
+            },
+            {
+              "contains": {
+                "properties": {
+                  "role": {
+                    "const": "keylog"
+                  }
+                }
+              }
+            },
+            {
+              "contains": {
+                "properties": {
+                  "role": {
+                    "const": "wrong-keylog"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "generation": {
+          "type": "object",
+          "required": [
+            "generatedAtUtc",
+            "command",
+            "workingDirectory",
+            "toolVersions",
+            "captureMethod"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "generatedAtUtc": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"
+            },
+            "command": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "workingDirectory": {
+              "const": "repository-root"
+            },
+            "toolVersions": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "captureMethod": {
+              "enum": [
+                "host-loopback",
+                "synthetic-tcp-serialization",
+                "android-tun"
+              ],
+              "description": "Host capture or serialization can validate fixtures, but neither proves an Android TUN capture."
+            }
+          }
+        },
+        "cipherSuite": {
+          "type": "string",
+          "minLength": 1
+        },
+        "features": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "hrr",
+              "key-update"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
