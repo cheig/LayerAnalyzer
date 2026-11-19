@@ -183,10 +183,12 @@ func shrinkBuffers(t *testing.T, conns ...net.Conn) {
 		if !ok {
 			t.Fatalf("the test's own connection is not a TCP connection")
 		}
-		if err := tcp.SetReadBuffer(4096); err != nil {
+		// Keep the window smaller than the test body, but larger than a
+		// loopback TCP segment so delayed window updates don't throttle the drain.
+		if err := tcp.SetReadBuffer(128 << 10); err != nil {
 			t.Fatalf("shrinking a receive buffer: %v", err)
 		}
-		if err := tcp.SetWriteBuffer(4096); err != nil {
+		if err := tcp.SetWriteBuffer(128 << 10); err != nil {
 			t.Fatalf("shrinking a send buffer: %v", err)
 		}
 	}
@@ -442,10 +444,7 @@ func TestASlowReaderBacksUpToTheSender(t *testing.T) {
 
 	client, relayDown := tcpPair(t)
 	relayUp, originConn := tcpPair(t)
-	// The sockets are given small buffers so the assertion below is about the
-	// relay and not about how much this host's loopback happens to absorb: with
-	// these in place the whole path can hold a few tens of kilobytes, whatever
-	// the operating system would otherwise autotune to.
+	// Even allowing for OS buffer accounting, the path must hold far less than 8 MiB.
 	shrinkBuffers(t, client, relayDown, relayUp, originConn)
 	results := startRelayOver(t, context.Background(), RelayLimits{}, relayDown, relayUp)
 

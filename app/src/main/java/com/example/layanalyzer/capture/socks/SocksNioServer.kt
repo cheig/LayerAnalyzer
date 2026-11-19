@@ -104,8 +104,7 @@ internal class SocksNioServer(
             }
         }
 
-        fun cleaned(): Boolean = startupDone.count == 0L && stopHookDone.count == 0L &&
-            group.stats().all { it.state == SocksEventLoop.State.TERMINATED }
+        fun cleaned(): Boolean = startupDone.count == 0L && stopHookDone.count == 0L && group.isTerminated()
     }
 
     /**

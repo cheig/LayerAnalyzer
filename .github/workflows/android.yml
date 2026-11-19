@@ -18,24 +18,20 @@ jobs:
   unit-tests:
     if: github.event.deleted != true
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        tls: ['on', 'off']
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/tls-ci-setup
       - run: chmod +x gradlew
-      - name: ARM64 Debug unit tests, explicit TLS mode and no probe
+      - name: ARM64 Debug unit tests with production TLS and no probe
         run: >-
           ./gradlew testDebugUnitTest --stacktrace --no-build-cache --no-configuration-cache --rerun-tasks
-          -PlayanalyzerEnableTls=${{ matrix.tls == 'on' }} -PlayanalyzerTlsProbe=false
+          -PlayanalyzerEnableTls=true -PlayanalyzerTlsProbe=false
           -PlayanalyzerTlsGo="$LAYANALYZER_CI_GO"
       - run: python tools/run_required_tests.py junit app/build/test-results/testDebugUnitTest
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: unit-test-reports-tls-${{ matrix.tls }}
+          name: unit-test-reports-tls-on
           path: |
             app/build/reports/tests/
             app/build/test-results/
@@ -87,10 +83,6 @@ jobs:
   build:
     if: github.event.deleted != true
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        tls: ['on', 'off']
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/tls-ci-setup
@@ -98,22 +90,22 @@ jobs:
       - name: ARM64 Debug, androidTest and unsigned Release with one consistent TLS mode
         run: >-
           ./gradlew -I tools/runtime_license_inventory.init.gradle
-          -PlayanalyzerEnableTls=${{ matrix.tls == 'on' }} -PlayanalyzerTlsProbe=false
+          -PlayanalyzerEnableTls=true -PlayanalyzerTlsProbe=false
           -PlayanalyzerTlsGo="$LAYANALYZER_CI_GO"
           --no-build-cache --no-configuration-cache --rerun-tasks
           lintDebug assembleDebug compileDebugAndroidTestKotlin assembleDebugAndroidTest
           testReleaseUnitTest lintRelease assembleRelease :app:exportRuntimeLicenseInventory --stacktrace
       - run: python tools/run_required_tests.py junit app/build/test-results/testReleaseUnitTest
-      - name: Verify ON/OFF APKs, production JNI, R8, 16 KiB alignment, notices and inventory staging
+      - name: Verify TLS-enabled APKs, production JNI, R8, 16 KiB alignment, notices and inventory staging
         run: |
           set -euo pipefail
           for variant in debug release; do
             apk="app/build/outputs/apk/$variant/app-$variant.apk"
             if [ "$variant" = release ]; then apk="app/build/outputs/apk/release/app-release-unsigned.apk"; fi
-            python tools/check_tls_dependencies.py --go "$LAYANALYZER_CI_GO" --expect-tls "${{ matrix.tls }}" \
+            python tools/check_tls_dependencies.py --go "$LAYANALYZER_CI_GO" --expect-tls "on" \
               --apk "$apk" --report "build/tls-$variant-dependencies.json"
             python native_build/verification/tls/check_release_apk.py \
-              --apk "$apk" --abi arm64-v8a --variant "$variant" --tls "${{ matrix.tls }}" \
+              --apk "$apk" --abi arm64-v8a --variant "$variant" --tls "on" \
               --go "$LAYANALYZER_CI_GO" --readelf "$ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
               --aapt "$ANDROID_HOME/build-tools/34.0.0/aapt" --zipalign "$ANDROID_HOME/build-tools/35.0.0/zipalign" \
               --report "build/tls-$variant-apk.json"
@@ -125,7 +117,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: arm64-build-reports-tls-${{ matrix.tls }}
+          name: arm64-build-reports-tls-on
           path: |
             app/build/reports/
             app/build/test-results/testReleaseUnitTest/

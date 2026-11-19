@@ -57,6 +57,30 @@ class SocksEventLoopTest {
     }
 
     @Test
+    fun shutdownWaitsForOwnerThreadExitAfterLoopCleanup() {
+        val cleanupFinished = CountDownLatch(1)
+        val allowExit = CountDownLatch(1)
+        lateinit var owner: Thread
+        val loop = SocksEventLoop("held-owner", threadFactory = { task, name ->
+            Thread({
+                task.run()
+                cleanupFinished.countDown()
+                allowExit.await()
+            }, name).also { owner = it }
+        })
+        loop.start()
+        try {
+            loop.requestStop()
+            assertTrue(cleanupFinished.await(3, TimeUnit.SECONDS))
+            assertFalse("owner is still alive", loop.shutdown(50))
+        } finally {
+            allowExit.countDown()
+            assertTrue(loop.shutdown())
+        }
+        assertFalse(owner.isAlive)
+    }
+
+    @Test
     fun saturationIsObservableAndCannotBlockStopOrCancel() {
         val loop = SocksEventLoop("saturated", smallConfig())
         val entered = CountDownLatch(1)

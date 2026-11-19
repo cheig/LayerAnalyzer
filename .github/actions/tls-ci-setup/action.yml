@@ -20,6 +20,13 @@ runs:
     - name: Install host-only fixture requirements
       shell: bash
       run: python -m pip install -r native_build/verification/tls/fixtures/requirements.txt -r tools/ci-requirements.txt
+    - name: Allow the loopback UDP/443 fixture on the disposable runner
+      if: github.job == 'unit-tests' || github.job == 'build' || github.job == 'package'
+      shell: bash
+      run: |
+        if (( $(sysctl -n net.ipv4.ip_unprivileged_port_start) > 443 )); then
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+        fi
     - name: Check installed Go and module graph
       shell: bash
       run: python tools/check_tls_dependencies.py --go "$LAYANALYZER_CI_GO"

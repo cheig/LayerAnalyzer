@@ -434,11 +434,18 @@ internal class SocksEventLoop(
         return awaitUntil(deadline)
     }
 
+    internal fun isTerminated(): Boolean = state == State.TERMINATED && thread?.isAlive != true
+
     internal fun awaitUntil(deadlineNanos: Long): Boolean {
-        if (inEventLoop()) return state == State.TERMINATED // never self-join
-        if (terminated.count == 0L) return true
-        val remaining = deadlineNanos - System.nanoTime()
-        return remaining > 0 && terminated.await(remaining, TimeUnit.NANOSECONDS)
+        if (inEventLoop()) return false // never self-join
+        if (terminated.count != 0L) {
+            val remaining = deadlineNanos - System.nanoTime()
+            if (remaining <= 0 || !terminated.await(remaining, TimeUnit.NANOSECONDS)) return false
+        }
+        // The owner signals cleanup from its finally block, before Thread.isAlive becomes false.
+        val owner = thread ?: return true
+        if (owner.isAlive) TimeUnit.NANOSECONDS.timedJoin(owner, deadlineNanos - System.nanoTime())
+        return !owner.isAlive
     }
 
     override fun close() { shutdown() }

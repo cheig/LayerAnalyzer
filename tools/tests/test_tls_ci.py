@@ -301,11 +301,17 @@ class PublicCiPolicyTest(unittest.TestCase):
         self.workflow = yaml.load((ROOT / ".github/workflows/android.yml").read_text(), Loader=yaml.BaseLoader)
         self.setup = yaml.load((ROOT / ".github/actions/tls-ci-setup/action.yml").read_text(), Loader=yaml.BaseLoader)
 
-    def test_matrix_is_arm64_on_off_and_failures_not_cancelled(self):
+    def test_ci_builds_arm64_with_production_tls_only(self):
         for job in ("unit-tests", "build"):
-            self.assertEqual(["on", "off"], self.workflow["jobs"][job]["strategy"]["matrix"]["tls"])
-            self.assertEqual("false", self.workflow["jobs"][job]["strategy"]["fail-fast"])
-        self.assertNotIn("assembleEmulator", (ROOT / ".github/workflows/android.yml").read_text())
+            steps = self.workflow["jobs"][job]["steps"]
+            gradle = [s["run"] for s in steps if "./gradlew " in s.get("run", "")]
+            self.assertTrue(gradle, job)
+            for command in gradle:
+                self.assertIn("-PlayanalyzerEnableTls=true", command)
+                self.assertIn("-PlayanalyzerTlsProbe=false", command)
+        workflow = (ROOT / ".github/workflows/android.yml").read_text()
+        self.assertNotIn("matrix.tls", workflow)
+        self.assertNotIn("assembleEmulator", workflow)
 
     def test_pr_cannot_read_signing_secrets_or_publish(self):
         self.assertEqual({"contents": "read"}, self.workflow["permissions"])

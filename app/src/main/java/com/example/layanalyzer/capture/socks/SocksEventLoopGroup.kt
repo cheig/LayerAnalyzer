@@ -69,8 +69,10 @@ internal class SocksEventLoopGroup(
         return awaitUntil(deadline)
     }
 
+    internal fun isTerminated(): Boolean = loops.all { it.isTerminated() }
+
     internal fun awaitUntil(deadline: Long): Boolean {
-        if (loops.any { it.inEventLoop() }) return loops.all { it.stats().state == SocksEventLoop.State.TERMINATED }
+        if (loops.any { it.inEventLoop() }) return false
         var done = true
         loops.forEach { if (!it.awaitUntil(deadline)) done = false }
         return done
