@@ -13,6 +13,7 @@ Original author and maintainer: [cheig](https://github.com/cheig). Upstream proj
 - Open PCAP/PCAPNG files, browse packets and protocol trees, inspect bytes, and apply Wireshark display filters.
 - Inspect protocol statistics, conversations, TCP/UDP streams, and exported HTTP objects.
 - Capture device traffic through Android's VPN interface with the user's VPN permission.
+- [Decrypt TLS](docs/vpn_tls_decryption_usage.md) using a matching NSS key log, or opt in to a local VPN proxy for authorized TLS 1.2/1.3 over TCP traffic. Active proxying is off by default.
 - Analyze SIP/RTP/RTCP streams and calls; play or export supported audio and video.
 - Optionally use an AI service with your own API key. Privacy settings control the data sent to the provider, and analysis reports reference packet evidence.
 
@@ -36,13 +37,15 @@ The screenshots show the Chinese interface. Click any screenshot to view the ful
 
 ## Install
 
-Download the ARM64 APK and SHA256SUMS from [GitHub Releases](https://github.com/cheig/LayerAnalyzer/releases). Each release documents its validation scope. This repository provides the complete application source. Packaging continues with the pinned Wireshark 4.0.10 / r1 native libraries; upgrades and security backports are follow-up maintenance work. Development build instructions follow. See the [maintenance assessment](docs/wireshark-security-maintenance.md) for known issues.
+Download the ARM64 APK and SHA256SUMS from [GitHub Releases](https://github.com/cheig/LayerAnalyzer/releases). Each release documents its validation scope. This repository provides the complete application source. Packaging continues with the pinned Wireshark 4.0.10 / r3 native libraries; upgrades and security backports are follow-up maintenance work. Development build instructions follow. See the [maintenance assessment](docs/wireshark-security-maintenance.md) for known issues.
 
 Open Preferences → About LayerAnalyzer in the app to view the author and project address, copy the address, or open the project repository.
 
 ## Build
 
 Install JDK 17, Android SDK 34, NDK `27.0.12077973`, CMake `3.22.1`, and Python 3.10+. Android Studio's SDK Manager can install the Android toolchain. Set `ANDROID_HOME` or configure `sdk.dir` in an untracked `local.properties` file.
+
+Default builds also require [Go 1.27.2](native_go/tlsbridge/REBUILD.md) on `PATH` or `-PlayanalyzerTlsGo=<absolute path to Go>`. To build without Go, use `-PlayanalyzerEnableTls=false`; passive key-log analysis remains available.
 
 ```sh
 git clone https://github.com/cheig/LayerAnalyzer.git
@@ -66,11 +69,11 @@ The pinned dependency release provides the binary ZIP, complete native source, b
 
 ## Native dependencies and source
 
-The native bundle is hosted in [LayerAnalyzer_libs](https://github.com/cheig/LayerAnalyzer_libs/releases/tag/wireshark-4.0.10-r1). It contains both supported ABIs and is approximately 154 MiB compressed or 577 MiB unpacked.
+The native bundle is hosted in [LayerAnalyzer_libs](https://github.com/cheig/LayerAnalyzer_libs/releases/tag/wireshark-4.0.10-r3). It contains both supported ABIs and is approximately 152 MiB compressed.
 
 [native-sources.json](native_build/native-sources.json) pins the corresponding source archive, its checksum, upstream revisions, and local modifications. The archive includes complete source inputs for Wireshark, GLib, libgcrypt, libgpg-error, c-ares, libffi, PCRE2, zlib, and libiconv, together with Android build scripts and patches. The 29 Wireshark reference files under `app/src/main/cpp/third_party/wireshark-reference/` are additional porting references, not the full corresponding source.
 
-Rebuilding dependencies requires Linux or WSL2 and the Linux NDK. The pinned r2 source archive needs the documented build-script compatibility patch before rebuilding; see [CONTRIBUTING.md](CONTRIBUTING.md#原生依赖重建). Both ABIs have been rebuilt in isolated directories. [Provenance records](docs/native-provenance.md) distinguish the pinned r1 binaries, rebuilt candidates, configuration differences, and validation limits. Normal application builds continue to use the pinned binaries; byte-identical reproduction is not promised.
+Rebuild the native inputs on Linux or WSL2 with the Linux NDK. The r3 source archive includes the build-script adjustments and resolver-lifetime fix; do not reapply the patches. See [build instructions](CONTRIBUTING.md#原生依赖重建) and [native provenance](docs/native-provenance.md).
 
 ## Tests and contributions
 

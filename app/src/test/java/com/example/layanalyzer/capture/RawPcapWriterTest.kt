@@ -12,6 +12,22 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class RawPcapWriterTest {
+    @Test fun aFailedFinalFlushStillClosesTheDescriptor() {
+        var closed = false
+        val failure = java.io.IOException("ENOSPC")
+        val output = object : java.io.OutputStream() {
+            override fun write(value: Int) = Unit
+            override fun flush() { throw failure }
+            override fun close() { closed = true; throw java.io.IOException("close failure") }
+        }
+        try { RawPcapWriter(output).close(); org.junit.Assert.fail("Expected ENOSPC") }
+        catch (error: java.io.IOException) {
+            org.junit.Assert.assertSame(failure, error)
+            assertEquals("close failure", error.suppressed.single().message)
+        }
+        org.junit.Assert.assertTrue("flush failure leaked the owned descriptor", closed)
+    }
+
     @Test
     fun writesLittleEndianHeaderAndPacketRecord() {
         val output = ByteArrayOutputStream()

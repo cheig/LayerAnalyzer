@@ -1,0 +1,4 @@
+# Only these reviewed, synthetic captures are eligible for version control.
+!tls12-h1/capture.pcap
+!tls13-h1/capture.pcap
+!tls13-h2/capture.pcap

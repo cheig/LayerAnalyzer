@@ -13,6 +13,7 @@ LayerAnalyzer 是一个基于 Wireshark 4.0.10 的 Android 网络抓包与分析
 - 打开 PCAP/PCAPNG，分页浏览数据包、协议树、字节数据和 Wireshark 显示过滤结果。
 - 查看协议统计、通信关系、TCP/UDP 流，提取 HTTP 对象。
 - 通过 Android VPN 接口采集设备流量；启用时需要用户授予 VPN 权限。
+- [TLS 解密](docs/vpn_tls_decryption_usage.md)：为抓包导入匹配的 NSS 密钥日志，或手动开启本地 VPN 代理，分析获授权应用的 TLS 1.2/1.3 over TCP 流量。
 - 分析 SIP、RTP 和 RTCP，查看流统计与通话关系，播放或导出支持的音频与视频。
 - 可选的 AI 辅助分析：配置自己的服务和 API 密钥，通过隐私模式控制发送给模型的数据；结论包含可核查的数据包证据。
 
@@ -36,13 +37,15 @@ Android 8.0（API 26）及以上。正式安装包面向 ARM64；开发构建同
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/cheig/LayerAnalyzer/releases) 下载 ARM64 安装包及 SHA256SUMS，具体版本的验证范围见对应发布说明。本仓库提供完整应用源码。当前打包继续使用固定的 Wireshark 4.0.10 / r1 原生库，升级和安全补丁回移作为后续维护工作。开发构建入口见下文，已知问题见 [安全维护评估](docs/wireshark-security-maintenance.md)。
+从 [GitHub Releases](https://github.com/cheig/LayerAnalyzer/releases) 下载 ARM64 安装包及 SHA256SUMS，具体版本的验证范围见对应发布说明。本仓库提供完整应用源码。当前打包继续使用固定的 Wireshark 4.0.10 / r3 原生库，升级和安全补丁回移作为后续维护工作。开发构建入口见下文，已知问题见 [安全维护评估](docs/wireshark-security-maintenance.md)。
 
 应用内通过“偏好设置 → 关于 LayerAnalyzer”查看作者与项目地址，支持复制地址及打开项目仓库。
 
 ## 构建
 
 需要 JDK 17、Android SDK 34、NDK `27.0.12077973`、CMake `3.22.1` 和 Python 3.10+。可通过 Android Studio 的 SDK Manager 安装 Android 工具链。设置 `ANDROID_HOME`，或在未跟踪的 `local.properties` 中指定 `sdk.dir`。
+
+默认构建还需要 [Go 1.27.2](native_go/tlsbridge/REBUILD.md)。将其加入 `PATH` 或向 Gradle 传入 `-PlayanalyzerTlsGo=<Go 可执行文件的绝对路径>`。仅需被动解密时可使用 `-PlayanalyzerEnableTls=false` 构建，不需要 Go。
 
 ```powershell
 git clone https://github.com/cheig/LayerAnalyzer.git
@@ -66,11 +69,11 @@ Linux/macOS 使用 `./gradlew`。原生库下载脚本按 [依赖清单](native_
 
 ## 原生依赖与源码
 
-Wireshark 及依赖的预编译库单独存放在 [LayerAnalyzer_libs](https://github.com/cheig/LayerAnalyzer_libs/releases/tag/wireshark-4.0.10-r1)。ZIP 约 154 MiB，解压约 577 MiB，包含 `arm64-v8a` 和 `x86_64` 两组库。
+Wireshark 及依赖的预编译库单独存放在 [LayerAnalyzer_libs](https://github.com/cheig/LayerAnalyzer_libs/releases/tag/wireshark-4.0.10-r3)。ZIP 约 152 MiB，包含 `arm64-v8a` 和 `x86_64` 两组库。
 
 [对应源码清单](native_build/native-sources.json) 记录完整原生源码包的地址、校验值、上游版本与本地修改。源码包包含 Wireshark、GLib、libgcrypt、libgpg-error、c-ares、libffi、PCRE2、zlib、libiconv 的源码，以及 Android 构建脚本和补丁。29 个 Wireshark 参考文件另外保留在 `app/src/main/cpp/third_party/wireshark-reference/`，不替代完整源码包。
 
-原生依赖重建需要 Linux 或 WSL2 和 Linux 版 NDK。固定 r2 源码包需要先应用已记录的构建脚本兼容补丁，具体入口及依赖顺序见 [CONTRIBUTING.md](CONTRIBUTING.md#原生依赖重建)。两种 ABI 已完成独立重建，来源证据、配置差异及验证边界见 [原生来源与重建记录](docs/native-provenance.md)。常规应用构建仍使用已经固定并校验的 r1 预编译库；不承诺字节完全相同的重建结果。
+原生依赖重建需要 Linux 或 WSL2 和 Linux 版 NDK。r3 源码包已包含构建兼容调整及名称解析缓存生命周期修复，不要重复应用补丁。见 [重建步骤](CONTRIBUTING.md#原生依赖重建) 与 [原生来源](docs/native-provenance.md)。
 
 ## 验证与贡献
 

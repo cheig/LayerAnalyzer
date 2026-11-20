@@ -66,11 +66,11 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
 
   if (!session || !session->wth || !session->epan) {
     result["error"] = "No capture is open.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   if (start < 0 || count <= 0) {
     result["error"] = "Invalid pagination.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const int boundedCount = std::min(static_cast<int>(count), 100);
@@ -93,7 +93,7 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
   if (!compiledOk) {
     result["error"] = std::string(
         errorMessage.value ? errorMessage.value : "Invalid display filter.");
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const int frameCount = static_cast<int>(session->frame_offsets.size());
@@ -110,7 +110,7 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
       if (long_operation_cancelled(cancelGeneration)) {
         result["error"] = "Operation cancelled.";
         result["cancelled"] = true;
-        return new_java_string(env, result.dump());
+        return new_java_string(env, dump_json(result));
       }
       CachedPacketSummary summary =
           get_or_build_packet_summary(session, frameIdx);
@@ -123,7 +123,7 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
     result["truncated"] = static_cast<int64_t>(start) +
                            static_cast<int64_t>(items.size()) < frameCount;
     result["items"] = std::move(items);
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const uint64_t visibilityGeneration =
@@ -148,7 +148,7 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
       if (long_operation_cancelled(cancelGeneration)) {
         result["error"] = "Operation cancelled.";
         result["cancelled"] = true;
-        return new_java_string(env, result.dump());
+        return new_java_string(env, dump_json(result));
       }
       const int frameIdx = (*cachedMatches)[position];
       CachedPacketSummary summary =
@@ -162,7 +162,7 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
     result["truncated"] = static_cast<int64_t>(start) +
                            static_cast<int64_t>(items.size()) < totalMatches;
     result["items"] = std::move(items);
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const std::vector<int> visibleFrames = snapshot_visible_frames(session);
@@ -173,7 +173,7 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
     if (long_operation_cancelled(cancelGeneration)) {
       result["error"] = "Operation cancelled.";
       result["cancelled"] = true;
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
 
     const bool maybeInPage = totalMatches >= start &&
@@ -185,7 +185,7 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
       std::unique_lock<std::mutex> dissect_lock(session->dissect_mutex);
       DissectedFrame frame;
       const bool setupColumns = maybeInPage && !cached;
-      if (dissect_frame(session, frameIdx, TRUE, setupColumns,
+      if (dissect_frame(session, frameIdx, TRUE, FALSE, setupColumns,
                         scopedFilter.get(), frame) &&
           dfilter_apply_edt(scopedFilter.get(), frame.edt)) {
         matched = true;
@@ -232,7 +232,7 @@ Java_com_example_layanalyzer_NativeEngine_queryPacketSummaries(
     session->scoped_query_cache_visibility_generation = visibilityGeneration;
     session->scoped_query_cache_matches = std::move(matchedFrames);
   }
-  return new_java_string(env, result.dump());
+  return new_java_string(env, dump_json(result));
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -247,7 +247,7 @@ Java_com_example_layanalyzer_NativeEngine_getSummaryCacheStats(JNIEnv *env,
     result["hits"] = 0;
     result["misses"] = 0;
     result["evictions"] = 0;
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   std::lock_guard<std::mutex> cache_lock(session->summary_cache_mutex);
@@ -262,7 +262,7 @@ Java_com_example_layanalyzer_NativeEngine_getSummaryCacheStats(JNIEnv *env,
   result["evictions"] = session->summary_cache_evictions;
   result["entries"] = static_cast<int>(session->summary_cache.size());
   result["bytes"] = static_cast<uint64_t>(session->summary_cache_bytes);
-  return new_java_string(env, result.dump());
+  return new_java_string(env, dump_json(result));
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -273,7 +273,7 @@ Java_com_example_layanalyzer_NativeEngine_validateDisplayFilter(JNIEnv *env,
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     json result = {{"success", false}, {"error", "No capture is open."}};
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const char *filter_chars = env->GetStringUTFChars(jFilter, nullptr);
@@ -281,7 +281,7 @@ Java_com_example_layanalyzer_NativeEngine_validateDisplayFilter(JNIEnv *env,
   if (filter_chars) env->ReleaseStringUTFChars(jFilter, filter_chars);
   if (filter.empty()) {
     json result = {{"success", true}, {"error", ""}};
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   dfilter_t *compiled_filter = nullptr;
@@ -295,7 +295,7 @@ Java_com_example_layanalyzer_NativeEngine_validateDisplayFilter(JNIEnv *env,
   std::string error = compiled ? "" : (error_message ? error_message : "Invalid display filter.");
   g_free(error_message);
   json result = {{"success", compiled}, {"error", error}};
-  return new_java_string(env, result.dump());
+  return new_java_string(env, dump_json(result));
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -307,7 +307,7 @@ Java_com_example_layanalyzer_NativeEngine_applyDisplayFilter(JNIEnv *env,
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     json result = {{"success", false}, {"error", "No capture is open."}, {"count", 0}};
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const char *filterChars = env->GetStringUTFChars(jFilter, nullptr);
@@ -335,17 +335,19 @@ Java_com_example_layanalyzer_NativeEngine_applyDisplayFilter(JNIEnv *env,
                      {"count", current_count}};
       PERF_SCAN_LOG("applyDisplayFilter filter=<empty> frames=%d ms=%lld cancelled=1",
                     static_cast<int>(session->frame_offsets.size()), __perf_ms);
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
+    const bool filter_changed = !session->active_filter.empty();
     session->active_filter.clear();
     session->filter_error.clear();
     session->filtered_frames.clear();
+    if (filter_changed) clear_cached_packet_summaries(session);
     json result = {{"success", true}, {"error", ""},
                    {"count", static_cast<int>(session->frame_offsets.size())}};
     PERF_SCAN_LOG("applyDisplayFilter filter=<empty> frames=%d ms=%lld matches=%d",
                   static_cast<int>(session->frame_offsets.size()), __perf_ms,
                   static_cast<int>(session->frame_offsets.size()));
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   dfilter_t *df = nullptr;
@@ -371,7 +373,7 @@ Java_com_example_layanalyzer_NativeEngine_applyDisplayFilter(JNIEnv *env,
     json result = {{"success", false}, {"error", error},
                    {"count", current_count}};
     g_free(err_msg);
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   uint64_t cancel_generation = current_cancel_generation();
@@ -389,12 +391,12 @@ Java_com_example_layanalyzer_NativeEngine_applyDisplayFilter(JNIEnv *env,
                      {"count", visible_frame_count(session)}};
       PERF_SCAN_LOG("applyDisplayFilter filter=%s frames=%d ms=%lld cancelled=1",
                     filter.c_str(), total_frames, __perf_ms);
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
     {
       std::unique_lock<std::mutex> dissect_lock(session->dissect_mutex);
       DissectedFrame frame;
-      if (dissect_frame(session, i, TRUE, FALSE, df, frame) &&
+      if (dissect_frame(session, i, TRUE, FALSE, FALSE, df, frame) &&
           (!df || dfilter_apply_edt(df, frame.edt))) {
         matches.push_back(i);
       }
@@ -419,9 +421,11 @@ Java_com_example_layanalyzer_NativeEngine_applyDisplayFilter(JNIEnv *env,
                           ? static_cast<int>(session->frame_offsets.size())
                           : static_cast<int>(session->filtered_frames.size());
     } else {
+      const bool filter_changed = session->active_filter != filter;
       session->active_filter = filter;
       session->filter_error.clear();
       session->filtered_frames = std::move(matches);
+      if (filter_changed) clear_cached_packet_summaries(session);
     }
   }
   if (cancelled) {
@@ -429,13 +433,13 @@ Java_com_example_layanalyzer_NativeEngine_applyDisplayFilter(JNIEnv *env,
                    {"count", current_count}};
     PERF_SCAN_LOG("applyDisplayFilter filter=%s frames=%d ms=%lld cancelled=1",
                   filter.c_str(), total_frames, __perf_ms);
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   json result = {{"success", true}, {"error", ""},
                   {"count", match_count}};
   PERF_SCAN_LOG("applyDisplayFilter filter=%s frames=%d ms=%lld matches=%d",
                 filter.c_str(), total_frames, __perf_ms, match_count);
-  return new_java_string(env, result.dump());
+  return new_java_string(env, dump_json(result));
 }
 
 extern "C" JNIEXPORT jint JNICALL

@@ -1,0 +1,777 @@
+{
+  "schemaVersion": 1,
+  "release": "wireshark-4.0.10-r3",
+  "status": "PUBLISHED",
+  "applicationSourceCommit": "ad8b5e8d435cc6a7cbfbaef0a798af349c0e06bd",
+  "sourceArchiveSha256": "07456cb4269c29779cb94c8392b6c4eb6ed4e3d570457b8d08ce954566644715",
+  "pinnedBinaryArchiveSha256": "792e370657fc846840fd9251b6fb0f1df3854bd8db02ca3c7c45987c8b72c436",
+  "baseBinaryArchiveSha256": "617468873eea9b69bd430736b1419fe684b871d0ddbe81a6d94258086b132c7d",
+  "baseSourceArchiveSha256": "a58ef11f89f6ad8c961ad0963dba92feb51d5c48f067a491a339fe1e1b647ecd",
+  "historicalVerificationRecord": "native_build/provenance/wireshark-4.0.10-r1.json",
+  "components": [
+    {
+      "name": "glib-2.80.0",
+      "upstreamArchive": "glib-2.80.0.tar.xz",
+      "upstreamSha256": "8228a92f92a412160b139ae68b6345bd28f24434a7b5af150ebe21ff587a561d",
+      "sourceFiles": 2298,
+      "modifiedFiles": [
+        "glib-2.80.0/gio/gdbusprivate.c",
+        "glib-2.80.0/gio/gkeyfilesettingsbackend.c",
+        "glib-2.80.0/gio/glib-compile-schemas.c",
+        "glib-2.80.0/gio/gnetworking.h.in",
+        "glib-2.80.0/gio/gunixmounts.c",
+        "glib-2.80.0/gio/xdgmime/xdgmime.c",
+        "glib-2.80.0/girepository/compiler/meson.build",
+        "glib-2.80.0/glib/gcharset.c",
+        "glib-2.80.0/glib/glibintl.h",
+        "glib-2.80.0/glib/gthreadprivate.h",
+        "glib-2.80.0/glib/gtimezone.c",
+        "glib-2.80.0/glib/gtypes.h",
+        "glib-2.80.0/glib/gutils.c",
+        "glib-2.80.0/glib/tests/meson.build",
+        "glib-2.80.0/meson.build"
+      ],
+      "archiveTreeSha256": "ac2cdeab83b2764d55b7a637e9bc9c4c23039ebfb8843c5bbe8179c38da8d127",
+      "archiveEntries": 2301,
+      "addedFiles": [
+        {
+          "path": "glib-2.80.0/.patched",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "outputs": [
+        "libglib-2.0.so",
+        "libgobject-2.0.so",
+        "libgmodule-2.0.so",
+        "libgthread-2.0.so"
+      ]
+    },
+    {
+      "name": "libffi-3.4.6",
+      "upstreamArchive": "libffi-3.4.6.tar.gz",
+      "upstreamSha256": "b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d437747843895a4e",
+      "sourceFiles": 450,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "30042c9c71390228f2c7da48fe871b77a12a4e1b99f98bac1d75237be81ab04d",
+      "archiveEntries": 450,
+      "outputs": [
+        "libffi.a"
+      ]
+    },
+    {
+      "name": "libgcrypt-1.11.0",
+      "upstreamArchive": "libgcrypt-1.11.0.tar.bz2",
+      "upstreamSha256": "09120c9867ce7f2081d6aaa1775386b98c2f2f246135761aae47d81f58685b9c",
+      "sourceFiles": 596,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "3c828ae2f59d93eb71fe5bbca1ac0b1d6aa09b4e5aa6e4423b2d14f7f680a0d0",
+      "archiveEntries": 596,
+      "outputs": [
+        "libgcrypt.so"
+      ]
+    },
+    {
+      "name": "libgpg-error-1.50",
+      "upstreamArchive": "libgpg-error-1.50.tar.bz2",
+      "upstreamSha256": "69405349e0a633e444a28c5b35ce8f14484684518a508dc48a089992fe93e20a",
+      "sourceFiles": 263,
+      "modifiedFiles": [
+        "libgpg-error-1.50/configure"
+      ],
+      "archiveTreeSha256": "b7b4d3ff60aef931a349b6ef9c82b145784d153e84c1cc9ec61f3b75966195b0",
+      "archiveEntries": 269,
+      "addedFiles": [
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.aarch64-linux-android.h",
+          "sha256": "3e09e131c596fe88a2805f33819088289784b9379b8f20cc6ad9c97f1540f504"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.aarch64-unknown-linux-android.h",
+          "sha256": "3e09e131c596fe88a2805f33819088289784b9379b8f20cc6ad9c97f1540f504"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.android.h",
+          "sha256": "cf5f6c4452f72f3bfc2110e510c5e46ded6895ad6d32da81fd5b59c097ba19b1"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.linux-android.h",
+          "sha256": "cf5f6c4452f72f3bfc2110e510c5e46ded6895ad6d32da81fd5b59c097ba19b1"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.x86_64-linux-android.h",
+          "sha256": "cf5f6c4452f72f3bfc2110e510c5e46ded6895ad6d32da81fd5b59c097ba19b1"
+        },
+        {
+          "path": "libgpg-error-1.50/src/syscfg/lock-obj-pub.x86_64-pc-linux-android.h",
+          "sha256": "cf5f6c4452f72f3bfc2110e510c5e46ded6895ad6d32da81fd5b59c097ba19b1"
+        }
+      ],
+      "outputs": [
+        "libgpg-error.so"
+      ]
+    },
+    {
+      "name": "libiconv-1.17",
+      "upstreamArchive": "libiconv-1.17.tar.gz",
+      "upstreamSha256": "8f74213b56238c85a50a5329f77e06198771e70dd9a739779f4c02f65d971313",
+      "sourceFiles": 1036,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "70627968e1d7c2fd0e6841f156429be58f111c723929f467465c14c99a431591",
+      "archiveEntries": 1036,
+      "outputs": [
+        "libiconv.a"
+      ]
+    },
+    {
+      "name": "pcre2-10.42",
+      "upstreamArchive": "pcre2-10.42.tar.gz",
+      "upstreamSha256": "c33b418e3b936ee3153de2c61cc638e7e4fe3156022a5c77d0711bcbb9d64f1f",
+      "sourceFiles": 423,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "1cf7cff5fa67237641587d1374b4f8487ac58109eaeaf8e29c200c53916a1969",
+      "archiveEntries": 423,
+      "outputs": [
+        "libpcre2-8.a"
+      ]
+    },
+    {
+      "name": "zlib-1.3.1",
+      "upstreamArchive": "zlib-1.3.1.tar.gz",
+      "upstreamSha256": "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23",
+      "sourceFiles": 253,
+      "modifiedFiles": [
+        "zlib-1.3.1/zconf.h"
+      ],
+      "archiveTreeSha256": "72c1bb56a51dad4ed3b0e2f2ec1106cd539560a262eb9479455644826bf43c00",
+      "archiveEntries": 253,
+      "outputs": [
+        "libz.a"
+      ]
+    },
+    {
+      "name": "wireshark-4.0.10",
+      "upstreamCommit": "f5c7c25a81ebd5e2cd431f9e2d424586c6250812",
+      "sourceFiles": 6471,
+      "modifiedFiles": [
+        "wireshark-4.0.10/cmake/modules/UseLemon.cmake",
+        "wireshark-4.0.10/wsutil/ws_pipe.c",
+        "wireshark-4.0.10/epan/addr_resolv.c"
+      ],
+      "archiveMetadata": "Git export-subst expanded from the pinned upstream revision; no Git checkout required.",
+      "archiveTreeSha256": "46a2ca546dd6b10e15ddc3040dbe623140b312cfe32ddbf0e5f6f21db3e15b6b",
+      "archiveEntries": 6471,
+      "outputs": [
+        "libwireshark.so",
+        "libwiretap.so",
+        "libwsutil.so"
+      ]
+    },
+    {
+      "name": "c-ares-1.34.4",
+      "upstreamCommit": "b82840329a4081a1f1b125e6e6b760d4e1237b52",
+      "sourceFiles": 558,
+      "modifiedFiles": [],
+      "archiveTreeSha256": "2c5ac39b9a230a653906b0fa16a73f8dcdb550fabda5df2c055dff617eaf933b",
+      "archiveEntries": 558,
+      "outputs": [
+        "libcares.so"
+      ]
+    }
+  ],
+  "sourceSupportFiles": {
+    "native_build/scripts/build_all.sh": "160e286be8298b7af76ed9779853eb5665ceb9303f6360f3c1566c0eefe5a441",
+    "native_build/scripts/build_gcrypt.sh": "811e2103272db59075cdac35e600215b7ddc17e1b3b9a69fd08e1455b0b4961b",
+    "native_build/scripts/build_gcrypt_x86_64.sh": "04d58a7d44934ec9b746923f34664092284c3f26a37775e290664a0f61f16ee7",
+    "native_build/scripts/build_libffi.sh": "cf3c4486ff231035666c55c7ed0182419e76b41501ae27ef4e4973f82f5763b9",
+    "native_build/scripts/build_libffi_x86_64.sh": "57edafdda09882f2f636c15f2577b8d315f04a4824d7a4a2bab7e3bbaa3c7d87",
+    "native_build/scripts/build_libiconv.sh": "65fbff382f60adbbefbb706c32dc08ff352dc70f1ce3f57775000ee9e6a6181b",
+    "native_build/scripts/build_pcre2.sh": "aa4adf55e72bc7cc50589c6ad6469d654651bc5ce15cd9844bb80aa3c92c9389",
+    "native_build/scripts/build_task1_remaining.sh": "57a22fed2476572613cd954e5b43d0a4c89399aec16fa9a8f4fb8b57af93e508",
+    "native_build/scripts/build_task3_x86_64.sh": "14b3a417e2b8d4f6df4be53d4a8ec7b5f59d9d03e4a5e707004f80b203141e33",
+    "native_build/scripts/build_zlib.sh": "1a9a69122695431ec477bfe616cde7bfb7cf5290d37681b7dcf1db18321cc804",
+    "native_build/scripts/env_setup.sh": "4ab6c1a09c4c46906824b0851ee93c7eca703ef52ed196890f1228b22fe029fe",
+    "native_build/scripts/env_setup_x86_64.sh": "aa98227aa4b6d7ec95e81b4241482d27c76ae26a4d49df04ee153f41e2603863",
+    "native_build/scripts/fix_16kb_alignment.sh": "30604aee99acbfa006cae7a03a44514065fd40b61f451e6671deb5aa78f51f76",
+    "native_build/scripts/setup_ndk_wsl.sh": "2c3b0a6667070291c9896956d9788b4a66a35c6c2185a1c3d8c004c9931b994c",
+    "native_build/scripts/sign_scenario_package.py": "f4f261356bed17533a71028f7566f6664175980315a183cdef7164735a5ff069",
+    "native_build/scripts/verify_16kb_alignment.sh": "a3237fcd323be6fae55acfdb5f70af4975bb17a1fc809edd4e383b203421dc0b",
+    "native_build/scripts/verify_alignment.sh": "af030ca4779ff8d579376cc5714e7db5a138ede70c38ebd6342fb208616c724d",
+    "native_build/scripts/write_meson_cross_file.sh": "cf23d67176b5190892e5b0efada1af46f80955906073ec9d84000983a82380f0",
+    "SOURCE_MANIFEST.json": "6cf26113337bd5fba345e07456e3888d761fede1c4945bd8633bfd0e2c61916d",
+    "native_build/patches/glib/gio-gdbusprivate.c.patch": "df4547609ef6ff4110319b676deb7374918988681c8efc0878014f01bb09272c",
+    "native_build/patches/glib/gio-gkeyfilesettingsbackend.c.patch": "7e38f19e804d798b4020fa10c0b4f528ad4b1c3291637ab6bf4b5ee7d6627bb8",
+    "native_build/patches/glib/gio-gnetworking.h.in.patch": "2d180220e4d3a57314f3f1571708ecde15976e6a0745856e517955bc7eeebf50",
+    "native_build/patches/glib/gio-gunixmounts.c.patch": "176de18cebc2c58186dbf247f6da55daafba5ebd6bd8c1ed41b6431c10cfa2bc",
+    "native_build/patches/glib/gio-xdgmime-xdgmime.c.patch": "30052e569438585fb085fc57aa0e0162ef806ef2a12d6cb8aa6cede56cb2e1a9",
+    "native_build/patches/glib/glib-compile-schemas-remove-warns.patch": "6eb8b900d1b21b8dac9b2abd4acf27a9b048661839dabf8deec46efad1b03da8",
+    "native_build/patches/glib/glib-gcharset.c.patch": "7d432b2142e01ad4fce2f3149c4e1fc128caa69cf7258e3364626c5a087e9a3b",
+    "native_build/patches/glib/glib-gspawn.c.patch": "efc48ab7f96e486436f70ccbd5fbeb438d81ddf8376844e5d8b944ada1527bde",
+    "native_build/patches/glib/glib-gthread-posix.c.patch": "dbe119e4afdfb048930b9c9ebf8da8e050ac8e2fbc1bbe4958eae8c4e1084c33",
+    "native_build/patches/glib/glib-gthreadprivate.h.patch": "40c5136d5e503bbb6b7169dd28fc5f37c06ab0e8af056af72079dfe60053d179",
+    "native_build/patches/glib/glib-gtimezone.patch": "428005be9eb005fc11dab6b3315c4693e8c41e92ddec7e69a750266cf7677d10",
+    "native_build/patches/glib/glib-gtypes.h.patch": "6e45b137a57b3cbdc3ac65e02ad0c096b1e77af657a8f0cac4a32b37aa4252be",
+    "native_build/patches/glib/glib-gutils.c.patch": "bc6f9e8a1fc576b6134b2769401bd5b312e519c3a2324781e88a195034a2dbce",
+    "native_build/patches/glib/glib-no-ovverride-host-binary.patch": "89bc8a1c87f4134f774f45fc61277a7ebf4a96bd2ab713b0a1129de040c1aae0",
+    "native_build/patches/glib/glib-tests-meson.build.patch": "795ed294fcda69cd5eed47c425986c591ad01c2e19b5f604e9ffae4237399326",
+    "native_build/patches/glib/meson.build.patch": "cfc91fedd132e7b3baf2b2b9eeaa05faf04da35a9fb2e00c617c498134ba0b74",
+    "native_build/patches/local-build/glib-2.80.0--gio_gdbusprivate.c.patch": "0bd0a9bfa189a4955b42bf134fbdf190ccb826cae0f1043d92f1623f312fa561",
+    "native_build/patches/local-build/glib-2.80.0--gio_gkeyfilesettingsbackend.c.patch": "f19018bd3a89facdf05a363bbd858ec4eded5c23a40e9c9ae1b0ff8907519cc4",
+    "native_build/patches/local-build/glib-2.80.0--gio_glib-compile-schemas.c.patch": "a4c9598612455d7ccede5b64a820531b506edb8b64c7eb047950a62f748b51ac",
+    "native_build/patches/local-build/glib-2.80.0--gio_gnetworking.h.in.patch": "7ecef311647b0488d92127bb6f5c0162a74f43b3745297985f71dcb1b3749264",
+    "native_build/patches/local-build/glib-2.80.0--gio_gunixmounts.c.patch": "d000c03f4e9e5dbfaa45d8750c6b66f835e6a11e617c0efa7183be378b90e61d",
+    "native_build/patches/local-build/glib-2.80.0--gio_xdgmime_xdgmime.c.patch": "fd1c609b2aa82ba01b63e6bb4bb8faca35fd0172eee0ec2051530b9f469c8973",
+    "native_build/patches/local-build/glib-2.80.0--girepository_compiler_meson.build.patch": "0bc5a0d76dda4ff864171c4da55cfb24fae465cb3eed84def91fe776ec3d6ce3",
+    "native_build/patches/local-build/glib-2.80.0--glib_gcharset.c.patch": "0aa12c1b5d3f3627e2a4fa739305b546d713b8b9e0fd236d88cc7185770cb879",
+    "native_build/patches/local-build/glib-2.80.0--glib_glibintl.h.patch": "391d4f93e3dea39f2404af1b3204a53e8160eb7c71ee2a6d60acf1ef70fbbace",
+    "native_build/patches/local-build/glib-2.80.0--glib_gthreadprivate.h.patch": "2015f4197064e86ce3395f90dd1c931a7c9c1acbcaf259daf6c7748b8b7d0544",
+    "native_build/patches/local-build/glib-2.80.0--glib_gtimezone.c.patch": "e1240744f8927f47301d40b1dca33c17e4c61cfebecd556d3018f96751b77848",
+    "native_build/patches/local-build/glib-2.80.0--glib_gtypes.h.patch": "164ec538e55eb1f888e6c3697d334b445acd46bf6c902b78da49b10906382105",
+    "native_build/patches/local-build/glib-2.80.0--glib_gutils.c.patch": "a1503c3d1ae72aa73ab4ba7178ed2b70c79d66b6004958c6336631615ca06374",
+    "native_build/patches/local-build/glib-2.80.0--glib_tests_meson.build.patch": "927a4b5f9f5547255f36fead8241c567210ffb0079ddc78e429b6dde03bc9781",
+    "native_build/patches/local-build/glib-2.80.0--meson.build.patch": "3ffd0c0c9f81e573f1d24672f980062e85d3dc5f1b4cf6123bfaa0cad46789cb",
+    "native_build/patches/local-build/libgpg-error-1.50--configure.patch": "f0cc70025441b68062f25098e2bd6ceeb11b38ee7546df57e0f418e67bf03043",
+    "native_build/patches/local-build/wireshark-4.0.10--cmake_modules_UseLemon.cmake.patch": "2957d024f978594f6057cef7066e338249124f57de731765a785719cb30c8e04",
+    "native_build/patches/local-build/wireshark-4.0.10--wsutil_ws_pipe.c.patch": "573dc33da7a5c88f74a956e2b3de4517550fb30938c458db90c1ffb592d273c2",
+    "native_build/patches/local-build/zlib-1.3.1--zconf.h.patch": "66d7963e3a94a790eaaafbd42b3398ee02ea5738a90d5a8f2049941755c0f909",
+    "native_build/patches/rebuild/r2-build-compatibility.patch": "1569ab7d28560f558e062ceab50cc22360dfcaf523cf3119452859a67fc72767",
+    "native_build/patches/wireshark/FindDOXYGEN.cmake.patch": "fe377a39bb642bd8daf2f79b7899795e59d248f7a7c88a536aee3f6f413f44e0",
+    "native_build/patches/wireshark/addr-resolv-scope-lifetime.patch": "0b159bb948747bdfdb1b0599c3e730bc08ca97054396e91805a3b21b2b9bcb0c",
+    "native_build/patches/wireshark/caputils-ws80211.c.patch": "679480acb807df3783f42c1a365f5ade9c2f2fd384e4256c4e0ef0db99db2213",
+    "native_build/patches/wireshark/cmake-modules-UseLemon.cmake.patch": "79e9d56a1c1f6389ed7d9599355e5ee3d373502c89fc5cb3d3b89a72311e1717",
+    "native_build/patches/wireshark/cmake-system-name.patch": "2d23ecaa4ba05622cb8227d363943348d2f6c04625a46f7e84782d9425563790",
+    "native_build/patches/wireshark/fix-hardcoded-paths.patch": "f93fdb50b600ff294fc60f5013da0e4a26c5fe4736d7ed202e7ff95ef05ecaa0",
+    "native_build/patches/wireshark/no-getdtablesize.patch": "ee339ecb2169cf0ee573bacace011174f5db9e7397ed5484c2a350026b28337c",
+    "native_build/patches/wireshark/no-legacy-index.patch": "b3ba95524b4d1427a6b3e9a25e3650ed1762dc17e47460a45ef0c91beb17187e",
+    "native_build/patches/wireshark/paths.patch": "e853286376cece15710c0efb0bc121995ddbc2782bf1f806e2aa2bbb5d92ed41",
+    "native_build/patches/wireshark/tools-lemon-CMakeLists.txt.patch": "71eee075a1ed34e3ff9cc7f37f50703faf2fccae039eae6795efb040103cf59f",
+    "native_build/patches/wireshark/ws_pipe.c.patch": "b5fa9613f9dd7e7097008046294c44a3b9d442ff3e3b62e3762819f2bf1c5329",
+    "native_build/scripts/apply_wireshark_scope_patch.py": "abdd9acdb40261ffd4c092de113842a3e284e09fa82149eb563dfffa3775432f",
+    "native_build/scripts/build_basic_libs_x86_64.sh": "d81037af1c023b5a7c1199a10bfec523ad5a97c3ba063905cc3204faa00c75f2",
+    "native_build/scripts/build_c_ares.sh": "1d3775d75ca095e6732dec2ce92f316c2b9c62b2d3b3159f7604416bdfd25a4e",
+    "native_build/scripts/build_glib.sh": "ad5c55850e596e8daa89c740a9fe9e6f3e69e9dc2f1842e03524232443100031",
+    "native_build/scripts/build_task4_x86_64.sh": "8cfaf88085713815e25b86944a0d567505a8f2e33a4559988abffff5fe660239",
+    "native_build/scripts/build_wireshark_core.sh": "f690b07e63be7bf72290fe7935ce701e483677aad8724b22fc7584dc6a6ffd19",
+    "native_build/scripts/rebuild_wireshark_4.0.10.sh": "3db16cae6ef75cd8d86196dd19a1a3aac433d8af76a11d5afbfc1fb50afc640a"
+  },
+  "buildRecord": {
+    "schemaVersion": 1,
+    "runId": "r03-20261107-02",
+    "applicationSourceCommit": "ad8b5e8d435cc6a7cbfbaef0a798af349c0e06bd",
+    "sourceArchiveSha256": "a58ef11f89f6ad8c961ad0963dba92feb51d5c48f067a491a339fe1e1b647ecd",
+    "patchSha256": "0b159bb948747bdfdb1b0599c3e730bc08ca97054396e91805a3b21b2b9bcb0c",
+    "sourceFileSha256": "f4679a592ecb0992c16ad8225baeed007731a7a8b5b66582022ad89b2a163199",
+    "sourceComparison": {
+      "checked": 6471,
+      "mismatches": [
+        "native_build/external/wireshark-4.0.10/packaging/source/git-export-release.sh.in",
+        "native_build/external/wireshark-4.0.10/tools/make-version.py"
+      ],
+      "lineEndingOnlyDifferences": [],
+      "patchedAddrSha256": "f4679a592ecb0992c16ad8225baeed007731a7a8b5b66582022ad89b2a163199",
+      "restoredPinnedArchiveMetadataFiles": [
+        "native_build/external/wireshark-4.0.10/packaging/source/git-export-release.sh.in",
+        "native_build/external/wireshark-4.0.10/tools/make-version.py"
+      ],
+      "mismatchesAfterPreparation": []
+    },
+    "buildMode": "Existing CMake/Ninja directories; forced resolver translation-unit compile and epan link; retained objects/dependency outputs reused. NOT a R04 clean rebuild.",
+    "builds": {
+      "arm64-v8a": {
+        "command": "ninja -C native_build/external/wireshark-4.0.10/build-android-16kb -j4 epan",
+        "exitCode": 0,
+        "toolchain": {
+          "host": "Ubuntu 22.04 / WSL2",
+          "androidNdk": "27.0.12077973",
+          "androidApi": 26,
+          "clang": "Android 12027248 / r522817 / 18.0.1",
+          "cmake": "3.22.1",
+          "ninja": "1.10.1"
+        },
+        "librarySha256": "16cc4d912e8513406b7be02e59cb05cecae953acd63143460ea7bdf96dec0995",
+        "buildLogSha256": "7b7e72d5e7989328149537f9fe3ec5e8b20d03cf98f3c2624be80c15f93eaeee",
+        "cmakeCacheSha256": "dee146c1e1c2e4aee0e0cc8967d94681a079fda3e448c01e68c397fd00f2546e",
+        "ninjaFileSha256": "9eee97488113c5020ba751e3164ee9f653142e376d87991db77ef0b5bfbc754c",
+        "dependencyInputs": {
+          "native_build/output/lib/libcares.so": "9ac20a6666e4b95969bdfdd8cd4ddf21a117f0f7beb650de652a931decafc206",
+          "native_build/output/lib/libcharset.a": "f0c1a42c76cff0fabfb7f995af24fc3becfb065348284967c2fe5404cd142a60",
+          "native_build/output/lib/libffi.a": "ea17acbcfc77b74ee5906a6c02046d2df4378392d58384683ab6482022dd1892",
+          "native_build/output/lib/libgcrypt.so": "4507961c0681ffb20366f62bb61079eb38c5939e130d6815d74b0fa3bde63562",
+          "native_build/output/lib/libgio-2.0.so": "4d40a0a793daf0047879c83c09700b5f75ae8916efcffa839f1a7594863a741f",
+          "native_build/output/lib/libgirepository-2.0.so": "284e30bfdddbdb5ea95292dace8adef4554adea3adbb6bcaeadd342f7aca3e82",
+          "native_build/output/lib/libglib-2.0.so": "a0004240188c7516e3a3e3b8a4ef26216e92d9604ad85fe9f10143aa37ad6546",
+          "native_build/output/lib/libgmodule-2.0.so": "bdc3d08384c5021506fb17f962adeef7613dd642ec851c2bf327e3722a6c32c8",
+          "native_build/output/lib/libgobject-2.0.so": "0bcacf8f21dde366f70102efaa2953e1949d93001ae752d46eb44f8e620797a2",
+          "native_build/output/lib/libgpg-error.so": "8f9bc17b3599ff544666a192b378d080c9d7484eaac9101ded4617c64799f77e",
+          "native_build/output/lib/libgthread-2.0.so": "0abdae36355d5d4d53fef6651909966d8964161cf0fa59fdc9e71d48119fb0f1",
+          "native_build/output/lib/libiconv.a": "cd8eb99210558851dc831da216922535a43b03aab7ea6e158d9b61787297e609",
+          "native_build/output/lib/libpcre2-16.a": "5e2fed18edde9a328b6bda74a8b380c7f86b8120fe4de42ad140306a2590c25b",
+          "native_build/output/lib/libpcre2-32.a": "cd9e28f96fc84db97c9db61a86c83a07f58607eff240200ab079890a34916038",
+          "native_build/output/lib/libpcre2-8.a": "d208616ad9c1bb3cf7c37eb3ea2ea7be95c72b9984a4e58117c3cd9416224d66",
+          "native_build/output/lib/libpcre2-posix.a": "1110929c024bc7e50b8b6c2ec70710ad5685b71c6f96109cd5d693732e05048f",
+          "native_build/output/lib/libwireshark.so": "9a9a84f73b5b7e4df6be10236ff58ba5102ecdcd5fecb9596adb9d1d344dd618",
+          "native_build/output/lib/libwiretap.so": "ef43390e2bcfb4356c26ce9f183fdf06d1ecfc2b17efad65bb6078984efb2328",
+          "native_build/output/lib/libwsutil.so": "0bdeac6d987049aa02b2f9574d48a4453cc2c74b2754b34bfa29fbaa97274abd",
+          "native_build/output/lib/libz.a": "8d759de5c349a2e43b702a3f0f1a04c3ef2a6314ac40e93c173facfc560d4849"
+        },
+        "generatedInputs": {
+          "config.h": "5f9b48edf64d1d951b10d11adb096e9aaebd1ec396fc79f3b74661e44c50edfc",
+          "ws_version.h": "942b4d81a2494e8b245a0973dc82e4130e64191685cbff29fed285a8af11bbb6",
+          "vcs_version.h": "a3bc04e5005b9f9e12b6e504170c6d55bb14c0caae24477ea9b375ff7b174d57"
+        }
+      },
+      "x86_64": {
+        "command": "ninja -C native_build/external/wireshark-4.0.10/build-android-x86_64 -j4 epan",
+        "exitCode": 0,
+        "toolchain": {
+          "host": "Ubuntu 22.04 / WSL2",
+          "androidNdk": "27.0.12077973",
+          "androidApi": 26,
+          "clang": "Android 12027248 / r522817 / 18.0.1",
+          "cmake": "4.2.1 (legacy existing cache)",
+          "ninja": "1.10.1"
+        },
+        "librarySha256": "3aaf137dafbf83615aa6ca08ece2352db83c115ac0dee741ffbb1a73714f067a",
+        "buildLogSha256": "352a35d9501a536d9c771cb9acd5af2f3e9d5736b5b384a6522109496650ab40",
+        "cmakeCacheSha256": "9b7690042a2ee830fa1431f5c035dbf63d49bf13cdff23ed988397bad710e6c0",
+        "ninjaFileSha256": "09cf5d45f7a9e471377d8239f93f2f55490cdb1d31b99053e36b681676ea47f3",
+        "dependencyInputs": {
+          "native_build/output_x86_64/lib/libcares.so": "a29ec0bb05ff9fc2c31ec657c6334756eea2aebcacd3a16aaf7198e602b6a153",
+          "native_build/output_x86_64/lib/libcharset.a": "a4df2797928142e942fe210d829ccbc8d35ebb0dba00555000f2ff775199afab",
+          "native_build/output_x86_64/lib/libffi.a": "286ec27ecc69ce240faa816ecbc216c44286d2d33c4c603219df3bd87a158832",
+          "native_build/output_x86_64/lib/libgcrypt.so": "ee7e12bbd1dfd6f1e0c4ab6580b44db972e16a25052448c0ec369a2994a63b1a",
+          "native_build/output_x86_64/lib/libgio-2.0.so": "7afc5493293d948f37398c86a46559db1e1e6b2b834d9e806bb7d6f316b141e1",
+          "native_build/output_x86_64/lib/libgirepository-2.0.so": "073f0dddae11c18baf09cb7b03262f3dab5b0bf0d00f72f3b95102042059e2c0",
+          "native_build/output_x86_64/lib/libglib-2.0.so": "26bac37a46cc629c1f3f8b9b4cf503e7ab4ae1741b991ac532dc4b0cde9b9315",
+          "native_build/output_x86_64/lib/libgmodule-2.0.so": "1e43c351fd949a260b27e416fc87f9781636157cb4a00a089b9b0ba5f88030d4",
+          "native_build/output_x86_64/lib/libgobject-2.0.so": "7796264621d5b75c8d8d87bd19dff2ba1710434ef929c61c6849dfb8e5f7b269",
+          "native_build/output_x86_64/lib/libgpg-error.so": "f318e00ac966078d5e83257ab932fc89219f7f0ccc82a89bd2e938a1abfe6750",
+          "native_build/output_x86_64/lib/libgthread-2.0.so": "4ca71f00e2b960a4daa4444e482e43fb9f6818c4f5533b2a9a64690e620b0687",
+          "native_build/output_x86_64/lib/libiconv.a": "8041ca925e65304c2f51b99a61a7fe50d75c3cdaeeb3881f0e188ae976bdccb8",
+          "native_build/output_x86_64/lib/libpcre2-8.a": "abfcd6aaa4642eafd95389b528ea9b6ce0bc77486107049c741f856945d410c8",
+          "native_build/output_x86_64/lib/libpcre2-posix.a": "21d83768a9bf8a89dfe1fa73d95d1f9ddd02fa87425d6316451eade0626fc59f",
+          "native_build/output_x86_64/lib/libwireshark.so": "b9562df10c3caddb79ff10e110c9cd0a21d3e47a35a46cfd29a7342ee55cd1a3",
+          "native_build/output_x86_64/lib/libwiretap.so": "c9bcfbfbf43881b60e140f9b1ebd1b8fa73edb60426c448c9073aba6089c4cbc",
+          "native_build/output_x86_64/lib/libwsutil.so": "92bf3cbbb9b3fbf5cdeebc8b231ce8a1769959fd31ead53e6964e3903c93fcc7",
+          "native_build/output_x86_64/lib/libz.a": "17e9cc984608fc10999222cf711607b6df3cb74e97739aa7f29623bd9fb67969"
+        },
+        "generatedInputs": {
+          "config.h": "6066dcbfd4f0876a9c9ea1c383d0a49223fa6cd9a5bd88f6ed3be9af26c4439c",
+          "ws_version.h": "942b4d81a2494e8b245a0973dc82e4130e64191685cbff29fed285a8af11bbb6",
+          "vcs_version.h": "a3bc04e5005b9f9e12b6e504170c6d55bb14c0caae24477ea9b375ff7b174d57"
+        }
+      }
+    }
+  },
+  "audit": {
+    "status": "PASS",
+    "dependencyClosure": "PASS",
+    "libraries": {
+      "arm64-v8a/libcares.so": {
+        "sha256": "9ac20a6666e4b95969bdfdd8cd4ddf21a117f0f7beb650de652a931decafc206",
+        "bytes": 1508320,
+        "abi": "arm64-v8a",
+        "soname": "libcares.so",
+        "needed": [
+          "libm.so",
+          "libdl.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libffi.a": {
+        "sha256": "ea17acbcfc77b74ee5906a6c02046d2df4378392d58384683ab6482022dd1892",
+        "bytes": 128360,
+        "abi": "arm64-v8a",
+        "staticMembers": 8,
+        "machine": "AArch64"
+      },
+      "arm64-v8a/libgcrypt.so": {
+        "sha256": "4507961c0681ffb20366f62bb61079eb38c5939e130d6815d74b0fa3bde63562",
+        "bytes": 1717936,
+        "abi": "arm64-v8a",
+        "soname": "libgcrypt.so",
+        "needed": [
+          "libgpg-error.so",
+          "libdl.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libglib-2.0.so": {
+        "sha256": "a0004240188c7516e3a3e3b8a4ef26216e92d9604ad85fe9f10143aa37ad6546",
+        "bytes": 6281416,
+        "abi": "arm64-v8a",
+        "soname": "libglib-2.0.so",
+        "needed": [
+          "libm.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libgmodule-2.0.so": {
+        "sha256": "bdc3d08384c5021506fb17f962adeef7613dd642ec851c2bf327e3722a6c32c8",
+        "bytes": 45920,
+        "abi": "arm64-v8a",
+        "soname": "libgmodule-2.0.so",
+        "needed": [
+          "libglib-2.0.so",
+          "libdl.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libgobject-2.0.so": {
+        "sha256": "0bcacf8f21dde366f70102efaa2953e1949d93001ae752d46eb44f8e620797a2",
+        "bytes": 1540744,
+        "abi": "arm64-v8a",
+        "soname": "libgobject-2.0.so",
+        "needed": [
+          "libglib-2.0.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libgpg-error.so": {
+        "sha256": "8f9bc17b3599ff544666a192b378d080c9d7484eaac9101ded4617c64799f77e",
+        "bytes": 240008,
+        "abi": "arm64-v8a",
+        "soname": "libgpg-error.so",
+        "needed": [
+          "libdl.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libgthread-2.0.so": {
+        "sha256": "0abdae36355d5d4d53fef6651909966d8964161cf0fa59fdc9e71d48119fb0f1",
+        "bytes": 8152,
+        "abi": "arm64-v8a",
+        "soname": "libgthread-2.0.so",
+        "needed": [
+          "libglib-2.0.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libiconv.a": {
+        "sha256": "cd8eb99210558851dc831da216922535a43b03aab7ea6e158d9b61787297e609",
+        "bytes": 1116326,
+        "abi": "arm64-v8a",
+        "staticMembers": 3,
+        "machine": "AArch64"
+      },
+      "arm64-v8a/libpcre2-8.a": {
+        "sha256": "d208616ad9c1bb3cf7c37eb3ea2ea7be95c72b9984a4e58117c3cd9416224d66",
+        "bytes": 911408,
+        "abi": "arm64-v8a",
+        "staticMembers": 27,
+        "machine": "AArch64"
+      },
+      "arm64-v8a/libwireshark.so": {
+        "sha256": "16cc4d912e8513406b7be02e59cb05cecae953acd63143460ea7bdf96dec0995",
+        "bytes": 286481072,
+        "abi": "arm64-v8a",
+        "soname": "libwireshark.so",
+        "needed": [
+          "libwiretap.so",
+          "libwsutil.so",
+          "libglib-2.0.so",
+          "libcares.so",
+          "libgcrypt.so",
+          "libm.so",
+          "libz.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ],
+        "resolverScopeFix": true,
+        "removedExports": [],
+        "addedExports": [
+          "layanalyzer_addr_resolv_scope_fix_v1"
+        ]
+      },
+      "arm64-v8a/libwiretap.so": {
+        "sha256": "ef43390e2bcfb4356c26ce9f183fdf06d1ecfc2b17efad65bb6078984efb2328",
+        "bytes": 2990440,
+        "abi": "arm64-v8a",
+        "soname": "libwiretap.so",
+        "needed": [
+          "libwsutil.so",
+          "libz.so",
+          "libglib-2.0.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libwsutil.so": {
+        "sha256": "0bdeac6d987049aa02b2f9574d48a4453cc2c74b2754b34bfa29fbaa97274abd",
+        "bytes": 878768,
+        "abi": "arm64-v8a",
+        "soname": "libwsutil.so",
+        "needed": [
+          "libglib-2.0.so",
+          "libgcrypt.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "arm64-v8a/libz.a": {
+        "sha256": "8d759de5c349a2e43b702a3f0f1a04c3ef2a6314ac40e93c173facfc560d4849",
+        "bytes": 185116,
+        "abi": "arm64-v8a",
+        "staticMembers": 15,
+        "machine": "AArch64"
+      },
+      "x86_64/libcares.so": {
+        "sha256": "a29ec0bb05ff9fc2c31ec657c6334756eea2aebcacd3a16aaf7198e602b6a153",
+        "bytes": 1035640,
+        "abi": "x86_64",
+        "soname": "libcares.so",
+        "needed": [
+          "libm.so",
+          "libdl.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libffi.a": {
+        "sha256": "286ec27ecc69ce240faa816ecbc216c44286d2d33c4c603219df3bd87a158832",
+        "bytes": 96814,
+        "abi": "x86_64",
+        "staticMembers": 10,
+        "machine": "Advanced Micro Devices X86-64"
+      },
+      "x86_64/libgcrypt.so": {
+        "sha256": "ee7e12bbd1dfd6f1e0c4ab6580b44db972e16a25052448c0ec369a2994a63b1a",
+        "bytes": 1638304,
+        "abi": "x86_64",
+        "soname": "libgcrypt.so",
+        "needed": [
+          "libgpg-error.so",
+          "libdl.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libglib-2.0.so": {
+        "sha256": "26bac37a46cc629c1f3f8b9b4cf503e7ab4ae1741b991ac532dc4b0cde9b9315",
+        "bytes": 6327672,
+        "abi": "x86_64",
+        "soname": "libglib-2.0.so",
+        "needed": [
+          "libm.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libgmodule-2.0.so": {
+        "sha256": "1e43c351fd949a260b27e416fc87f9781636157cb4a00a089b9b0ba5f88030d4",
+        "bytes": 43936,
+        "abi": "x86_64",
+        "soname": "libgmodule-2.0.so",
+        "needed": [
+          "libglib-2.0.so",
+          "libdl.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libgobject-2.0.so": {
+        "sha256": "7796264621d5b75c8d8d87bd19dff2ba1710434ef929c61c6849dfb8e5f7b269",
+        "bytes": 1501336,
+        "abi": "x86_64",
+        "soname": "libgobject-2.0.so",
+        "needed": [
+          "libglib-2.0.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libgpg-error.so": {
+        "sha256": "f318e00ac966078d5e83257ab932fc89219f7f0ccc82a89bd2e938a1abfe6750",
+        "bytes": 225760,
+        "abi": "x86_64",
+        "soname": "libgpg-error.so",
+        "needed": [
+          "libdl.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libgthread-2.0.so": {
+        "sha256": "4ca71f00e2b960a4daa4444e482e43fb9f6818c4f5533b2a9a64690e620b0687",
+        "bytes": 7744,
+        "abi": "x86_64",
+        "soname": "libgthread-2.0.so",
+        "needed": [
+          "libglib-2.0.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libiconv.a": {
+        "sha256": "8041ca925e65304c2f51b99a61a7fe50d75c3cdaeeb3881f0e188ae976bdccb8",
+        "bytes": 1086534,
+        "abi": "x86_64",
+        "staticMembers": 3,
+        "machine": "Advanced Micro Devices X86-64"
+      },
+      "x86_64/libpcre2-8.a": {
+        "sha256": "abfcd6aaa4642eafd95389b528ea9b6ce0bc77486107049c741f856945d410c8",
+        "bytes": 1221166,
+        "abi": "x86_64",
+        "staticMembers": 27,
+        "machine": "Advanced Micro Devices X86-64"
+      },
+      "x86_64/libwireshark.so": {
+        "sha256": "3aaf137dafbf83615aa6ca08ece2352db83c115ac0dee741ffbb1a73714f067a",
+        "bytes": 283820256,
+        "abi": "x86_64",
+        "soname": "libwireshark.so",
+        "needed": [
+          "libwiretap.so",
+          "libwsutil.so",
+          "libglib-2.0.so",
+          "libcares.so",
+          "libgcrypt.so",
+          "libgpg-error.so",
+          "libm.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ],
+        "resolverScopeFix": true,
+        "removedExports": [],
+        "addedExports": [
+          "layanalyzer_addr_resolv_scope_fix_v1"
+        ]
+      },
+      "x86_64/libwiretap.so": {
+        "sha256": "c9bcfbfbf43881b60e140f9b1ebd1b8fa73edb60426c448c9073aba6089c4cbc",
+        "bytes": 2975280,
+        "abi": "x86_64",
+        "soname": "libwiretap.so",
+        "needed": [
+          "libwsutil.so",
+          "libglib-2.0.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libwsutil.so": {
+        "sha256": "92bf3cbbb9b3fbf5cdeebc8b231ce8a1769959fd31ead53e6964e3903c93fcc7",
+        "bytes": 842824,
+        "abi": "x86_64",
+        "soname": "libwsutil.so",
+        "needed": [
+          "libglib-2.0.so",
+          "libgcrypt.so",
+          "libc.so"
+        ],
+        "loadAlignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      "x86_64/libz.a": {
+        "sha256": "17e9cc984608fc10999222cf711607b6df3cb74e97739aa7f29623bd9fb67969",
+        "bytes": 179300,
+        "abi": "x86_64",
+        "staticMembers": 15,
+        "machine": "Advanced Micro Devices X86-64"
+      }
+    },
+    "runtimeSmoke": "NOT_RUN",
+    "crossHostRebuild": "NOT_RUN"
+  },
+  "preparationToolSha256": "778afafa7fce32eaa42f2b776bde3764d19b9164d8ce31731588be9158f00f9c",
+  "historicalVerificationRecordSha256": "58400981b1d3a278e560495f8207378bbd6245ac6863d1690dffe4a29832530a",
+  "anonymousDownload": "PASS (unauthenticated download of the full asset set; run id in the R03 record)",
+  "upload": "PASS",
+  "activePinsChanged": true
+}

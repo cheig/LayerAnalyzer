@@ -52,6 +52,9 @@ void hev_socks5_set_udp_recv_buffer_size(int size);
 int hev_task_system_init();
 void hev_task_system_fini();
 void lwip_init();
+int layeranalyzer_lwip_tcp_count();
+int layeranalyzer_lwip_udp_count();
+void layeranalyzer_lwip_release_run();
 int hev_socks5_tunnel_init(int tunFd);
 void hev_socks5_tunnel_fini();
 int hev_socks5_tunnel_run();
@@ -75,6 +78,10 @@ struct TunnelState {
     bool stopRequested = false;
     bool stopSent = false;
     bool stopCallInProgress = false;
+    jlong lwipCleanupRuns = 0;
+    jlong discardedTcpPcbs = 0;
+    jlong remainingTcpPcbs = 0;
+    jlong remainingUdpPcbs = 0;
 };
 
 TunnelState gTunnel;
@@ -123,6 +130,7 @@ int runHevTunnel(const std::string& config, int engineFd) {
     bool socksLoggerInitialized = false;
     bool taskSystemInitialized = false;
     bool tunnelInitialized = false;
+    bool lwipInitialized = false;
     HevLoggerLevel logLevel = HEV_LOGGER_ERROR;
     const char* logFile = nullptr;
     int result = -1;
@@ -161,6 +169,7 @@ int runHevTunnel(const std::string& config, int engineFd) {
     taskSystemInitialized = true;
 
     lwip_init();
+    lwipInitialized = true;
     if (hev_socks5_tunnel_init(engineFd) < 0) {
         signalInitialization(false);
         goto cleanup;
@@ -180,6 +189,15 @@ cleanup:
         // been destroyed by fini().
         markEngineUnavailableAndWaitForStopCall();
         hev_socks5_tunnel_fini();
+    }
+    if (lwipInitialized) {
+        const int discardedTcp = layeranalyzer_lwip_tcp_count();
+        layeranalyzer_lwip_release_run();
+        std::lock_guard<std::mutex> lock(gTunnel.mutex);
+        ++gTunnel.lwipCleanupRuns;
+        gTunnel.discardedTcpPcbs = discardedTcp;
+        gTunnel.remainingTcpPcbs = layeranalyzer_lwip_tcp_count();
+        gTunnel.remainingUdpPcbs = layeranalyzer_lwip_udp_count();
     }
     if (socksLoggerInitialized) {
         hev_socks5_logger_fini();
@@ -407,5 +425,23 @@ Java_com_example_layanalyzer_capture_Tun2SocksBridge_getStats(
     if (result != nullptr) {
         env->SetLongArrayRegion(result, 0, 4, values);
     }
+    return result;
+}
+
+// Numeric snapshots only; never walk the live NO_SYS stack from a JNI reader.
+extern "C" JNIEXPORT jlongArray JNICALL
+Java_com_example_layanalyzer_capture_Tun2SocksBridge_getLwipCleanupStats(
+    JNIEnv* env, jobject /* thiz */
+) {
+    jlong values[4];
+    {
+        std::lock_guard<std::mutex> lock(gTunnel.mutex);
+        values[0] = gTunnel.lwipCleanupRuns;
+        values[1] = gTunnel.discardedTcpPcbs;
+        values[2] = gTunnel.remainingTcpPcbs;
+        values[3] = gTunnel.remainingUdpPcbs;
+    }
+    jlongArray result = env->NewLongArray(4);
+    if (result != nullptr) env->SetLongArrayRegion(result, 0, 4, values);
     return result;
 }

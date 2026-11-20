@@ -43,6 +43,12 @@ Java_com_example_layanalyzer_NativeEngine_openFile(JNIEnv *env,
   session->file_type = wtap_file_type_subtype(wth);
   session->file_encap = wtap_file_encap(wth);
 
+  if (!acquire_session_file_scope(session)) {
+    set_last_error("Close the previous capture and wait for its analysis to finish before opening another.");
+    delete session;
+    return 0;
+  }
+
   // Initialize epan session
   session->epan = epan_new((struct packet_provider_data *)session,
                            &layanalyzer_provider_funcs);

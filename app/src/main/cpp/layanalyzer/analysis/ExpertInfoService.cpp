@@ -49,7 +49,7 @@ Java_com_example_layanalyzer_NativeEngine_getExpertInfoSummary(JNIEnv *env,
   if (!session || !session->wth || !session->epan) {
     root["warnings"] = 0;
     root["errors"] = 0;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   uint64_t cancel_generation = current_cancel_generation();
@@ -87,5 +87,5 @@ Java_com_example_layanalyzer_NativeEngine_getExpertInfoSummary(JNIEnv *env,
                 static_cast<int>(visible_frames.size()), __perf_ms, total_items,
                 warnings, errors,
                 root.contains("cancelled") ? " cancelled=1" : "");
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }

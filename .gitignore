@@ -12,6 +12,8 @@ app/build/
 
 # Local config
 local.properties
+local.properties.bak*
+/.workbuddy/
 /docs/local-development.md
 /docs/release_prompt.txt
 /.claude/
@@ -84,3 +86,7 @@ __pycache__/
 /app/src/androidTest/assets/rtp/golden/*
 !/app/src/androidTest/assets/rtp/golden/sip_rtp_amr_nb.*
 !/app/src/androidTest/assets/rtp/golden/sip_rtp_amr_wb.*
+
+# Synthetic TLS test fixtures
+!/native_build/verification/tls/fixtures/**/*.pcap
+!/app/src/androidTest/assets/tls/ai-privacy/*/capture.pcap

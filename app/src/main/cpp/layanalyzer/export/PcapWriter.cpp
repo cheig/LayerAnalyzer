@@ -26,6 +26,7 @@ bool write_le32(FILE* file, uint32_t value) {
 int link_type_for_encapsulation(int encapsulation) {
   switch (encapsulation) {
     case WTAP_ENCAP_ETHERNET: return 1;   // LINKTYPE_ETHERNET
+    case WTAP_ENCAP_NULL: return 0;       // LINKTYPE_NULL (BSD loopback)
     case WTAP_ENCAP_RAW_IP: return 101;   // LINKTYPE_RAW
     case WTAP_ENCAP_SLL: return 113;      // LINKTYPE_LINUX_SLL
 #ifdef WTAP_ENCAP_SLL2

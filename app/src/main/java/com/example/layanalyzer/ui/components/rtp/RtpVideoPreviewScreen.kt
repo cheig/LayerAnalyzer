@@ -154,107 +154,106 @@ fun RtpVideoPreviewScreen(
                         ?: stringResource(R.string.rtp_video_preview_missing),
                     color = MaterialTheme.colorScheme.error
                 )
-                return@Column
-            }
+            } else {
+                RtpPreviewSurface(
+                    onAttachSurface = onAttachSurface,
+                    onDetachSurface = onDetachSurface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(RTP_PREVIEW_ASPECT_RATIO)
+                        // 视频视口的底色就是黑的（信箱边），深浅色主题下都成立，所以它是
+                        // 本文件里唯一一个固定颜色。
+                        .background(Color.Black)
+                )
 
-            RtpPreviewSurface(
-                onAttachSurface = onAttachSurface,
-                onDetachSurface = onDetachSurface,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(RTP_PREVIEW_ASPECT_RATIO)
-                    // 视频视口的底色就是黑的（信箱边），深浅色主题下都成立，所以它是
-                    // 本文件里唯一一个固定颜色。
-                    .background(Color.Black)
-            )
+                when (playbackState) {
+                    RtpPlayerState.Preparing,
+                    RtpPlayerState.Idle -> {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        )
+                        Text(
+                            stringResource(R.string.rtp_video_preview_preparing),
+                            modifier = Modifier.padding(top = 4.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-            when (playbackState) {
-                RtpPlayerState.Preparing,
-                RtpPlayerState.Idle -> {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
+                    is RtpPlayerState.Error -> Text(
+                        text = playbackState.message
+                            .ifBlank { stringResource(R.string.rtp_video_preview_failed) },
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.error
                     )
+
+                    RtpPlayerState.Playing,
+                    RtpPlayerState.Paused,
+                    RtpPlayerState.Completed -> Unit
+                }
+
+                RtpPreviewProgressBar(
+                    positionMs = safePositionMs,
+                    durationMs = safeDurationMs,
+                    spans = spans,
+                    onSeek = onSeek,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(RTP_PREVIEW_BAR_HEIGHT)
+                        .padding(top = 12.dp)
+                )
+
+                PreviewControls(
+                    playbackState = playbackState,
+                    positionMs = safePositionMs,
+                    durationMs = safeDurationMs,
+                    onPlayPause = onPlayPause
+                )
+
+                Text(
+                    text = stringResource(
+                        R.string.rtp_video_preview_corrupt_count,
+                        state.corruptFrameCount
+                    ),
+                    modifier = Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (state.corruptFrameCount > 0) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // 索引读不出来时视频照放，但必须说清楚少了什么：这几行字是唯一的说明。
+                state.indexError?.let { message ->
                     Text(
-                        stringResource(R.string.rtp_video_preview_preparing),
+                        text = stringResource(R.string.rtp_video_preview_no_index, message),
                         modifier = Modifier.padding(top = 4.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                is RtpPlayerState.Error -> Text(
-                    text = playbackState.message
-                        .ifBlank { stringResource(R.string.rtp_video_preview_failed) },
-                    modifier = Modifier.padding(top = 8.dp),
-                    color = MaterialTheme.colorScheme.error
-                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                RtpPlayerState.Playing,
-                RtpPlayerState.Paused,
-                RtpPlayerState.Completed -> Unit
-            }
-
-            RtpPreviewProgressBar(
-                positionMs = safePositionMs,
-                durationMs = safeDurationMs,
-                spans = spans,
-                onSeek = onSeek,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(RTP_PREVIEW_BAR_HEIGHT)
-                    .padding(top = 12.dp)
-            )
-
-            PreviewControls(
-                playbackState = playbackState,
-                positionMs = safePositionMs,
-                durationMs = safeDurationMs,
-                onPlayPause = onPlayPause
-            )
-
-            Text(
-                text = stringResource(
-                    R.string.rtp_video_preview_corrupt_count,
-                    state.corruptFrameCount
-                ),
-                modifier = Modifier.padding(top = 8.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (state.corruptFrameCount > 0) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            // 索引读不出来时视频照放，但必须说清楚少了什么：这几行字是唯一的说明。
-            state.indexError?.let { message ->
-                Text(
-                    text = stringResource(R.string.rtp_video_preview_no_index, message),
-                    modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = currentFrame?.let {
-                        stringResource(R.string.rtp_player_current_frame, it)
-                    } ?: stringResource(R.string.rtp_player_frame_unavailable),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                TextButton(
-                    enabled = currentFrame != null,
-                    onClick = { currentFrame?.let(onJumpToPacket) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(stringResource(R.string.rtp_player_jump_to_packet))
+                    Text(
+                        text = currentFrame?.let {
+                            stringResource(R.string.rtp_player_current_frame, it)
+                        } ?: stringResource(R.string.rtp_player_frame_unavailable),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    TextButton(
+                        enabled = currentFrame != null,
+                        onClick = { currentFrame?.let(onJumpToPacket) }
+                    ) {
+                        Text(stringResource(R.string.rtp_player_jump_to_packet))
+                    }
                 }
             }
         }

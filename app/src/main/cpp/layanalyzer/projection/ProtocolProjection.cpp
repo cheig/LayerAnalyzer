@@ -6,6 +6,7 @@
 #include "layanalyzer/internal/Common.h"
 #include "layanalyzer/internal/TextUtils.h"
 #include "layanalyzer/session/WiresharkSession.h"
+#include "layanalyzer/projection/TextEncoding.h"
 #include "layanalyzer/projection/TreeFieldReader.h"
 #include "layanalyzer/projection/ProtocolProjection.h"
 
@@ -92,7 +93,11 @@ bool populate_packet_summary(WiresharkSession *session, int frameIdx,
       &frame.cinfo,
       session->name_resolution_enabled ? COL_RES_DST : COL_UNRES_DST);
   summary.protocol = safe_col_text(&frame.cinfo, COL_PROTOCOL);
-  summary.info = safe_col_text(&frame.cinfo, COL_INFO);
+  // P2-1: the Info column carries payload bytes ("GET /搜索 HTTP/1.1"), so a
+  // GBK page breaks UTF-8 here exactly like it does in the detail labels.
+  // source/destination stay as they are: they are address text, always ASCII.
+  summary.info =
+      layanalyzer::projection::column_to_display_utf8(safe_col_text(&frame.cinfo, COL_INFO));
 
   packet_info *pinfo = &frame.edt->pi;
   summary.source_port = -1;

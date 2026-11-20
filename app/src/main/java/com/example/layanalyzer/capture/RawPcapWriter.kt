@@ -41,8 +41,9 @@ class RawPcapWriter(private val output: OutputStream) : Closeable {
     }
 
     override fun close() {
-        output.flush()
-        output.close()
+        // A full disk can make flush throw. The descriptor must still close,
+        // and the original write failure must remain the reported exception.
+        output.use { it.flush() }
     }
 
     private companion object {

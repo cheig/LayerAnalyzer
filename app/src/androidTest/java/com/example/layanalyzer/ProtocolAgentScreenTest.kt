@@ -319,7 +319,7 @@ class ProtocolAgentScreenTest {
         setScreen(ProtocolAgentUiState(phase = AgentRunPhase.Completed, report = report()))
 
         composeRule.onNodeWithText("401 Unauthorized was never answered").assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.agent_severity_error), substring = true)
+        composeRule.onNodeWithContentDescription(string(R.string.agent_severity_error), substring = true)
             .assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.agent_evidence_frame, 42)).assertIsDisplayed()
         // Formatted through the resource so the assertion holds in any locale.

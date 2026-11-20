@@ -4,6 +4,7 @@
 
 package com.example.layanalyzer.ai.tools
 
+import com.example.layanalyzer.ai.privacy.AgentDecryptedContentPolicy
 import com.example.layanalyzer.ai.privacy.AgentFieldSensitivity
 import com.example.layanalyzer.ai.tools.dto.AgentCredentialFields
 import com.example.layanalyzer.ai.tools.dto.AgentFieldOccurrence
@@ -57,7 +58,16 @@ object ProtocolFieldProjector {
     fun project(
         root: ProtocolNode,
         requestedFields: List<String>,
-        includeDisplayValue: Boolean = true
+        includeDisplayValue: Boolean = true,
+        /**
+         * TLS-313: data-source ids that name decrypted TLS payload.  An
+         * occurrence whose [ProtocolNode.dataSourceId] is in this set is marked
+         * [AgentDecryptedContentPolicy.DECRYPTED_TLS_SOURCE] so the host content
+         * policy can exclude it from cloud output.  Empty — the default, and the
+         * only value a caller with no TLS capability passes — marks nothing,
+         * which never widens what the field table already blocks.
+         */
+        decryptedSourceIds: Set<String> = emptySet()
     ): ProjectionResult {
         // One lookup keyed by lowercase name, so a tree of any size costs a
         // single walk rather than one walk per requested field.
@@ -78,7 +88,13 @@ object ProtocolFieldProjector {
                 if (requestedName != null) {
                     val occurrences = found.getOrPut(requestedName) { mutableListOf() }
                     if (occurrences.size < MAX_OCCURRENCES_PER_FIELD) {
-                        occurrences += occurrence(node, requestedName, abbreviation, includeDisplayValue)
+                        occurrences += occurrence(
+                            node,
+                            requestedName,
+                            abbreviation,
+                            includeDisplayValue,
+                            decryptedSourceIds
+                        )
                     } else {
                         truncated = true
                     }
@@ -105,10 +121,16 @@ object ProtocolFieldProjector {
         node: ProtocolNode,
         requestedName: String,
         actualFieldName: String,
-        includeDisplayValue: Boolean
+        includeDisplayValue: Boolean,
+        decryptedSourceIds: Set<String>
     ): AgentFieldOccurrence {
         val rawFilterValue = node.filterValue?.takeIf { it.isNotBlank() }
         val rawDisplayValue = node.value?.takeIf { it.isNotBlank() } ?: node.label.takeIf { it.isNotBlank() }
+        // Only a node the host confirmed sits in a decrypted source is marked;
+        // an unknown or missing dataSourceId is never inferred as decrypted.
+        val dataSource = node.dataSourceId
+            ?.takeIf { it in decryptedSourceIds }
+            ?.let { AgentDecryptedContentPolicy.DECRYPTED_TLS_SOURCE }
 
         // A credential is reported as existence metadata only.  The scheme is
         // derived before the values are dropped, and both value fields are then
@@ -121,7 +143,8 @@ object ProtocolFieldProjector {
                 hidden = node.hidden,
                 credential = true,
                 present = true,
-                scheme = AgentCredentialFields.scheme(rawDisplayValue ?: rawFilterValue)
+                scheme = AgentCredentialFields.scheme(rawDisplayValue ?: rawFilterValue),
+                dataSource = dataSource
             )
         }
 
@@ -132,7 +155,8 @@ object ProtocolFieldProjector {
                 generated = node.generated,
                 hidden = node.hidden,
                 payload = true,
-                present = true
+                present = true,
+                dataSource = dataSource
             )
         }
 
@@ -142,7 +166,8 @@ object ProtocolFieldProjector {
             displayValue = if (includeDisplayValue) rawDisplayValue else null,
             filterValue = rawFilterValue,
             generated = node.generated,
-            hidden = node.hidden
+            hidden = node.hidden,
+            dataSource = dataSource
         )
     }
 

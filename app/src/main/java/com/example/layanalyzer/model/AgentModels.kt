@@ -158,7 +158,9 @@ data class AgentCaptureSnapshot(
      * without an override — keeps the report page silent about the analysis
      * scope; no count is ever invented here.
      */
-    val evidenceFrameCount: Int? = null
+    val evidenceFrameCount: Int? = null,
+    /** Opaque TLS analysis epoch, never a key/path; prevents cross-reopen cache reuse. */
+    val analysisCacheIdentity: String = ""
 ) {
     /** Compatibility constructor matching the coordinator's shorter vocabulary. */
     constructor(

@@ -810,6 +810,11 @@ class EvidenceValidator(
         trace.playbookCheckGapLimitations.forEach(limitations::add)
 
         truncationLimitations(trace).forEach(limitations::add)
+        if (trace.ledger.anyDetailTruncated()) {
+            limitations.add(
+                "Long text values in some results were shortened to fit within size limits."
+            )
+        }
         trace.ledger.all().filter { !it.success }.forEach { entry ->
             limitations.add(
                 "The ${entry.toolName} step did not complete" +
@@ -871,7 +876,9 @@ class EvidenceValidator(
      * when the counts say nothing useful.
      */
     private fun truncationLimitations(trace: AgentRunTrace): List<String> {
-        val truncated = trace.ledger.all().filter { it.success && it.truncated }
+        val truncated = trace.ledger.all().filter {
+            it.success && it.coverageTruncated
+        }
         if (truncated.isEmpty()) return emptyList()
 
         val limitations = LinkedHashSet<String>()

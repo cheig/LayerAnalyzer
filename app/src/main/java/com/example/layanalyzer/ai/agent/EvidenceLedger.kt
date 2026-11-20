@@ -49,22 +49,33 @@ data class EvidenceLedgerEntry(
     val validatedFilters: Set<String> = emptySet(),
     /** Filters actually executed by this call and their observed match count. */
     val executedFilterMatches: Map<String, Long> = emptyMap(),
-    val errorCode: AgentErrorCode? = null
+    val errorCode: AgentErrorCode? = null,
+    /** Explicit omissions override equal counts reported by a legacy tool. */
+    val coverageTruncated: Boolean = truncated && returnedCount < totalCount
 ) {
     /**
-     * True when this call saw everything it was asked about.  A truncated
-     * result, or one whose scan did not cover the requested set, cannot support
-     * a statement about data the call never looked at. An aggregate may be a
-     * complete scan while returning only bounded sample frame numbers.
+     * True when this call saw everything it was asked about.  A result that
+     * dropped rows/frames, or whose scan did not cover the requested set, cannot
+     * support a statement about data the call never looked at. An aggregate may
+     * be a complete scan while returning only bounded sample frame numbers.
+     *
+     * Detail-only truncation (string shortening within a complete set) does not
+     * disqualify the source, because the validator checks row presence, not
+     * field completeness.
      */
     val complete: Boolean
-        get() = success && !truncated && (coverageComplete ?: (returnedCount >= totalCount))
+        get() {
+            if (!success) return false
+            return !coverageTruncated && (coverageComplete ?: (returnedCount >= totalCount))
+        }
 
     /** One redacted line describing what was confirmed, safe to show and log. */
     fun describe(): String {
         val state = when {
             !success -> "failed (${errorCode?.name ?: "unknown"})"
-            truncated -> "returned $returnedCount of $totalCount, truncated"
+            coverageTruncated ->
+                "returned $returnedCount of $totalCount, truncated"
+            truncated -> "returned $returnedCount of $totalCount, long values shortened"
             sampled && coverageComplete == true ->
                 "scanned $totalCount, returned $returnedCount sample frame(s)"
             else -> "returned $returnedCount of $totalCount"
@@ -112,6 +123,25 @@ class EvidenceLedger {
     /** True when any recorded call cut its own result short. */
     fun anyTruncated(): Boolean = all().any { it.success && it.truncated }
 
+    /**
+     * True when a call returned fewer rows than it found.
+     *
+     * This is the only kind of trim that costs coverage: the model was never
+     * shown records that exist, so a count or a "no X occurred" claim drawn from
+     * this call may be wrong about the capture.
+     */
+    fun anyCoverageTruncated(): Boolean =
+        all().any { it.success && it.coverageTruncated }
+
+    /**
+     * True when every row survived but long text inside it was shortened.
+     *
+     * Worth disclosing — a cited string may be an ellipsised prefix — but it
+     * does not mean the run failed to look at part of the capture.
+     */
+    fun anyDetailTruncated(): Boolean =
+        all().any { it.success && it.truncated && !it.coverageTruncated }
+
     fun anyFailed(): Boolean = all().any { !it.success }
 
     /**
@@ -150,6 +180,13 @@ class EvidenceLedger {
         stepIndex: Int
     ): EvidenceLedgerEntry {
         val extraction = EvidencePayloadExtractor.extract(result.data)
+        val truncated = result.truncated || result.provenance.truncated ||
+            result.truncation.truncated || result.provenance.truncation.truncated
+        val explicitOmissions = listOf(result.truncation, result.provenance.truncation).any {
+            it.sourceTruncated || it.quotaTruncated || it.contextCompacted ||
+                it.omittedFrames.isNotEmpty() || it.omittedPaths.isNotEmpty() ||
+                it.returned < it.total
+        }
         val entry = EvidenceLedgerEntry(
             toolCallId = call.toolCallId,
             // The runner blanks the tool name for a call it refused to resolve.
@@ -159,8 +196,7 @@ class EvidenceLedger {
             toolName = result.toolName.ifBlank { UNKNOWN_TOOL_NAME },
             stepIndex = stepIndex,
             success = result.success,
-            truncated = result.truncated || result.provenance.truncated ||
-                result.truncation.truncated || result.provenance.truncation.truncated,
+            truncated = truncated || explicitOmissions,
             scope = result.provenance.scope,
             displayFilter = result.provenance.displayFilter,
             returnedCount = result.returnedCount,
@@ -188,7 +224,9 @@ class EvidenceLedger {
                 emptySet()
             },
             executedFilterMatches = executedFilterMatches(call, result),
-            errorCode = result.error?.code
+            errorCode = result.error?.code,
+            coverageTruncated = explicitOmissions ||
+                (truncated && result.returnedCount < result.totalCount)
         )
         synchronized(guard) { entries[call.toolCallId] = entry }
         return entry

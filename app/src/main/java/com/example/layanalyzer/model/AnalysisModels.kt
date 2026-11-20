@@ -334,7 +334,13 @@ data class LiveCaptureSettings(
     val maxDurationMinutes: Int = 15,
     val maxSizeMegabytes: Int = 256,
     val segmentSizeMegabytes: Int = 64,
-    val allowedApplications: List<String> = emptyList()
+    val allowedApplications: List<String> = emptyList(),
+    /**
+     * TLS decryption (MITM) settings, nested here so the VPN capture settings own
+     * them (design §10.1/§12). Defaults to off; a document that predates this block
+     * or a damaged one decodes to off and never to "intercept everything" (C04).
+     */
+    val tls: TlsCaptureSettings = TlsCaptureSettings()
 )
 
 data class LiveCapturePacketPreview(

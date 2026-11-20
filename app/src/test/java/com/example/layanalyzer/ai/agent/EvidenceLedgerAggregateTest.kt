@@ -7,12 +7,68 @@ package com.example.layanalyzer.ai.agent
 import com.example.layanalyzer.model.AgentProvenance
 import com.example.layanalyzer.model.AgentToolCall
 import com.example.layanalyzer.model.AgentToolResult
+import com.example.layanalyzer.model.AgentTruncationInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EvidenceLedgerAggregateTest {
+
+    @Test
+    fun explicitOmissionsRemainIncompleteDespiteEqualLegacyCounts() {
+        val omissions = listOf(
+            AgentTruncationInfo(sourceTruncated = true),
+            AgentTruncationInfo(quotaTruncated = true),
+            AgentTruncationInfo(contextCompacted = true),
+            AgentTruncationInfo(payloadTruncated = true, omittedFrames = listOf(7L)),
+            AgentTruncationInfo(payloadTruncated = true, omittedPaths = listOf("items")),
+            AgentTruncationInfo(returned = 1, total = 2)
+        )
+        omissions.forEach { truncation ->
+            for (inProvenance in listOf(false, true)) {
+                val ledger = EvidenceLedger()
+                val entry = ledger.record(
+                    AgentToolCall("omitted", "get_packet_fields"),
+                    AgentToolResult(
+                        toolCallId = "omitted",
+                        toolName = "get_packet_fields",
+                        success = true,
+                        returnedCount = 1,
+                        totalCount = 1,
+                        truncation = if (inProvenance) AgentTruncationInfo() else truncation,
+                        provenance = AgentProvenance(
+                            truncation = if (inProvenance) truncation else AgentTruncationInfo()
+                        )
+                    ),
+                    stepIndex = 1
+                )
+                assertFalse(entry.complete)
+                assertTrue(ledger.anyCoverageTruncated())
+                assertFalse(ledger.anyDetailTruncated())
+            }
+        }
+    }
+
+    @Test
+    fun shorteningTextWithoutOmittingRecordsKeepsCoverageComplete() {
+        val ledger = EvidenceLedger()
+        val entry = ledger.record(
+            AgentToolCall("shortened", "get_packet_fields"),
+            AgentToolResult(
+                toolCallId = "shortened",
+                toolName = "get_packet_fields",
+                success = true,
+                returnedCount = 1,
+                totalCount = 1,
+                truncation = AgentTruncationInfo(payloadTruncated = true)
+            ),
+            stepIndex = 1
+        )
+        assertTrue(entry.complete)
+        assertTrue(ledger.anyDetailTruncated())
+        assertFalse(ledger.anyCoverageTruncated())
+    }
 
     @Test
     fun aCompleteAggregateCanBeSampledAndStillSupportsEvidence() {

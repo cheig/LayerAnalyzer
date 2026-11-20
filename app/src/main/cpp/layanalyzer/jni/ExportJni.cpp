@@ -60,13 +60,13 @@ Java_com_example_layanalyzer_NativeEngine_exportVisibleCapture(
   json result = {{"success", false}, {"count", 0}, {"error", ""}};
   if (!session || !session->wth) {
     result["error"] = "No capture is open.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   std::vector<int> export_frames = snapshot_visible_frames(session);
   const int count = static_cast<int>(export_frames.size());
   if (count <= 0) {
     result["error"] = "No packets are available to export.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const char *path_chars = env->GetStringUTFChars(jOutputPath, nullptr);
@@ -74,7 +74,7 @@ Java_com_example_layanalyzer_NativeEngine_exportVisibleCapture(
   env->ReleaseStringUTFChars(jOutputPath, path_chars);
   if (output_path.empty()) {
     result["error"] = "An output path is required.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const uint64_t cancel_generation = current_cancel_generation();
@@ -82,7 +82,7 @@ Java_com_example_layanalyzer_NativeEngine_exportVisibleCapture(
   if (!include_reassembly_dependencies(session, export_frames, cancel_generation,
                                        dependency_error)) {
     result["error"] = dependency_error;
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   int first_index = export_frames.front();
@@ -96,7 +96,7 @@ Java_com_example_layanalyzer_NativeEngine_exportVisibleCapture(
                         &first.rec, &first.buf, &err, &err_info)) {
       result["error"] = err_info ? err_info : "Unable to read the first packet.";
       g_free(err_info);
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
     prepare_packet_record(session->wth, &first.rec);
     first_encap = first.rec.rec_header.packet_header.pkt_encap;
@@ -105,7 +105,7 @@ Java_com_example_layanalyzer_NativeEngine_exportVisibleCapture(
   if (link_type < 0) {
     result["error"] =
         "The capture encapsulation cannot be represented as classic pcap.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   uint32_t snapshot_length = wtap_snapshot_length(session->wth);
   if (snapshot_length == 0) snapshot_length = 65535;
@@ -113,7 +113,7 @@ Java_com_example_layanalyzer_NativeEngine_exportVisibleCapture(
   FILE *output = fopen(output_path.c_str(), "wb");
   if (!output) {
     result["error"] = "Unable to open the output file.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   bool ok = write_le32(output, 0xa1b2c3d4u) && write_le16(output, 2) &&
             write_le16(output, 4) && write_le32(output, 0) &&
@@ -184,5 +184,5 @@ Java_com_example_layanalyzer_NativeEngine_exportVisibleCapture(
     result["success"] = true;
     result["count"] = exported;
   }
-  return new_java_string(env, result.dump());
+  return new_java_string(env, dump_json(result));
 }

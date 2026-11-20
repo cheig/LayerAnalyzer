@@ -14,6 +14,7 @@ import com.example.layanalyzer.model.ExpertInfoSummary
 import com.example.layanalyzer.model.FileSessionInfo
 import com.example.layanalyzer.model.FollowStreamResult
 import com.example.layanalyzer.model.PacketSummary
+import com.example.layanalyzer.model.PacketDataSourceKind
 import com.example.layanalyzer.model.ProtocolNode
 import com.example.layanalyzer.model.RadioEventType
 import com.example.layanalyzer.model.RadioQueryResult
@@ -128,7 +129,9 @@ data class AgentPacketSummaryPage(
     val captureStartTime: Double,
     val truncated: Boolean,
     /** Stable provenance value: `native_scoped` or `filter_lease`. */
-    val queryMode: String
+    val queryMode: String,
+    /** Info can contain decrypted request paths; summaries have no per-value source range. */
+    val infoMayContainDecryptedContent: Boolean = false
 )
 
 /** Coverage facts for a bounded local scan over one temporary filter lease. */
@@ -138,6 +141,18 @@ data class AgentPacketScanStats(
     val complete: Boolean,
     /** Filter string actually visible while the temporary lease was active. */
     val appliedFilter: String = ""
+)
+
+/**
+ * TLS-313: one frame's protocol tree plus the ids of the data sources that
+ * carry decrypted TLS payload.
+ *
+ * The ids are an empty set when the host could not describe the frame's
+ * sources; that is "unknown" and never a claim that nothing was decrypted.
+ */
+data class AgentPacketDetail(
+    val root: ProtocolNode?,
+    val decryptedSourceIds: Set<String> = emptySet()
 )
 
 /**
@@ -174,6 +189,7 @@ class AgentAnalysisRepository(
         val sessionGeneration: Long,
         val fingerprint: String,
         val analysisConfigVersion: Int,
+        val analysisCacheIdentity: String,
         val scope: AnalysisScope,
         val filter: String,
         val bucketSecondsBits: Long
@@ -194,6 +210,7 @@ class AgentAnalysisRepository(
         sessionGeneration = snapshot.sessionGeneration,
         fingerprint = snapshot.fileFingerprint,
         analysisConfigVersion = snapshot.analysisConfigVersion,
+        analysisCacheIdentity = snapshot.analysisCacheIdentity,
         scope = snapshot.scope,
         filter = effectiveFilter(snapshot, filter),
         bucketSecondsBits = bucketSeconds.toBits()
@@ -244,6 +261,8 @@ class AgentAnalysisRepository(
                 analysisGeneration = 0L,
                 sessionGeneration = current.sessionGeneration,
                 agentGeneration = 0L,
+                analysisConfigVersion = current.analysisConfigVersion,
+                analysisCacheIdentity = current.analysisCacheIdentity,
                 evidenceFrameCount = evidenceFrameCount
             )
         )
@@ -264,6 +283,7 @@ class AgentAnalysisRepository(
             sessionGeneration = current.sessionGeneration,
             agentGeneration = generation,
             analysisConfigVersion = current.analysisConfigVersion,
+            analysisCacheIdentity = current.analysisCacheIdentity,
             evidenceFrameCount = evidenceFrameCount
         )
         val afterError = coordinator.snapshotError(snapshot)
@@ -357,7 +377,8 @@ class AgentAnalysisRepository(
                     },
                     truncated = nativeResult.truncated ||
                         actualOffset.toLong() + page.size < total.toLong(),
-                    queryMode = QUERY_MODE_NATIVE_SCOPED
+                    queryMode = QUERY_MODE_NATIVE_SCOPED,
+                    infoMayContainDecryptedContent = dataSource.tlsDecryptionConfigured()
                 )
             )
         }
@@ -378,7 +399,8 @@ class AgentAnalysisRepository(
                 total = total,
                 captureStartTime = reader.getFirstPacketTimestamp(),
                 truncated = boundedOffset.toLong() + page.size < total.toLong(),
-                queryMode = QUERY_MODE_FILTER_LEASE
+                queryMode = QUERY_MODE_FILTER_LEASE,
+                infoMayContainDecryptedContent = dataSource.tlsDecryptionConfigured()
             )
         }
     }
@@ -512,10 +534,55 @@ class AgentAnalysisRepository(
         return checked(snapshot) { dataSource.getPacketDetails(frame) }
     }
 
+    /**
+     * TLS-313: a frame's tree plus the ids of any data sources that carry
+     * decrypted TLS payload.
+     *
+     * [decryptedSourceIds] is empty when the implementation cannot describe the
+     * frame's sources — that is "unknown", and a caller must not read it as
+     * proof that no decrypted plaintext is present.  The field policy still
+     * drops credentials and payloads in that case; the extra marking only ever
+     * removes more.
+     */
+    suspend fun getPacketDetail(
+        snapshot: AgentCaptureSnapshot,
+        frame: Long
+    ): AgentAnalysisResult<AgentPacketDetail> {
+        val before = assertSnapshotValid(snapshot)
+        if (before != null) return AgentAnalysisResult.Failure(before)
+        if (frame < 1L || frame > snapshot.frameCount.toLong()) {
+            return AgentAnalysisResult.Failure(
+                AgentError(
+                    code = AgentErrorCode.INVALID_TOOL_ARGUMENTS,
+                    userMessage = "The requested frame is outside the capture.",
+                    details = mapOf("field" to "frame")
+                )
+            )
+        }
+        return checked(snapshot) {
+            val detail = dataSource.currentPacketDetailSnapshot(frame)
+            if (detail == null) {
+                AgentPacketDetail(dataSource.getPacketDetails(frame), emptySet())
+            } else {
+                AgentPacketDetail(
+                    root = detail.root,
+                    decryptedSourceIds = detail.sources
+                        .filter { it.kind == PacketDataSourceKind.DecryptedTls }
+                        .map { it.id }
+                        .toSet()
+                )
+            }
+        }
+    }
+
     suspend fun getStatistics(
         snapshot: AgentCaptureSnapshot,
         bucketSeconds: Double = 1.0
     ): AgentAnalysisResult<CaptureStatistics> = getStatistics(snapshot, "", bucketSeconds)
+
+    /** HTTP statistics contain free-form event summaries as well as numeric counts. */
+    suspend fun tlsDecryptionConfigured(snapshot: AgentCaptureSnapshot): AgentAnalysisResult<Boolean> =
+        checked(snapshot) { dataSource.tlsDecryptionConfigured() }
 
     /**
      * Statistics for a caller-supplied filter, on top of the snapshot's scope.
@@ -813,7 +880,8 @@ class AgentAnalysisRepository(
     private fun snapshotToken(snapshot: AgentCaptureSnapshot): CaptureSessionToken =
         CaptureSessionToken(
             snapshot.sessionHandle,
-            snapshot.sessionGeneration.takeIf { it > 0L } ?: snapshot.generation
+            snapshot.sessionGeneration.takeIf { it > 0L } ?: snapshot.generation,
+            snapshot.analysisConfigVersion
         )
 
     private fun effectiveFilter(snapshot: AgentCaptureSnapshot, requested: String): String {

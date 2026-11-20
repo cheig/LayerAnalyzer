@@ -8,6 +8,8 @@ import android.app.Application
 import android.content.Context
 import android.util.Log
 import androidx.multidex.MultiDexApplication
+import com.example.layanalyzer.capture.tls.TlsAssetException
+import com.example.layanalyzer.capture.tls.TlsSecretStore
 import com.example.layanalyzer.ai.agent.AndroidKeystoreSecretStore
 import com.example.layanalyzer.ai.agent.AgentChatResponseFormat
 import com.example.layanalyzer.ai.agent.AgentReasoningEffort
@@ -19,6 +21,7 @@ import com.example.layanalyzer.ai.agent.SharedPreferencesAgentSettingsStore
 import com.example.layanalyzer.ai.agent.ProtocolAnalysisAgent
 import com.example.layanalyzer.ai.agent.selectModelBackend
 import com.example.layanalyzer.ai.audit.AgentDiagnosticsRecorder
+import com.example.layanalyzer.ai.cache.AgentTlsEvidenceInvalidator
 import com.example.layanalyzer.ai.cache.AgentToolCache
 import com.example.layanalyzer.ai.playbook.AgentPlaybookStore
 import com.example.layanalyzer.ai.playbook.ScenarioQuarantineEvent
@@ -170,6 +173,18 @@ class LayerAnalyzerApplication : MultiDexApplication() {
     /** AI-24 local stores. Each owns exactly one directory the user can clear. */
     val agentSessionStore: AgentSessionStore by lazy { AgentSessionStore(this) }
     val agentToolCache: AgentToolCache by lazy { AgentToolCache(this) }
+
+    /**
+     * TLS-313: drops cached AI results and saved Agent conversations for a
+     * capture TLS-312 deleted (or whose transient secrets expired), so a
+     * removed capture leaves no derived content a later run could serve.
+     */
+    val agentTlsEvidenceInvalidator: AgentTlsEvidenceInvalidator by lazy {
+        AgentTlsEvidenceInvalidator(
+            toolCache = agentToolCache,
+            sessionStore = agentSessionStore
+        )
+    }
     val agentDiagnosticsRecorder: AgentDiagnosticsRecorder by lazy {
         AgentDiagnosticsRecorder(this)
     }
@@ -479,7 +494,17 @@ class LayerAnalyzerApplication : MultiDexApplication() {
         // A process restart creates a fresh, disarmed capture object. Apply
         // TTL/capacity cleanup without creating the private directory.
         agentResponseDebugCapture.cleanup()
+        repository.artifactLifecycle = com.example.layanalyzer.data.CaptureArtifactLifecycle(this)
         LiveCaptureStore.initialize(this)
+        // TLS-313: keep the AI cache and saved conversations in step with the
+        // capture-cleanup journal.  The StateFlow emits on every publish, and
+        // replaying the durable journal is idempotent, so a live delete and a
+        // restart-time replay converge on the same state.
+        applicationScope.launch {
+            com.example.layanalyzer.data.CaptureArtifactLifecycle.cleanupRevision.collect {
+                replayCaptureCleanupForAgent()
+            }
+        }
         // Mark any run that survived the previous process as interrupted; the
         // diagnostics recorder uses the same runId for its own RunAbandoned
         // back-fill on the next analysis, so both keyed on the same string.
@@ -550,9 +575,45 @@ class LayerAnalyzerApplication : MultiDexApplication() {
         )
     }
 
+    /**
+     * TLS-313: apply every durable capture-cleanup record to the AI stores.
+     *
+     * Idempotent — the journal keeps completed records so a crash mid-delete is
+     * retried on the next launch — so it is safe to run both at engine start and
+     * on every live cleanup notification.  A read failure is logged and left for
+     * the next attempt rather than crashing startup.
+     */
+    private fun replayCaptureCleanupForAgent() {
+        try {
+            val events = com.example.layanalyzer.data.CaptureArtifactLifecycle(this).cleanupEvents()
+            if (events.isEmpty()) return
+            agentTlsEvidenceInvalidator.replay(events)
+        } catch (error: TlsAssetException) {
+            Log.w("LayerAnalyzer", "AI evidence cleanup replay failed: ${error.code.name}")
+        } catch (_: java.io.IOException) {
+            Log.w("LayerAnalyzer", "AI evidence cleanup replay failed: IO_ERROR")
+        }
+    }
+
     private fun initializeEngine() {
         _engineState.value = EngineState.Initializing
         applicationScope.launch {
+            // Before analysis can restore, remove plaintext left by a dead process.
+            // Run disk cleanup on IO; live leases stay protected even on an init retry.
+            try {
+                val results = com.example.layanalyzer.data.CaptureArtifactLifecycle(this@LayerAnalyzerApplication)
+                    .recoverAtStartup()
+                results.filter { it.errorCode != null }.forEach {
+                    Log.w("LayerAnalyzer", "Capture recovery incomplete: ${it.errorCode?.name}")
+                }
+            } catch (error: TlsAssetException) {
+                Log.w("LayerAnalyzer", "TLS temporary cleanup failed: ${error.code.name}")
+            } catch (_: java.io.IOException) {
+                Log.w("LayerAnalyzer", "Capture recovery incomplete: IO_ERROR")
+            }
+            // TLS-313: drop AI cache/history for captures TLS-312 already
+            // purged, including records written before this process started.
+            replayCaptureCleanupForAgent()
             _engineState.value = runCatching {
                 installWiresharkAssets(this@LayerAnalyzerApplication)
                 val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE)

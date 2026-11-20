@@ -6,6 +6,8 @@
 
 #include <glib.h>
 
+#include "TextEncoding.h"
+
 namespace layanalyzer::projection {
 
 std::string bytes_to_hex(const std::vector<uint8_t>& bytes) {
@@ -33,21 +35,14 @@ std::string bytes_to_ascii(const std::vector<uint8_t>& bytes) {
   return output;
 }
 
+// Text preview of a payload: follow-stream rows and the per-frame export carry
+// the raw bytes in `hex` anyway, so this is the only place that has to be
+// readable. P2-1: payloads that are GBK used to come back with every Chinese
+// character turned into a replacement character; decoding is now charset-aware.
 std::string bytes_to_utf8_text(const std::vector<uint8_t>& bytes) {
   if (bytes.empty()) return "";
-  GError* error = nullptr;
-  gchar* converted = g_utf8_make_valid(
-      reinterpret_cast<const gchar*>(bytes.data()),
-      static_cast<gssize>(bytes.size()));
-  if (!converted) return bytes_to_ascii(bytes);
-
-  gchar* normalized = g_convert_with_fallback(
-      converted, -1, "UTF-8", "UTF-8", ".", nullptr, nullptr, &error);
-  std::string output = normalized ? normalized : converted;
-  if (error) g_error_free(error);
-  g_free(normalized);
-  g_free(converted);
-  return output;
+  return to_display_utf8(reinterpret_cast<const char*>(bytes.data()),
+                         bytes.size());
 }
 
 }  // namespace layanalyzer::projection

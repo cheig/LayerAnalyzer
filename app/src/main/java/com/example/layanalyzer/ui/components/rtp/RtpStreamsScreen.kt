@@ -8,7 +8,6 @@ import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -37,13 +36,11 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -77,6 +74,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.layanalyzer.R
+import com.example.layanalyzer.ui.components.AnalyzerListItem
+import com.example.layanalyzer.ui.components.AnalyzerSpacing
 import com.example.layanalyzer.data.PacketRepository
 import com.example.layanalyzer.data.RtpRepository
 import com.example.layanalyzer.media.ExternalPlayerLauncher
@@ -1061,7 +1060,6 @@ private fun ColumnScope.DoneContent(
                     onExportFormat = { onExportFormat(stream) },
                     videoMenu = videoMenu
                 )
-                HorizontalDivider()
             }
         }
     }
@@ -1200,19 +1198,10 @@ private fun RtpStreamCard(
             RtpStreamCardTap.PrepareAndPreview -> onPrepareAndPreview(stream)
         }
     }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .border(
-                width = 2.dp,
-                color = when {
-                    selected -> MaterialTheme.colorScheme.primary
-                    highlighted -> MaterialTheme.colorScheme.tertiary
-                    else -> Color.Transparent
-                },
-                shape = RoundedCornerShape(12.dp)
-            )
+    AnalyzerListItem(
+        modifier = Modifier.fillMaxWidth(),
+        selected = selected,
+        highlighted = highlighted
     ) {
         Column(
             modifier = Modifier
@@ -1233,7 +1222,7 @@ private fun RtpStreamCard(
                         }
                     }
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = AnalyzerSpacing.CardPadding, vertical = 12.dp)
         ) {
             // 端点行：必须永远不把行撑出屏幕。
             Text(

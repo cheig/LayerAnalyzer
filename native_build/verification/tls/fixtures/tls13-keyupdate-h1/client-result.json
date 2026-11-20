@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "trusted": {
+    "success": true,
+    "certificateVerified": true,
+    "tlsVersion": "TLS1.3",
+    "alpn": "http/1.1",
+    "cipher": "TLS_AES_128_GCM_SHA256",
+    "destinationPort": 18443,
+    "status": 200,
+    "bodyBase64": "TGF5ZXJBbmFseXplciBUTFMgZml4dHVyZSB2MQo=",
+    "bodySha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4",
+    "connectionId": "client-random:df8028ddc4e97aebf4d84b01001a86a44e4578ff5780495852afa9402f9c6a34"
+  },
+  "wrongConnection": {
+    "success": true,
+    "certificateVerified": true,
+    "tlsVersion": "TLS1.3",
+    "alpn": "http/1.1",
+    "cipher": "TLS_AES_128_GCM_SHA256",
+    "destinationPort": 18443,
+    "status": 200,
+    "bodyBase64": "TGF5ZXJBbmFseXplciBUTFMgZml4dHVyZSB2MQo=",
+    "bodySha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4",
+    "connectionId": "client-random:f1c1e88ed46fd8161d408729c4694598624c69b9e756edfcbaa27f3b0a53f3dd"
+  },
+  "untrusted": {
+    "success": false,
+    "errorCode": "CERTIFICATE_VERIFY_FAILED"
+  }
+}

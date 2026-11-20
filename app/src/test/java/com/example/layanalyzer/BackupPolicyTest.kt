@@ -8,6 +8,8 @@ import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.w3c.dom.Element
+import org.w3c.dom.Node
 
 class BackupPolicyTest {
     @Test
@@ -21,19 +23,37 @@ class BackupPolicyTest {
         assertEquals("@xml/data_extraction_rules", attributes.getNamedItem("android:dataExtractionRules")?.nodeValue)
         assertEquals("@xml/backup_rules", attributes.getNamedItem("android:fullBackupContent")?.nodeValue)
 
-        assertRootExclusions(File("src/main/res/xml/data_extraction_rules.xml"), expected = 2)
-        assertRootExclusions(File("src/main/res/xml/backup_rules.xml"), expected = 1)
+        val extraction = parseRoot(File("src/main/res/xml/data_extraction_rules.xml"))
+        assertEquals("data-extraction-rules", extraction.tagName)
+        val sections = childElements(extraction)
+        assertEquals(2, sections.size)
+        assertEquals(setOf("cloud-backup", "device-transfer"), sections.map { it.tagName }.toSet())
+        sections.forEach(::assertAllPrivateDomainsExcluded)
+
+        val backup = parseRoot(File("src/main/res/xml/backup_rules.xml"))
+        assertEquals("full-backup-content", backup.tagName)
+        assertAllPrivateDomainsExcluded(backup)
     }
 
-    private fun assertRootExclusions(file: File, expected: Int) {
-        val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
-        assertEquals(0, document.getElementsByTagName("include").length)
-        val exclusions = document.getElementsByTagName("exclude")
-        assertEquals(expected, exclusions.length)
-        repeat(exclusions.length) { index ->
-            val attributes = exclusions.item(index).attributes
-            assertEquals("root", attributes.getNamedItem("domain")?.nodeValue)
-            assertEquals(".", attributes.getNamedItem("path")?.nodeValue)
+    private fun parseRoot(file: File): Element =
+        DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file).documentElement
+
+    private fun childElements(parent: Element): List<Element> =
+        (0 until parent.childNodes.length).map { parent.childNodes.item(it) }
+            .filter { it.nodeType == Node.ELEMENT_NODE }.map { it as Element }
+
+    private fun assertAllPrivateDomainsExcluded(section: Element) {
+        val domains = setOf(
+            "root", "file", "database", "sharedpref", "external",
+            "device_root", "device_file", "device_database", "device_sharedpref",
+        )
+        val exclusions = childElements(section)
+        assertEquals(domains.size, exclusions.size)
+        assertEquals(domains, exclusions.map { it.getAttribute("domain") }.toSet())
+        exclusions.forEach { exclusion ->
+            assertEquals("exclude", exclusion.tagName)
+            assertEquals(".", exclusion.getAttribute("path"))
+            assertEquals(0, childElements(exclusion).size)
         }
     }
 }

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "certificate-manager",
+  "purpose": "TLS-206 CA state, C06 sealing and reset",
+  "source": "synthetic-local-test-only",
+  "privateKeysCommitted": true,
+  "warning": "Test vectors only: never installed, never shipped, never used for real traffic.",
+  "subject": "O=LayerAnalyzer test fixture,CN=LayerAnalyzer capture CA fixture",
+  "notBefore": "2020-01-01T00:00:00",
+  "notAfter": "2045-01-01T00:00:00",
+  "keyAlgorithm": "RSA-3072",
+  "files": [
+    {
+      "file": "ca-certificate.der",
+      "role": "fixture-ca-certificate",
+      "bytes": 1124,
+      "sha256": "111fdc809acd6edc1c47f93238913adf0605f045aa06e5d640d1dee749e07332"
+    },
+    {
+      "file": "ca-private-key.pkcs8",
+      "role": "fixture-ca-private-key-matching",
+      "bytes": 1794,
+      "sha256": "b24746764df07ef59b5025f895da5d69ae2fb1c8e18f3d696a3310e1a63fd07d"
+    },
+    {
+      "file": "other-private-key.pkcs8",
+      "role": "fixture-unrelated-private-key",
+      "bytes": 1217,
+      "sha256": "7466249afe4ee18cb9817cff2e1e5097bdbd8df6340f1b914441245fa45159bc"
+    }
+  ]
+}

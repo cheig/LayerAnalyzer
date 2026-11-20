@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "url": "https://github.com/cheig/LayerAnalyzer_libs/releases/download/wireshark-4.0.10-r1/native-sources-wireshark-4.0.10-r2.tar.gz",
-  "sha256": "a58ef11f89f6ad8c961ad0963dba92feb51d5c48f067a491a339fe1e1b647ecd",
+  "url": "https://github.com/cheig/LayerAnalyzer_libs/releases/download/wireshark-4.0.10-r3/native-sources-wireshark-4.0.10-r3.tar.gz",
+  "sha256": "07456cb4269c29779cb94c8392b6c4eb6ed4e3d570457b8d08ce954566644715",
   "components": [
     {
       "name": "glib-2.80.0",
@@ -124,10 +124,11 @@
       "sourceFiles": 6471,
       "modifiedFiles": [
         "wireshark-4.0.10/cmake/modules/UseLemon.cmake",
-        "wireshark-4.0.10/wsutil/ws_pipe.c"
+        "wireshark-4.0.10/wsutil/ws_pipe.c",
+        "wireshark-4.0.10/epan/addr_resolv.c"
       ],
       "archiveMetadata": "Git export-subst expanded from the pinned upstream revision; no Git checkout required.",
-      "archiveTreeSha256": "6544b2b3e56259c1e9d01794f44947801ed59fcb31b7aefc32d1b61736919f94",
+      "archiveTreeSha256": "46a2ca546dd6b10e15ddc3040dbe623140b312cfe32ddbf0e5f6f21db3e15b6b",
       "archiveEntries": 6471
     },
     {
@@ -139,14 +140,24 @@
       "archiveEntries": 558
     }
   ],
-  "binaryArchiveSha256": "617468873eea9b69bd430736b1419fe684b871d0ddbe81a6d94258086b132c7d",
-  "verificationStatus": "Nine source inputs, 19 source patches and added support files verified; pinned r1 libraries match retained original build outputs and configuration. Both ABIs rebuilt from r2 with the documented build-script adjustments. Candidate replacement is not accepted: device validation findings and security-maintenance selection remain open. Byte-identical reproduction is not claimed; see verificationRecord.",
-  "rebuildAdjustments": [
+  "binaryArchiveSha256": "792e370657fc846840fd9251b6fb0f1df3854bd8db02ca3c7c45987c8b72c436",
+  "verificationStatus": "Published r3 source and binary archives. The resolver backport and build-script adjustments are included. See verificationRecord for provenance and validation limits.",
+  "rebuildAdjustments": [],
+  "verificationRecord": "native_build/provenance/wireshark-4.0.10-r3.json",
+  "requiredLocalPatches": [],
+  "release": "wireshark-4.0.10-r3",
+  "includedPatches": [
+    {
+      "path": "native_build/patches/wireshark/addr-resolv-scope-lifetime.patch",
+      "sha256": "0b159bb948747bdfdb1b0599c3e730bc08ca97054396e91805a3b21b2b9bcb0c",
+      "source": "wireshark-4.0.10/epan/addr_resolv.c",
+      "referenceVersion": "Wireshark 4.2.4 (1fe5bce8d665c0d64e1af63545421c67596db165)",
+      "scope": "Separate resettable resolver caches from permanent manual names and paths. Additional patch applied after the immutable r2 source archive is extracted."
+    },
     {
       "path": "native_build/patches/rebuild/r2-build-compatibility.patch",
       "sha256": "1569ab7d28560f558e062ceab50cc22360dfcaf523cf3119452859a67fc72767",
       "scope": "Build scripts only; apply once to a fresh r2 extraction before rebuilding. Fix PCRE2 CMP0057 with CMake 3.22.1 / NDK r27, retain 16 KB segment alignment for ARM64 c-ares, and avoid downloading GLib when the complete source tree is already present."
     }
-  ],
-  "verificationRecord": "native_build/provenance/wireshark-4.0.10-r1.json"
+  ]
 }

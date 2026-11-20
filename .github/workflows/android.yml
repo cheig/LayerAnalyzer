@@ -10,33 +10,34 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   unit-tests:
     if: github.event.deleted != true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - run: python tools/check_source_checkout.py
-      - run: python -m unittest discover -s tools/tests -p 'test_release*.py' -v
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-      - uses: android-actions/setup-android@v4
-        with:
-          cmdline-tools-version: '12266719'
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
+      - uses: ./.github/actions/tls-ci-setup
       - run: chmod +x gradlew
-      - run: ./gradlew testDebugUnitTest --stacktrace
+      - name: ARM64 Debug unit tests with production TLS and no probe
+        run: >-
+          ./gradlew testDebugUnitTest --stacktrace --no-build-cache --no-configuration-cache --rerun-tasks
+          -PlayanalyzerEnableTls=true -PlayanalyzerTlsProbe=false
+          -PlayanalyzerTlsGo="$LAYANALYZER_CI_GO"
+      - run: python tools/run_required_tests.py junit app/build/test-results/testDebugUnitTest
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: unit-test-reports
-          path: app/build/reports/tests/
+          name: unit-test-reports-tls-on
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+            ${{ runner.temp }}/tls-ci-setup/setup-report.json
+            ${{ runner.temp }}/tls-ci-setup/*.log
+          if-no-files-found: warn
 
   native-tests:
     if: github.event.deleted != true
@@ -52,32 +53,86 @@ jobs:
       - run: cmake --build build/rtp-host --parallel 2
       - run: ./build/rtp-host/rtp_host_tests
 
+  tls-tests:
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/tls-ci-setup
+      - run: python tools/run_required_tests.py unittest tools/tests
+      - run: python tools/run_required_tests.py unittest native_build/verification/tls
+      - name: Uncached full Go and race suites (host-only, no probe tag)
+        working-directory: native_go/tlsbridge
+        run: |
+          set -euo pipefail
+          mkdir -p ../../build/ci-tests
+          go test -mod=readonly -count=1 -json ./... | tee ../../build/ci-tests/go.json
+          python ../../tools/run_required_tests.py go ../../build/ci-tests/go.json
+          go test -mod=readonly -race -count=1 -json ./... | tee ../../build/ci-tests/go-race.json
+          python ../../tools/run_required_tests.py go ../../build/ci-tests/go-race.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: tls-regression-reports
+          path: |
+            build/ci-tests/
+            ${{ runner.temp }}/tls-ci-setup/setup-report.json
+            ${{ runner.temp }}/tls-ci-setup/*.log
+          if-no-files-found: warn
+
   build:
     if: github.event.deleted != true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-      - uses: android-actions/setup-android@v4
-        with:
-          cmdline-tools-version: '12266719'
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - run: python tools/fetch_native_deps.py
+      - uses: ./.github/actions/tls-ci-setup
       - run: chmod +x gradlew
-      - run: ./gradlew lintDebug assembleDebug assembleEmulator compileDebugAndroidTestKotlin assembleDebugAndroidTest --stacktrace
+      - name: ARM64 Debug, androidTest and unsigned Release with one consistent TLS mode
+        run: >-
+          ./gradlew -I tools/runtime_license_inventory.init.gradle
+          -PlayanalyzerEnableTls=true -PlayanalyzerTlsProbe=false
+          -PlayanalyzerTlsGo="$LAYANALYZER_CI_GO"
+          --no-build-cache --no-configuration-cache --rerun-tasks
+          lintDebug assembleDebug compileDebugAndroidTestKotlin assembleDebugAndroidTest
+          testReleaseUnitTest lintRelease assembleRelease :app:exportRuntimeLicenseInventory --stacktrace
+      - run: python tools/run_required_tests.py junit app/build/test-results/testReleaseUnitTest
+      - name: Verify TLS-enabled APKs, production JNI, R8, 16 KiB alignment, notices and inventory staging
+        run: |
+          set -euo pipefail
+          for variant in debug release; do
+            apk="app/build/outputs/apk/$variant/app-$variant.apk"
+            if [ "$variant" = release ]; then apk="app/build/outputs/apk/release/app-release-unsigned.apk"; fi
+            python tools/check_tls_dependencies.py --go "$LAYANALYZER_CI_GO" --expect-tls "on" \
+              --apk "$apk" --report "build/tls-$variant-dependencies.json"
+            python native_build/verification/tls/check_release_apk.py \
+              --apk "$apk" --abi arm64-v8a --variant "$variant" --tls "on" \
+              --go "$LAYANALYZER_CI_GO" --readelf "$ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+              --aapt "$ANDROID_HOME/build-tools/34.0.0/aapt" --zipalign "$ANDROID_HOME/build-tools/35.0.0/zipalign" \
+              --report "build/tls-$variant-apk.json"
+          done
+          python tools/stage_release.py create-apk --staging build/ci-staging \
+            --inventory build/license-audit/releaseRuntimeClasspath.json \
+            --apk app/build/outputs/apk/release/app-release-unsigned.apk
+          python tools/stage_release.py verify-apk --staging build/ci-staging
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: arm64-build-reports-tls-on
+          path: |
+            app/build/reports/
+            app/build/test-results/testReleaseUnitTest/
+            build/license-audit/releaseRuntimeClasspath.json
+            build/tls-*.json
+            build/tls-production/*/build-manifest.json
+            ${{ runner.temp }}/tls-ci-setup/setup-report.json
+            ${{ runner.temp }}/tls-ci-setup/*.log
+          if-no-files-found: warn
 
   package:
     # Use pinned Wireshark 4.0.10; upgrades/backports are follow-up maintenance.
     # Build a signed candidate; device validation precedes publishing the draft.
     if: github.event_name == 'push' && github.event.deleted != true && startsWith(github.ref, 'refs/tags/v') && vars.ENABLE_APK_PACKAGING == 'true'
-    needs: [unit-tests, native-tests, build]
+    needs: [unit-tests, native-tests, tls-tests, build]
     runs-on: ubuntu-24.04
     env:
       LAYERANALYZER_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
@@ -85,19 +140,7 @@ jobs:
       LAYERANALYZER_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-      - uses: android-actions/setup-android@v4
-        with:
-          cmdline-tools-version: '12266719'
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - run: python tools/fetch_native_deps.py
+      - uses: ./.github/actions/tls-ci-setup
       - name: Restore release signing key
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -113,7 +156,25 @@ jobs:
           echo "LAYERANALYZER_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
       - run: chmod +x gradlew
       - name: Check, build APK and export resolved runtime inputs
-        run: ./gradlew -I tools/runtime_license_inventory.init.gradle testReleaseUnitTest lintRelease assembleRelease :app:exportRuntimeLicenseInventory --stacktrace
+        run: >-
+          ./gradlew -I tools/runtime_license_inventory.init.gradle
+          -PlayanalyzerEnableTls=true -PlayanalyzerTlsProbe=false
+          -PlayanalyzerTlsGo="$LAYANALYZER_CI_GO"
+          --no-build-cache --no-configuration-cache --rerun-tasks
+          testReleaseUnitTest lintRelease assembleRelease :app:exportRuntimeLicenseInventory --stacktrace
+      - name: Require Release tests to run without skips
+        run: python tools/run_required_tests.py junit app/build/test-results/testReleaseUnitTest
+      - name: Audit final production TLS APK and actual license bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_tls_dependencies.py --go "$LAYANALYZER_CI_GO" --expect-tls on \
+            --apk app/build/outputs/apk/release/app-release.apk --report build/tls-release-dependencies.json
+          python native_build/verification/tls/check_release_apk.py \
+            --apk app/build/outputs/apk/release/app-release.apk --abi arm64-v8a --variant release --tls on \
+            --go "$LAYANALYZER_CI_GO" --readelf "$ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+            --aapt "$ANDROID_HOME/build-tools/34.0.0/aapt" --zipalign "$ANDROID_HOME/build-tools/35.0.0/zipalign" \
+            --report build/tls-release-apk.json
       - name: Verify release identity, signing and APK alignment
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -133,7 +194,11 @@ jobs:
           path: |
             app/build/reports/tests/testReleaseUnitTest/
             app/build/test-results/testReleaseUnitTest/*.xml
-          if-no-files-found: ignore
+            build/license-audit/releaseRuntimeClasspath.json
+            build/tls-release-*.json
+            build/tls-production/release/build-manifest.json
+            ${{ runner.temp }}/tls-ci-setup/setup-report.json
+          if-no-files-found: warn
       - name: Stage APK and checksum
         shell: bash
         run: |
@@ -162,7 +227,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: '3.12.4'
       - uses: actions/download-artifact@v8
         with:
           name: layeranalyzer-${{ github.ref_name }}

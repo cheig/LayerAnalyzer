@@ -130,13 +130,14 @@ data class AgentPacketLengthMetrics(
 data class AgentProtocolEvent(
     val frameNumber: Long,
     val time: Double,
-    val summary: String
+    val summary: String,
+    val summaryMayContainDecryptedContent: Boolean = false
 ) {
     fun toAgentJson(): AgentJsonObject = mapOf(
         "frameNumber" to frameNumber,
         "time" to time,
         "summary" to summary
-    )
+    ) + if (summaryMayContainDecryptedContent) mapOf("summaryMayContainDecryptedContent" to true) else emptyMap()
 }
 
 /** TCP health metrics projected for a model. */
@@ -337,7 +338,7 @@ object AgentStatisticsProjections {
         )
     }
 
-    fun tcp(statistics: CaptureStatistics, topN: Int) = AgentTcpMetrics(
+    fun tcp(statistics: CaptureStatistics, topN: Int, tlsConfigured: Boolean = false) = AgentTcpMetrics(
         syn = statistics.tcpSyn,
         synAck = statistics.tcpSynAck,
         retransmissions = statistics.tcpRetransmissions,
@@ -347,25 +348,25 @@ object AgentStatisticsProjections {
         averageRttMs = statistics.tcpAverageRttMs,
         rttSamples = statistics.tcpRttSamples,
         summaryTotal = statistics.tcpSummaryTotal,
-        events = protocolEvents(statistics.tcpSummaries, topN)
+        events = protocolEvents(statistics.tcpSummaries, topN, tlsConfigured)
     )
 
-    fun dns(statistics: CaptureStatistics, topN: Int) = AgentDnsMetrics(
+    fun dns(statistics: CaptureStatistics, topN: Int, tlsConfigured: Boolean = false) = AgentDnsMetrics(
         queries = statistics.dnsQueries,
         responses = statistics.dnsResponses,
         failures = statistics.dnsFailureTotal,
         averageResponseMs = statistics.dnsAverageResponseMs,
         firstFailureFrame = statistics.dnsFirstFailureFrame,
         summaryTotal = statistics.dnsSummaryTotal,
-        events = protocolEvents(statistics.dnsSummaries, topN)
+        events = protocolEvents(statistics.dnsSummaries, topN, tlsConfigured)
     )
 
-    fun tls(statistics: CaptureStatistics, topN: Int) = AgentTlsMetrics(
+    fun tls(statistics: CaptureStatistics, topN: Int, tlsConfigured: Boolean = false) = AgentTlsMetrics(
         versions = statistics.tlsVersions,
         alerts = statistics.tlsAlertTotal,
         firstAlertFrame = statistics.tlsFirstAlertFrame,
         summaryTotal = statistics.tlsSummaryTotal,
-        events = protocolEvents(statistics.tlsSummaries, topN)
+        events = protocolEvents(statistics.tlsSummaries, topN, tlsConfigured)
     )
 
     /**
@@ -373,24 +374,28 @@ object AgentStatisticsProjections {
      * because the host list is an identifier set the model does not need to
      * judge whether HTTP is healthy.
      */
-    fun http(statistics: CaptureStatistics, topN: Int) = AgentHttpMetrics(
+    fun http(statistics: CaptureStatistics, topN: Int, tlsConfigured: Boolean = false) = AgentHttpMetrics(
         statusCodes = statistics.httpStatusCodes,
         errors = statistics.httpErrorTotal,
         firstErrorFrame = statistics.httpFirstErrorFrame,
         summaryTotal = statistics.httpSummaryTotal,
-        events = protocolEvents(statistics.httpSummaries, topN)
+        events = protocolEvents(statistics.httpSummaries, topN, tlsConfigured)
     )
 
     private fun protocolEvents(
         summaries: List<com.example.layanalyzer.model.ProtocolSummaryItem>,
-        topN: Int
+        topN: Int,
+        tlsConfigured: Boolean
     ): List<AgentProtocolEvent> = summaries
         .take(topN.coerceAtLeast(0))
         .map { item ->
             AgentProtocolEvent(
                 frameNumber = item.frameNumber,
                 time = item.time,
-                summary = item.summary
+                summary = item.summary,
+                // Native HTTP and TLS statistics both reuse the packet Info
+                // column. A TLS-labelled event is not necessarily handshake-only.
+                summaryMayContainDecryptedContent = tlsConfigured
             )
         }
 }

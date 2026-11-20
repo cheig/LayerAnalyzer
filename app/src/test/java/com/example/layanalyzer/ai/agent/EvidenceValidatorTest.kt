@@ -1289,6 +1289,34 @@ class EvidenceValidatorTest {
     }
 
     @Test
+    fun shortenedTextInAFullResultSetStaysComplete() {
+        // returned == total: every record was shown and only long strings inside
+        // them were trimmed to fit the byte allowance.  That is a disclosure, not
+        // a coverage gap, so it must not read as "the analysis stopped early".
+        val ledger = EvidenceLedger().apply {
+            record(
+                call = AgentToolCall("call-comms", "get_communication_analysis"),
+                result = successResult(
+                    "call-comms",
+                    "get_communication_analysis",
+                    mapOf("items" to listOf(mapOf("frameNumber" to 7L))),
+                    returnedCount = 10L,
+                    totalCount = 10L,
+                    truncated = true
+                ),
+                stepIndex = 1
+            )
+        }
+        val report = reportWith(evidence(sourceToolCallId = "call-comms", frameNumber = 7L))
+
+        val result = validate(report, ledger)
+
+        assertEquals(AgentReportCompleteness.Complete, result.report.completeness)
+        assertTrue(result.report.limitations.any { it.contains("shortened") })
+        assertTrue(result.report.limitations.none { it.contains("counts may be lower") })
+    }
+
+    @Test
     fun cancelledRunIsAlwaysIncomplete() {
         val report = reportWith().copy(completeness = AgentReportCompleteness.Complete)
 

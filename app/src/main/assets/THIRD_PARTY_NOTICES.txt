@@ -23,6 +23,7 @@ The project authorship notice does not replace the component notices below.
 
 | Component | Licence | Upstream source | In this repository |
 |---|---|---|---|
+| Go 1.27.2 runtime and standard library (optional TLS engine) | BSD-3-Clause | https://go.dev/dl/ and https://go.googlesource.com/go/ | `native_go/tlsbridge/toolchain-lock.json`; built into `liblayanalyzer_tls.so` when `layanalyzerEnableTls=true`; full license in `assets/licenses/Go.txt` |
 | Wireshark 4.0.10 (wiretap, epan, wsutil) | GPL-2.0-or-later | https://www.wireshark.org/download/src/ | Pinned external native bundle; engine data files and `wireshark-data/COPYING` under `app/src/main/assets/` |
 | GLib (glib, gobject, gmodule, gthread) | LGPL-2.1-or-later | https://download.gnome.org/sources/glib/ | Source included in the native source archive; inputs under `native_build/external/`, built by `native_build/scripts/build_glib.sh` |
 | libgcrypt and libgpg-error | LGPL-2.1-or-later, with separately identified GPL components | https://gnupg.org/software/ | Source included in the native source archive; built by `native_build/scripts/build_gcrypt.sh` |
@@ -36,7 +37,7 @@ The project authorship notice does not replace the component notices below.
 | lwIP | BSD-3-Clause core; per-file notices for optional code | https://savannah.nongnu.org/projects/lwip/ | Vendored under `app/src/main/cpp/third_party/hev-socks5-tunnel/third-part/lwip/` |
 | libyaml | MIT | https://github.com/yaml/libyaml | Vendored under `app/src/main/cpp/third_party/hev-socks5-tunnel/third-part/yaml/` |
 | doctest | MIT | https://github.com/doctest/doctest | Vendored header-only copy at `native_build/verification/rtp/host_tests/doctest.h` |
-| AndroidX, Jetpack Compose, Material Components, Kotlin and kotlinx.coroutines | Apache-2.0; Kotlin math includes BSL-1.0 code | https://cs.android.com/ and https://github.com/JetBrains/kotlin | Gradle/Android platform dependencies, not vendored source |
+| AndroidX (including graphics-path 1.0.1 native library), Jetpack Compose, Material Components, Kotlin and kotlinx.coroutines | Apache-2.0; Kotlin math includes BSL-1.0 code | https://cs.android.com/ and https://github.com/JetBrains/kotlin | Gradle/Android platform dependencies, not vendored source |
 | commonmark-java 0.22.0 | 2-clause BSD | https://github.com/commonmark/commonmark-java | Gradle dependency for report Markdown parsing; licence included in the in-app notices |
 | spandsp (G.722 / G.726 subset) | LGPL-2.1 | https://github.com/freeswitch/spandsp | Vendored subset at `app/src/main/cpp/third_party/spandsp-lite/` (source and `COPYING`) |
 | bcg729 (G.729 / G.729A / G.729B) | GPL-3.0 | https://github.com/BelledonneCommunications/bcg729 | Vendored at `app/src/main/cpp/third_party/bcg729/` (source and `COPYING`); statically linked when G.729 is enabled |
@@ -44,15 +45,55 @@ The project authorship notice does not replace the component notices below.
 | OkHttp and Okio | Apache-2.0; OkHttp Public Suffix List data is MPL-2.0 | https://square.github.io/okhttp/ | Gradle runtime dependencies |
 | JUnit 4 and Hamcrest | EPL-1.0 and BSD-3-Clause | https://junit.org/junit4/ | Test dependencies only |
 
+## Optional TLS engine provenance
+
+The optional `liblayanalyzer_tls.so` is original LayerAnalyzer GPL-3.0 code
+linked with the unmodified Go 1.27.2 runtime and standard library. It is built
+only with `layanalyzerEnableTls=true`; OFF builds may still carry these notices.
+The exact source is `native_go/tlsbridge/` in the matching application commit.
+`native_go/tlsbridge/dependencies.json` records the license review and
+`toolchain-lock.json` pins Go source/host archives with SHA-256 values.
+Build commands and provenance verification are in
+`native_go/tlsbridge/REBUILD.md`. The existing Wireshark binary/source archive
+below does not contain this newly built Go library.
+
+There are no external Go module requirements and therefore no `go.sum`.
+Go's own `src/vendor/modules.txt` pins golang.org/x/crypto
+`v0.52.1-0.20260526024921-9beb694f9766`, golang.org/x/net
+`v0.55.1-0.20260731170536-c1d18010be90`, golang.org/x/sys `v0.45.0`, and
+golang.org/x/text `v0.37.0`. These belong to the Go distribution, not separate
+application module downloads. Their BSD license and patent grant are identical
+to Go's; the complete, unmodified texts (Copyright 2009 The Go Authors) are in
+`assets/licenses/Go.txt` and `assets/licenses/Go-PATENTS.txt`. Build manifests
+record which vendored packages are selected for each Android ABI. Compiler-only
+dependencies are build tools, not additional APK runtime libraries.
+
+go-mitmproxy (MIT, research revision
+`3f5b4f8ee19d58784c6332ec946f46d3c2b2e73b`) and mitmproxy (MIT, research
+revision `5253dcbd1d8f0522de097bfe56918fe12a0f267a`) are design references
+only. No source files from either project are copied or linked; this is not a
+fork or a distribution of their HTTP proxy implementations. PCAPdroid's README
+was a product reference only, with no code imported. The bridge uses Go TLS and
+X.509 APIs, its own bounded certificate cache and raw TCP relay, and Android's
+system trust manager. Existing HEV and nested MIT/BSD notices below are retained;
+TLS integration reuses HEV authentication configuration without modifying its
+vendored source. Any future copied code or new module requires its own exact
+revision, original copyright/license and local modification record.
+
 ## Corresponding source
 
 Application source, JNI integration, native build scripts, and local patches:
 https://github.com/cheig/LayerAnalyzer
 
-The native source archive is intended to accompany the binary bundle at:
-https://github.com/cheig/LayerAnalyzer_libs/releases/tag/wireshark-4.0.10-r1
+The native source archive accompanies the binary bundle at:
+https://github.com/cheig/LayerAnalyzer_libs/releases/tag/wireshark-4.0.10-r3
 
-Archive: native-sources-wireshark-4.0.10-r2.tar.gz.
+Archive: native-sources-wireshark-4.0.10-r3.tar.gz, SHA-256
+07456cb4269c29779cb94c8392b6c4eb6ed4e3d570457b8d08ce954566644715.
+Binary bundle: native-deps-wireshark-4.0.10-r3.zip, SHA-256
+792e370657fc846840fd9251b6fb0f1df3854bd8db02ca3c7c45987c8b72c436.
+Historical r1/r2 assets remain published and unmodified at
+https://github.com/cheig/LayerAnalyzer_libs/releases/tag/wireshark-4.0.10-r1
 The SHA-256 and exact upstream archive checksums or commits are recorded in
 native_build/native-sources.json. Binary archive and per-library checksums are
 recorded in native_build/native-deps.json. Obtain the manifest from the same
@@ -87,12 +128,26 @@ keys are not supplied.
 
 The nine source inputs and local patches have been audited, and both ABIs have
 been rebuilt from the r2 archive with the documented build-script adjustments.
-The pinned r1 binaries match retained original build outputs. Build configuration,
-path metadata, and binary differences are recorded in docs/native-provenance.md
-and native_build/provenance/wireshark-4.0.10-r1.json. This does not claim byte-identical
-reproduction or completion of security and release verification. The r2 archive
-must be accompanied by the rebuild adjustments listed in native-sources.json.
-Verify public download availability before distributing binaries with these links.
+The r3 source archive includes those adjustments, the resolver backport and its
+idempotent helper; do not apply them a second time. Only the two libwireshark.so
+inputs are replaced in r3; the other 26 libraries keep their audited r1 hashes.
+Build configuration, path metadata, and binary differences are recorded in
+docs/native-provenance.md and native_build/provenance/wireshark-4.0.10-r3.json
+(historical record: native_build/provenance/wireshark-4.0.10-r1.json). This does
+not claim byte-identical reproduction or completion of security and release
+verification.
+
+Resolver-lifecycle backport (TLS-405 / R03): the shipped libraries include
+native_build/patches/wireshark/addr-resolv-scope-lifetime.patch, SHA-256
+0b159bb948747bdfdb1b0599c3e730bc08ca97054396e91805a3b21b2b9bcb0c.
+It adapts epan/addr_resolv.c from Wireshark 4.2.4
+(1fe5bce8d665c0d64e1af63545421c67596db165) to the pinned 4.0.10 source, under
+the existing GPL-2.0-or-later license. The patch is already applied in the r3
+source archive and both r3 libraries export the
+layanalyzer_addr_resolv_scope_fix_v1 marker; the immutable r1 binary and r2
+source archives do not include this additional fix. Patched-library acceptance
+hashes are not a promise of cross-host byte-identical rebuilding. See
+docs/native-provenance.md for the exact inputs and the static audit record.
 
 ## Vendored sources
 
@@ -196,7 +251,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Resolved Android runtime dependencies
 
 The table below records the exact Gradle releaseRuntimeClasspath resolution.
-There are 123 components: 94 with JAR/AAR artifacts and 29 metadata-only
+There are 126 components: 96 with JAR/AAR artifacts and 30 metadata-only
 components (BOMs and multiplatform redirects). Metadata rows are not additional
 libraries in the APK. R8 may remove unused classes; this notice conservatively
 covers the complete resolved runtime classpath. Test and debug-only tooling are
@@ -217,7 +272,7 @@ JetBrains annotations and kotlinx.coroutines, are included in this review.
 | androidx.activity:activity-compose:1.9.3 | AAR |
 | androidx.activity:activity-ktx:1.9.3 | AAR |
 | androidx.activity:activity:1.9.3 | AAR |
-| androidx.annotation:annotation-experimental:1.4.0 | AAR |
+| androidx.annotation:annotation-experimental:1.4.1 | AAR |
 | androidx.annotation:annotation-jvm:1.8.1 | JAR |
 | androidx.annotation:annotation:1.8.1 | Metadata only |
 | androidx.appcompat:appcompat-resources:1.7.0 | AAR |
@@ -226,44 +281,44 @@ JetBrains annotations and kotlinx.coroutines, are included in this review.
 | androidx.arch.core:core-runtime:2.2.0 | AAR |
 | androidx.autofill:autofill:1.0.0 | AAR |
 | androidx.cardview:cardview:1.0.0 | AAR |
-| androidx.collection:collection-jvm:1.4.0 | JAR |
-| androidx.collection:collection-ktx:1.4.0 | JAR |
-| androidx.collection:collection:1.4.0 | Metadata only |
-| androidx.compose.animation:animation-android:1.6.6 | AAR |
-| androidx.compose.animation:animation-core-android:1.6.6 | AAR |
-| androidx.compose.animation:animation-core:1.6.6 | Metadata only |
-| androidx.compose.animation:animation:1.6.6 | Metadata only |
-| androidx.compose.foundation:foundation-android:1.6.6 | AAR |
-| androidx.compose.foundation:foundation-layout-android:1.6.6 | AAR |
-| androidx.compose.foundation:foundation-layout:1.6.6 | Metadata only |
-| androidx.compose.foundation:foundation:1.6.6 | Metadata only |
-| androidx.compose.material3:material3-android:1.2.1 | AAR |
-| androidx.compose.material3:material3:1.2.1 | Metadata only |
-| androidx.compose.material:material-icons-core-android:1.6.6 | AAR |
-| androidx.compose.material:material-icons-core:1.6.6 | Metadata only |
-| androidx.compose.material:material-icons-extended-android:1.6.6 | AAR |
-| androidx.compose.material:material-icons-extended:1.6.6 | Metadata only |
-| androidx.compose.material:material-ripple-android:1.6.6 | AAR |
-| androidx.compose.material:material-ripple:1.6.6 | Metadata only |
-| androidx.compose.runtime:runtime-android:1.6.6 | AAR |
-| androidx.compose.runtime:runtime-saveable-android:1.6.6 | AAR |
-| androidx.compose.runtime:runtime-saveable:1.6.6 | Metadata only |
-| androidx.compose.runtime:runtime:1.6.6 | Metadata only |
-| androidx.compose.ui:ui-android:1.6.6 | AAR |
-| androidx.compose.ui:ui-geometry-android:1.6.6 | AAR |
-| androidx.compose.ui:ui-geometry:1.6.6 | Metadata only |
-| androidx.compose.ui:ui-graphics-android:1.6.6 | AAR |
-| androidx.compose.ui:ui-graphics:1.6.6 | Metadata only |
-| androidx.compose.ui:ui-text-android:1.6.6 | AAR |
-| androidx.compose.ui:ui-text:1.6.6 | Metadata only |
-| androidx.compose.ui:ui-tooling-preview-android:1.6.6 | AAR |
-| androidx.compose.ui:ui-tooling-preview:1.6.6 | Metadata only |
-| androidx.compose.ui:ui-unit-android:1.6.6 | AAR |
-| androidx.compose.ui:ui-unit:1.6.6 | Metadata only |
-| androidx.compose.ui:ui-util-android:1.6.6 | AAR |
-| androidx.compose.ui:ui-util:1.6.6 | Metadata only |
-| androidx.compose.ui:ui:1.6.6 | Metadata only |
-| androidx.compose:compose-bom:2024.04.01 | Metadata only |
+| androidx.collection:collection-jvm:1.4.4 | JAR |
+| androidx.collection:collection-ktx:1.4.4 | JAR |
+| androidx.collection:collection:1.4.4 | Metadata only |
+| androidx.compose.animation:animation-android:1.7.5 | AAR |
+| androidx.compose.animation:animation-core-android:1.7.5 | AAR |
+| androidx.compose.animation:animation-core:1.7.5 | Metadata only |
+| androidx.compose.animation:animation:1.7.5 | Metadata only |
+| androidx.compose.foundation:foundation-android:1.7.5 | AAR |
+| androidx.compose.foundation:foundation-layout-android:1.7.5 | AAR |
+| androidx.compose.foundation:foundation-layout:1.7.5 | Metadata only |
+| androidx.compose.foundation:foundation:1.7.5 | Metadata only |
+| androidx.compose.material3:material3-android:1.3.1 | AAR |
+| androidx.compose.material3:material3:1.3.1 | Metadata only |
+| androidx.compose.material:material-icons-core-android:1.7.5 | AAR |
+| androidx.compose.material:material-icons-core:1.7.5 | Metadata only |
+| androidx.compose.material:material-icons-extended-android:1.7.5 | AAR |
+| androidx.compose.material:material-icons-extended:1.7.5 | Metadata only |
+| androidx.compose.material:material-ripple-android:1.7.5 | AAR |
+| androidx.compose.material:material-ripple:1.7.5 | Metadata only |
+| androidx.compose.runtime:runtime-android:1.7.5 | AAR |
+| androidx.compose.runtime:runtime-saveable-android:1.7.5 | AAR |
+| androidx.compose.runtime:runtime-saveable:1.7.5 | Metadata only |
+| androidx.compose.runtime:runtime:1.7.5 | Metadata only |
+| androidx.compose.ui:ui-android:1.7.5 | AAR |
+| androidx.compose.ui:ui-geometry-android:1.7.5 | AAR |
+| androidx.compose.ui:ui-geometry:1.7.5 | Metadata only |
+| androidx.compose.ui:ui-graphics-android:1.7.5 | AAR |
+| androidx.compose.ui:ui-graphics:1.7.5 | Metadata only |
+| androidx.compose.ui:ui-text-android:1.7.5 | AAR |
+| androidx.compose.ui:ui-text:1.7.5 | Metadata only |
+| androidx.compose.ui:ui-tooling-preview-android:1.7.5 | AAR |
+| androidx.compose.ui:ui-tooling-preview:1.7.5 | Metadata only |
+| androidx.compose.ui:ui-unit-android:1.7.5 | AAR |
+| androidx.compose.ui:ui-unit:1.7.5 | Metadata only |
+| androidx.compose.ui:ui-util-android:1.7.5 | AAR |
+| androidx.compose.ui:ui-util:1.7.5 | Metadata only |
+| androidx.compose.ui:ui:1.7.5 | Metadata only |
+| androidx.compose:compose-bom:2024.10.01 | Metadata only |
 | androidx.concurrent:concurrent-futures:1.1.0 | JAR |
 | androidx.constraintlayout:constraintlayout-solver:2.0.1 | JAR |
 | androidx.constraintlayout:constraintlayout:2.0.1 | AAR |
@@ -279,6 +334,7 @@ JetBrains annotations and kotlinx.coroutines, are included in this review.
 | androidx.emoji2:emoji2-views-helper:1.3.0 | AAR |
 | androidx.emoji2:emoji2:1.3.0 | AAR |
 | androidx.fragment:fragment:1.5.4 | AAR |
+| androidx.graphics:graphics-path:1.0.1 | AAR |
 | androidx.interpolator:interpolator:1.0.0 | AAR |
 | androidx.legacy:legacy-support-core-utils:1.0.0 | AAR |
 | androidx.lifecycle:lifecycle-common-java8:2.8.7 | JAR |
@@ -290,6 +346,8 @@ JetBrains annotations and kotlinx.coroutines, are included in this review.
 | androidx.lifecycle:lifecycle-livedata:2.8.7 | AAR |
 | androidx.lifecycle:lifecycle-process:2.8.7 | AAR |
 | androidx.lifecycle:lifecycle-runtime-android:2.8.7 | AAR |
+| androidx.lifecycle:lifecycle-runtime-compose-android:2.8.7 | AAR |
+| androidx.lifecycle:lifecycle-runtime-compose:2.8.7 | Metadata only |
 | androidx.lifecycle:lifecycle-runtime-ktx-android:2.8.7 | AAR |
 | androidx.lifecycle:lifecycle-runtime-ktx:2.8.7 | Metadata only |
 | androidx.lifecycle:lifecycle-runtime:2.8.7 | Metadata only |
@@ -396,7 +454,7 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.annotation:annotation-experimental:1.4.0
+androidx.annotation:annotation-experimental:1.4.1
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 
@@ -452,7 +510,7 @@ Copyright 2019 The Android Open Source Project
 androidx.cardview:cardview:1.0.0
 Copyright 2018 The Android Open Source Project
 
-androidx.collection:collection-jvm:1.4.0
+androidx.collection:collection-jvm:1.4.4
 Copyright (C) 2017 The Android Open Source Project
 Copyright (C) 2019 The Android Open Source Project
 Copyright 2018 The Android Open Source Project
@@ -460,20 +518,20 @@ Copyright 2020 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.animation:animation-android:1.6.6
+androidx.compose.animation:animation-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 
-androidx.compose.animation:animation-core-android:1.6.6
+androidx.compose.animation:animation-core-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.foundation:foundation-android:1.6.6
+androidx.compose.foundation:foundation-android:1.7.5
 Copyright 2018 The Android Open Source Project
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
@@ -481,31 +539,31 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.foundation:foundation-layout-android:1.6.6
+androidx.compose.foundation:foundation-layout-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 
-androidx.compose.material3:material3-android:1.2.1
+androidx.compose.material3:material3-android:1.3.1
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 Copyright 2024 The Android Open Source Project
 
-androidx.compose.material:material-icons-core-android:1.6.6
+androidx.compose.material:material-icons-core-android:1.7.5
 Copyright 2020 The Android Open Source Project
 Copyright 2024 The Android Open Source Project
 
-androidx.compose.material:material-icons-extended-android:1.6.6
+androidx.compose.material:material-icons-extended-android:1.7.5
 Copyright 2024 The Android Open Source Project
 
-androidx.compose.material:material-ripple-android:1.6.6
+androidx.compose.material:material-ripple-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 
-androidx.compose.runtime:runtime-android:1.6.6
+androidx.compose.runtime:runtime-android:1.7.5
 Copyright 2016-2019 JetBrains s.r.o.
 Copyright 2016-2020 JetBrains s.r.o.
 Copyright 2019 The Android Open Source Project
@@ -514,22 +572,22 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.runtime:runtime-saveable-android:1.6.6
+androidx.compose.runtime:runtime-saveable-android:1.7.5
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 
-androidx.compose.ui:ui-android:1.6.6
+androidx.compose.ui:ui-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-geometry-android:1.6.6
+androidx.compose.ui:ui-geometry-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 
-androidx.compose.ui:ui-graphics-android:1.6.6
+androidx.compose.ui:ui-graphics-android:1.7.5
 Copyright 2018 The Android Open Source Project
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
@@ -537,7 +595,7 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-text-android:1.6.6
+androidx.compose.ui:ui-text-android:1.7.5
 Copyright 2018 The Android Open Source Project
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
@@ -546,21 +604,21 @@ Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-tooling-preview-android:1.6.6
+androidx.compose.ui:ui-tooling-preview-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2021 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-unit-android:1.6.6
+androidx.compose.ui:ui-unit-android:1.7.5
 Copyright 2018 The Android Open Source Project
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2022 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
 
-androidx.compose.ui:ui-util-android:1.6.6
+androidx.compose.ui:ui-util-android:1.7.5
 Copyright 2019 The Android Open Source Project
 Copyright 2020 The Android Open Source Project
 Copyright 2023 The Android Open Source Project
@@ -897,6 +955,153 @@ including Base64.kt and ZipFiles.kt (Apache Harmony-derived code):
 /* Apache Harmony HEADER because the code in this class comes mostly from ZipFile, ZipEntry and
  * ZipConstants from android libcore.
  */
+
+
+TLS-406 runtime inventory review (2026-10-16)
+
+androidx.annotation:annotation-experimental:1.4.1
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+
+androidx.collection:collection-jvm:1.4.4
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.animation:animation-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.animation:animation-core-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.foundation:foundation-android:1.7.5
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.foundation:foundation-layout-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.material3:material3-android:1.3.1
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.material:material-icons-core-android:1.7.5
+Copyright 2020 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.material:material-icons-extended-android:1.7.5
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.material:material-ripple-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+
+androidx.compose.runtime:runtime-android:1.7.5
+Copyright 2016-2019 JetBrains s.r.o.
+Copyright 2016-2020 JetBrains s.r.o.
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.runtime:runtime-saveable-android:1.7.5
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+
+androidx.compose.ui:ui-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.ui:ui-geometry-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.compose.ui:ui-graphics-android:1.7.5
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.ui:ui-text-android:1.7.5
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2020 The Android Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.ui:ui-tooling-preview-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.compose.ui:ui-unit-android:1.7.5
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.compose.ui:ui-util-android:1.7.5
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.graphics:graphics-path:1.0.1
+Copyright 2022 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-runtime-compose-android:2.8.7
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.graphics:graphics-path:1.0.1 native C++ source
+Revision 8a05a22af450d589ef911d772a001a49dcb05b71 (official 1.0.1 release notes)
+Copyright (C) 2006 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2013 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Apache-2.0; full license accompanies this notice.
 
 ### Kotlin-COPYRIGHT.txt
 

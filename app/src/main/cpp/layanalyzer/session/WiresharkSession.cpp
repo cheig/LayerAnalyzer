@@ -7,6 +7,48 @@
 #include "layanalyzer/internal/Common.h"
 #include "layanalyzer/internal/EngineState.h"
 #include "layanalyzer/session/WiresharkSession.h"
+#include "layanalyzer/tls/TlsDecryptionConfig.h"
+
+namespace {
+std::atomic<bool> session_file_scope_in_use{false};
+}
+
+bool acquire_session_file_scope(WiresharkSession* session) {
+  bool expected = false;
+  if (!session || !session_file_scope_in_use.compare_exchange_strong(expected, true))
+    return false;
+  // Old paths must never leak into a newly opened capture, including after a
+  // failed cleanup. A failed clear refuses opening instead of inheriting keys.
+  if (!layanalyzer::tls::clearSecretsPreference()) {
+    session_file_scope_in_use.store(false);
+    return false;
+  }
+  session->owns_file_scope = true;
+  return true;
+}
+
+WiresharkSession::~WiresharkSession() {
+  data_snapshots.clear();
+  clear_http_objects(this);
+  // frame_data::pfd list nodes are glib-allocated, so they outlive the file
+  // scope and have to be freed explicitly.
+  for (auto &entry : frame_data_store) {
+    if (entry) frame_data_destroy(entry.get());
+  }
+  frame_data_store.clear();
+  if (owns_file_scope && !layanalyzer::tls::clearSecretsPreference())
+    LOGE("TLS preference cleanup failed; next capture must retry cleanup");
+  if (epan) {
+    // Runs the registered TLS cleanup, freeing master-key maps and keylog FILE.
+    epan_free(epan);
+    epan = nullptr;
+  }
+  if (wth) {
+    wtap_close(wth);
+    wth = nullptr;
+  }
+  if (owns_file_scope) session_file_scope_in_use.store(false);
+}
 
 void yield_to_interactive_reads(WiresharkSession *session) {
   if (!session) return;
@@ -43,7 +85,19 @@ void invalidate_summary_cache(WiresharkSession *session) {
   {
     std::lock_guard<std::mutex> dissect_lock(session->dissect_mutex);
     session->dissected_frames.clear();
+    // Each frame_data keeps the file-scope proto data of the dissection that
+    // just ended. Reset it the way Wireshark resets a frame for a fresh pass --
+    // free the list and clear `visited` -- so the rebuilt state is not mixed
+    // with plaintext decrypted under the previous settings.
+    for (auto &entry : session->frame_data_store) {
+      if (entry) frame_data_reset(entry.get());
+    }
   }
+  clear_cached_packet_summaries(session);
+}
+
+void clear_cached_packet_summaries(WiresharkSession *session) {
+  if (!session) return;
   std::lock_guard<std::mutex> cache_lock(session->summary_cache_mutex);
   session->summary_cache.clear();
   session->summary_cache_lru.clear();
@@ -62,7 +116,7 @@ void invalidate_scoped_query_cache(WiresharkSession *session) {
   session->scoped_query_cache_matches.reset();
 }
 
-void reset_dissection_state() {
+bool reset_dissection_state() {
   // Wireshark keeps conversations, reassembly tables, TCP multi-segment PDUs,
   // stream and expert state in a process-wide "file scope". Only epan_new() and
   // epan_free() set that scope up and tear it down -- the init_dissection() /
@@ -73,9 +127,14 @@ void reset_dissection_state() {
   // The scope is entered once and shared, so this only holds together for the
   // single session this app ever has open; with more, one epan_free() too many
   // would leave a scope that was never entered.
+  if (g_sessions.size() != 1) return false;
+  if (g_sessions.begin()->second->dissection_generation.load() >=
+      static_cast<uint64_t>(INT64_MAX)) return false;
+  bool rebuilt = false;
   if (g_sessions.size() == 1) {
     WiresharkSession *session = g_sessions.begin()->second.get();
     if (session && session->epan) {
+      session->data_snapshots.clear();
       // Export-object entries point into the file scope, so release them before
       // the scope that backs them goes away.
       {
@@ -90,6 +149,7 @@ void reset_dissection_state() {
       if (!session->epan) {
         LOGE("reset_dissection_state: epan_new failed after epan_free");
       }
+      rebuilt = session->epan != nullptr;
     }
   }
 
@@ -98,7 +158,17 @@ void reset_dissection_state() {
     invalidate_summary_cache(session);
     invalidate_scoped_query_cache(session);
     session->rtp_scan_generation.fetch_add(1);
+    {
+      std::lock_guard<std::mutex> lock(session->rtp_mutex);
+      session->rtp_last_scan.reset();
+    }
+    {
+      std::lock_guard<std::mutex> lock(session->rtp_media_mutex);
+      session->rtp_last_media.reset();
+    }
+    if (rebuilt) session->dissection_generation.fetch_add(1);
   }
+  return rebuilt;
 }
 
 /** Cache access is independent from session state; it never holds state_mutex
@@ -468,7 +538,8 @@ int visible_frame_at(WiresharkSession *session, int visibleIndex) {
 // 拆成带参数的静态实现而不是复制两份：with_taps == false 时执行的是与改动前
 // 逐字相同的代码，保证 dissect_frame 的对外行为不变。
 static bool dissect_frame_internal(WiresharkSession *session, int frameIdx,
-                                   bool createTree, bool setupColumns,
+                                   bool createTree, bool treeVisible,
+                                   bool setupColumns,
                                    dfilter_t *primeFilter, DissectedFrame &out,
                                    bool with_taps, int *errOut,
                                    gchar **errInfoOut) {
@@ -491,16 +562,27 @@ static bool dissect_frame_internal(WiresharkSession *session, int frameIdx,
   }
 
   prepare_packet_record(session->wth, &out.rec);
-  populate_frame_data(&out.fd, frameIdx + 1, offset, &out.rec);
   // Size the first-pass bookkeeping on first use; invalidate_summary_cache
   // empties it again whenever the dissection settings change.
   if (session->dissected_frames.size() != session->frame_offsets.size()) {
     session->dissected_frames.assign(session->frame_offsets.size(), 0);
   }
-  out.fd.visited = session->dissected_frames[frameIdx] ? 1 : 0;
-  tvbuff_t *tvb = new_owned_tvb_from_buffer(&out.buf, out.fd.cap_len,
-                                            out.fd.pkt_len);
-  out.edt = epan_dissect_new(session->epan, createTree, createTree);
+  // The frame_data is created once and then reused for every later dissection
+  // of this frame, so the cross-frame state dissectors attach to it (notably
+  // the TLS dissector's cached decrypted records) survives from pass to pass.
+  if (session->frame_data_store.size() != session->frame_offsets.size()) {
+    session->frame_data_store.resize(session->frame_offsets.size());
+  }
+  if (!session->frame_data_store[frameIdx]) {
+    session->frame_data_store[frameIdx] = std::unique_ptr<frame_data>(new frame_data());
+    populate_frame_data(session->frame_data_store[frameIdx].get(), frameIdx + 1,
+                        offset, &out.rec);
+  }
+  out.fd = session->frame_data_store[frameIdx].get();
+  out.fd->visited = session->dissected_frames[frameIdx] ? 1 : 0;
+  tvbuff_t *tvb = new_owned_tvb_from_buffer(&out.buf, out.fd->cap_len,
+                                            out.fd->pkt_len);
+  out.edt = epan_dissect_new(session->epan, createTree, treeVisible);
   if (!out.edt) {
     return false;
   }
@@ -513,7 +595,7 @@ static bool dissect_frame_internal(WiresharkSession *session, int frameIdx,
     out.has_columns = true;
   }
   const bool dissected = run_epan_dissect_safely(
-      out.edt, session->file_type, &out.rec, tvb, &out.fd,
+      out.edt, session->file_type, &out.rec, tvb, out.fd,
       setupColumns ? &out.cinfo : nullptr, frameIdx + 1,
       with_taps ? "dissect_frame_with_taps" : "dissect_frame", with_taps);
   // Recorded even when the dissection was rejected: the frame has been through
@@ -531,7 +613,16 @@ bool dissect_frame(WiresharkSession *session, int frameIdx,
                    bool createTree, bool setupColumns,
                    dfilter_t *primeFilter, DissectedFrame &out,
                    int *errOut, gchar **errInfoOut) {
-  return dissect_frame_internal(session, frameIdx, createTree, setupColumns,
+  return dissect_frame(session, frameIdx, createTree, createTree, setupColumns,
+                       primeFilter, out, errOut, errInfoOut);
+}
+
+bool dissect_frame(WiresharkSession *session, int frameIdx,
+                   bool createTree, bool treeVisible, bool setupColumns,
+                   dfilter_t *primeFilter, DissectedFrame &out,
+                   int *errOut, gchar **errInfoOut) {
+  return dissect_frame_internal(session, frameIdx, createTree, treeVisible,
+                                setupColumns,
                                 primeFilter, out, /*with_taps=*/false, errOut,
                                 errInfoOut);
 }
@@ -539,7 +630,8 @@ bool dissect_frame(WiresharkSession *session, int frameIdx,
 bool dissect_frame_with_taps(WiresharkSession *session, int frameIdx,
                              bool createTree, bool setupColumns,
                              dfilter_t *primeFilter, DissectedFrame &out) {
-  return dissect_frame_internal(session, frameIdx, createTree, setupColumns,
+  return dissect_frame_internal(session, frameIdx, createTree, createTree,
+                                setupColumns,
                                 primeFilter, out, /*with_taps=*/true, nullptr,
                                 nullptr);
 }

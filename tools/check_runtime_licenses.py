@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import zipfile
 
+from check_tls_dependencies import check_materials as check_tls_materials
+
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / 'app/src/main/assets'
 
@@ -13,6 +15,7 @@ ASSETS = ROOT / 'app/src/main/assets'
 def check(inventory=None, apk=None):
     manifest = json.loads((ROOT / 'docs/dependency-licenses.json').read_text(encoding='utf-8'))
     failures = []
+    failures.extend(check_tls_materials())
     notices = (ASSETS / 'THIRD_PARTY_NOTICES.txt').read_bytes()
     if notices != (ROOT / 'THIRD_PARTY_NOTICES.md').read_bytes():
         failures.append('APK third-party notices differ from repository notices')

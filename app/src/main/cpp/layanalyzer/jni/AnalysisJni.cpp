@@ -8,6 +8,7 @@
 #include "layanalyzer/internal/TextUtils.h"
 #include "layanalyzer/session/WiresharkSession.h"
 #include "layanalyzer/projection/ProtocolProjection.h"
+#include "layanalyzer/projection/TextEncoding.h"
 #include "layanalyzer/analysis/StatisticsLegacy.h"
 
 static bool statistics_peer_before(const StatisticsPeer &left,
@@ -76,7 +77,7 @@ Java_com_example_layanalyzer_NativeEngine_getExpertInfoSummary(JNIEnv *env,
   if (!session || !session->wth || !session->epan) {
     root["warnings"] = 0;
     root["errors"] = 0;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   uint64_t cancel_generation = current_cancel_generation();
@@ -114,7 +115,7 @@ Java_com_example_layanalyzer_NativeEngine_getExpertInfoSummary(JNIEnv *env,
                 static_cast<int>(visible_frames.size()), __perf_ms, total_items,
                 warnings, errors,
                 root.contains("cancelled") ? " cancelled=1" : "");
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -167,7 +168,7 @@ Java_com_example_layanalyzer_NativeEngine_buildStatistics(JNIEnv *env,
   root["endTime"] = 0.0;
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const double bucket_seconds = std::max(0.001, static_cast<double>(bucketSeconds));
@@ -246,7 +247,7 @@ Java_com_example_layanalyzer_NativeEngine_buildStatistics(JNIEnv *env,
       root["error"] = "Operation cancelled.";
       PERF_SCAN_LOG("buildStatistics frames=%d ms=%lld cancelled=1",
                     static_cast<int>(visible_frames.size()), __perf_ms);
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     {
       std::unique_lock<std::mutex> dissect_lock(session->dissect_mutex);
@@ -270,7 +271,10 @@ Java_com_example_layanalyzer_NativeEngine_buildStatistics(JNIEnv *env,
     std::string protocol = resolve_protocol_label(
         pinfo, safe_col_text(&frame.cinfo, COL_PROTOCOL));
     if (is_unusable_protocol_label(protocol)) protocol = "Unknown";
-    std::string info = safe_col_text(&frame.cinfo, COL_INFO);
+    // P2-1: same GBK hazard as the packet list column -- this text ends up in
+    // the analysis snapshot / exported report, so decode it for display.
+    std::string info = layanalyzer::projection::column_to_display_utf8(
+        safe_col_text(&frame.cinfo, COL_INFO));
     std::string protocol_upper = uppercase_copy(protocol);
 
     const int dns_response_value = field_index.integer( dns_response_flag);
@@ -566,5 +570,5 @@ Java_com_example_layanalyzer_NativeEngine_buildStatistics(JNIEnv *env,
                 static_cast<int>(visible_frames.size()), __perf_ms, packet_count,
                 static_cast<int>(conversations.size()),
                 static_cast<int>(endpoints.size()));
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }

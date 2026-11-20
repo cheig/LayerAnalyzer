@@ -17,5 +17,20 @@ data class ProtocolNode(
     val severity: String = "none",
     val generated: Boolean = false,
     val hidden: Boolean = false,
-    val children: List<ProtocolNode> = emptyList()
-)
+    val children: List<ProtocolNode> = emptyList(),
+    val fieldType: String? = null,
+    val dataSourceId: String? = null,
+    val offsetValid: Boolean = false
+) {
+    /** A source-relative range, never inferred from the protocol name or offset alone. */
+    fun byteRange(sourceId: String, availableLength: Int): IntRange? =
+        if (offsetValid && !generated && dataSourceId == sourceId && start >= 0 &&
+            length > 0 && start <= availableLength && length <= availableLength - start
+        ) start until (start + length) else null
+
+    /** Only Wireshark frame references are links; counts and offsets are not. */
+    val referencedFrame: Long?
+        get() = if (fieldType == "FT_FRAMENUM") {
+            filterValue?.toLongOrNull()?.takeIf { it in 1..Int.MAX_VALUE.toLong() }
+        } else null
+}

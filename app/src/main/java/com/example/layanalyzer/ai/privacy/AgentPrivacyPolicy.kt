@@ -53,7 +53,18 @@ object AgentPrivacyPolicy {
         sensitivity: AgentDataSensitivity,
         privacyMode: AgentPrivacyMode,
         snapshot: AgentCaptureSnapshot,
-        redactor: AgentPayloadRedactor = AgentPayloadRedactor.of(privacyMode, snapshot)
+        /**
+         * TLS-313: whether the run is under the explicit payload content
+         * policy.  False — the default, and the only value any caller that has
+         * not asked for payload passes — excludes every value a tool marked as
+         * coming from a decrypted TLS source.  See [AgentDecryptedContentPolicy].
+         */
+        allowDecryptedPlaintext: Boolean = false,
+        redactor: AgentPayloadRedactor = AgentPayloadRedactor.of(
+            privacyMode,
+            snapshot,
+            allowDecryptedPlaintext
+        )
     ): AgentJsonObject {
         if (!shouldRedact(sensitivity, privacyMode)) return data
         return redactor.redact(data, sensitivity)

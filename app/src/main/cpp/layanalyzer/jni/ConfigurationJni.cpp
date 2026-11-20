@@ -46,11 +46,11 @@ Java_com_example_layanalyzer_NativeEngine_applyDecodeAs(JNIEnv *env,
   json result = {{"success", false}, {"error", ""}};
   if (!session || !session->epan) {
     result["error"] = "No capture is open.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   if (port < 0 || port > 65535) {
     result["error"] = "Port must be between 0 and 65535.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   const char *tableChars = env->GetStringUTFChars(jTableName, nullptr);
@@ -62,20 +62,20 @@ Java_com_example_layanalyzer_NativeEngine_applyDecodeAs(JNIEnv *env,
 
   if (tableName.empty() || dissectorName.empty()) {
     result["error"] = "Decode As table and protocol are required.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   dissector_handle_t handle = find_dissector(dissectorName.c_str());
   if (!handle) {
     result["error"] = "Unknown dissector: " + dissectorName;
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   dissector_change_uint(tableName.c_str(), static_cast<guint32>(port), handle);
   reset_dissection_state();
   result["success"] = true;
   result["error"] = "";
-  return new_java_string(env, result.dump());
+  return new_java_string(env, dump_json(result));
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -89,20 +89,20 @@ Java_com_example_layanalyzer_NativeEngine_resetDecodeAs(JNIEnv *env,
   json result = {{"success", false}, {"error", ""}};
   if (!session || !session->epan) {
     result["error"] = "No capture is open.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   const char *tableChars = env->GetStringUTFChars(jTableName, nullptr);
   std::string tableName = tableChars ? tableChars : "";
   env->ReleaseStringUTFChars(jTableName, tableChars);
   if (tableName.empty()) {
     result["error"] = "Decode As table is required.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
 
   dissector_reset_uint(tableName.c_str(), static_cast<guint32>(port));
   reset_dissection_state();
   result["success"] = true;
-  return new_java_string(env, result.dump());
+  return new_java_string(env, dump_json(result));
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ Java_com_example_layanalyzer_NativeEngine_setEspDecryptionMode(JNIEnv *env,
   const bool valid_mode = mode == "off" || mode == "probe" || mode == "all";
   if (!valid_mode) {
     root["error"] = "Unknown ESP decryption mode: " + mode;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   if (mode != "probe") {
@@ -232,12 +232,12 @@ Java_com_example_layanalyzer_NativeEngine_setEspDecryptionMode(JNIEnv *env,
       RuntimeExclusiveGuard runtime_guard;
       if (!apply_esp_null_decryption_locked(enabled, error)) {
         root["error"] = error;
-        return new_java_string(env, root.dump());
+        return new_java_string(env, dump_json(root));
       }
     }
     root["enabled"] = enabled;
     root["decoded"] = enabled;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // "probe": turn the preference on, sample the capture, keep it only if the
@@ -249,7 +249,7 @@ Java_com_example_layanalyzer_NativeEngine_setEspDecryptionMode(JNIEnv *env,
     RuntimeExclusiveGuard runtime_guard;
     if (!apply_esp_null_decryption_locked(true, error)) {
       root["error"] = error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
   }
 
@@ -269,7 +269,7 @@ Java_com_example_layanalyzer_NativeEngine_setEspDecryptionMode(JNIEnv *env,
     RuntimeExclusiveGuard runtime_guard;
     if (!apply_esp_null_decryption_locked(false, revert_error)) {
       root["error"] = revert_error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
   }
 
@@ -278,7 +278,7 @@ Java_com_example_layanalyzer_NativeEngine_setEspDecryptionMode(JNIEnv *env,
   root["framesScanned"] = frames_scanned;
   LOGI("setEspDecryptionMode: probe decoded=%d framesScanned=%d", decoded ? 1 : 0,
        frames_scanned);
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 extern "C" JNIEXPORT jboolean JNICALL

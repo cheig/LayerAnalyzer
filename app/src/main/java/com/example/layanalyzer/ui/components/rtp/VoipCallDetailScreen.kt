@@ -28,7 +28,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -63,6 +62,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.layanalyzer.R
+import com.example.layanalyzer.ui.components.AnalyzerCard
+import com.example.layanalyzer.ui.components.AnalyzerSpacing
 import com.example.layanalyzer.data.LinkedRtpStream
 import com.example.layanalyzer.data.MosEstimator
 import com.example.layanalyzer.data.RtpLinkReason
@@ -344,8 +345,8 @@ private fun PlaybackStatusLine(playback: RtpDecodeResult?, hasStreams: Boolean) 
 @Composable
 private fun CallOverviewCard(call: VoipCall) {
     val notApplicable = notApplicableText()
-    Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+    AnalyzerCard(modifier = Modifier.fillMaxWidth().padding(top = AnalyzerSpacing.CardGap)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(AnalyzerSpacing.CardPadding)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -515,8 +516,8 @@ private fun SipFlowHeader(
     diagram: Boolean,
     onDiagramChange: (Boolean) -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+    AnalyzerCard(modifier = Modifier.fillMaxWidth().padding(top = AnalyzerSpacing.CardGap)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(AnalyzerSpacing.CardPadding)) {
             Text(
                 stringResource(R.string.voip_detail_flow_title),
                 modifier = Modifier.fillMaxWidth(),

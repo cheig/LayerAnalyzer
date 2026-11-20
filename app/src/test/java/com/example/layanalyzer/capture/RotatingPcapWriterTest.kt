@@ -35,4 +35,26 @@ class RotatingPcapWriterTest {
             directory.deleteRecursively()
         }
     }
+
+    @Test
+    fun `segment info reports per-segment length frame count and linktype`() {
+        val directory = Files.createTempDirectory("rotating-pcap-info").toFile()
+        val first = File(directory, "live.pcap")
+        try {
+            RotatingPcapWriter(first, 24L + 16L + 4L + 1L).use { writer ->
+                repeat(3) { index -> writer.writePacket(index.toLong() * 1000L, byteArrayOf(1, 2, 3, index.toByte()), 4) }
+                val info = writer.segmentInfo()
+                assertEquals(3, info.size)
+                info.forEach { segment ->
+                    assertTrue(segment.file.isFile)
+                    assertTrue(segment.file.name.endsWith(".pcap"))
+                    assertEquals(24L + 16L + 4L, segment.byteLength)
+                    assertEquals(1L, segment.frameCount)
+                    assertEquals(101, segment.linkType)
+                }
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
 }

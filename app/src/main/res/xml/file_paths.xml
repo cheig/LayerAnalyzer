@@ -3,9 +3,6 @@
     <files-path
         name="exports"
         path="exports/" />
-    <files-path
-        name="capture-reports"
-        path="captures/" />
     <cache-path
         name="rtp_media"
         path="rtp/" />

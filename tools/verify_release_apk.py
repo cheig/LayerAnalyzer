@@ -9,6 +9,8 @@ import struct
 import subprocess
 import zipfile
 
+from check_release_inventory import checked_apk
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -83,7 +85,10 @@ def main():
 
     signing = run('apksigner', 'verify', '--verbose', '--print-certs', args.apk)
     badging = run('aapt', 'dump', 'badging', args.apk)
-    build = json.loads(args.inventory.read_text(encoding='utf-8'))['build']
+    inventory = json.loads(args.inventory.read_text(encoding='utf-8'))
+    build = checked_apk(inventory, args.apk, ROOT)
+    if not build['tlsEnabled']:
+        raise ValueError('Published TLS release candidate must be TLS ON')
     certificate = (ROOT / 'tools/release-signing-certificate.sha256').read_text().strip()
     check_identity(signing, badging, build, certificate, args.tag)
     run('zipalign', '-c', '4', args.apk)

@@ -1,0 +1,859 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "fixtureId": "tls12-h1",
+      "tlsVersion": "TLS1.2",
+      "alpn": "http/1.1",
+      "source": "synthetic-local-test-only",
+      "expectedBody": {
+        "encoding": "utf-8",
+        "text": "LayerAnalyzer TLS fixture v1\n",
+        "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+      },
+      "files": [
+        {
+          "role": "pcap",
+          "path": "tls12-h1/capture.pcap",
+          "sha256": "ee42863a2c246b0c8789580c43b646031a846717f71981f2308183b8a0b17123",
+          "connectionId": "client-random:19ef424ec9f680376171f68ec526a09f7602d1334feaa971361864f1a4eebfe1"
+        },
+        {
+          "role": "keylog",
+          "path": "tls12-h1/session.keys",
+          "sha256": "3ed38317755928df76862b67c380ed43723fde12c397bead133eb7b92795a572",
+          "connectionId": "client-random:19ef424ec9f680376171f68ec526a09f7602d1334feaa971361864f1a4eebfe1",
+          "keyDirection": "direct-test-connection"
+        },
+        {
+          "role": "wrong-keylog",
+          "path": "tls12-h1/wrong.keys",
+          "sha256": "c7bb1e2e6aba056c90233c9eee346a8f11958ca2d6964c4fcfd6e69b909b3ced",
+          "connectionId": "client-random:b5ff4ef325d272a1fcd7b727fac02bd5de1b47cfb9c81b9c38755c1007d4b1c0",
+          "keyDirection": "direct-test-connection"
+        },
+        {
+          "role": "ca-certificate",
+          "path": "tls12-h1/ca.pem",
+          "sha256": "2c76ae215267fd758e53cb50e6b7becd01b330cce085c5d00fe57f45c160af0b"
+        },
+        {
+          "role": "client-result",
+          "path": "tls12-h1/client-result.json",
+          "sha256": "e97e3c7e8de7b8533d6b22db80929f141686e1c327646593302161923688d776"
+        },
+        {
+          "role": "golden-body",
+          "path": "tls12-h1/golden-body.bin",
+          "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+        },
+        {
+          "role": "corrupt-keylog",
+          "path": "tls12-h1/corrupt.keys",
+          "sha256": "6a618b16d1ba7be1ba456583fd2d05ec2e8b70934fcbfc2ced95fe7f6b94e4d1"
+        },
+        {
+          "role": "missing-handshake",
+          "path": "tls12-h1/missing-handshake.pcap",
+          "sha256": "6a3063f1211a2fd5295756ae1dd73b6a2457faf986db9964e35bb2573d3db15a"
+        },
+        {
+          "role": "missing-segment",
+          "path": "tls12-h1/missing-segment.pcap",
+          "sha256": "f247022be5e1e32a9971b7b5cdf0a505cc054df3d11bfda219eb1e0288706ff2"
+        }
+      ],
+      "generation": {
+        "generatedAtUtc": "2026-10-12T03:08:36.098264Z",
+        "command": [
+          "python",
+          "native_build/verification/tls/generate_fixture.py",
+          "generate",
+          "--output",
+          "native_build/verification/tls/fixtures",
+          "--tshark",
+          "${TSHARK}",
+          "--dumpcap",
+          "${DUMPCAP}",
+          "--interface",
+          "\\Device\\NPF_Loopback"
+        ],
+        "workingDirectory": "repository-root",
+        "toolVersions": {
+          "python": "3.11.5",
+          "openssl": "OpenSSL 3.0.9 30 May 2023",
+          "h2": "4.3.0",
+          "cryptography": "46.0.3",
+          "jsonschema": "4.23.0",
+          "tshark": "TShark (Wireshark) 3.6.0 (v3.6.0-0-g3a34e44d02c9)",
+          "dumpcap": "Dumpcap (Wireshark) 3.6.0 (v3.6.0-0-g3a34e44d02c9)"
+        },
+        "captureMethod": "host-loopback"
+      },
+      "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256"
+    },
+    {
+      "fixtureId": "tls13-h1",
+      "tlsVersion": "TLS1.3",
+      "alpn": "http/1.1",
+      "source": "synthetic-local-test-only",
+      "expectedBody": {
+        "encoding": "utf-8",
+        "text": "LayerAnalyzer TLS fixture v1\n",
+        "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+      },
+      "files": [
+        {
+          "role": "pcap",
+          "path": "tls13-h1/capture.pcap",
+          "sha256": "5bccc59cee89ec3d55cc46eff9cbb38444ccd5292128828c6d23a27ee4905082",
+          "connectionId": "client-random:4d4370b1f84f01eda1c8e01baac3f0442f1e91109bdca68ac8ba8e3766919b99"
+        },
+        {
+          "role": "keylog",
+          "path": "tls13-h1/session.keys",
+          "sha256": "556ae0217e6649274e8b71d8d6b4d692e9cb2a8934eeed470ffe31cf0082aba1",
+          "connectionId": "client-random:4d4370b1f84f01eda1c8e01baac3f0442f1e91109bdca68ac8ba8e3766919b99",
+          "keyDirection": "direct-test-connection"
+        },
+        {
+          "role": "wrong-keylog",
+          "path": "tls13-h1/wrong.keys",
+          "sha256": "eced109ea116c8a9f96692178cbef356e5fac75e346859f769c557316de5ee24",
+          "connectionId": "client-random:9ac4eae2f432596e8f9520ca2d2e2558c59ade13bab8e4c51b21254ca8a4246e",
+          "keyDirection": "direct-test-connection"
+        },
+        {
+          "role": "ca-certificate",
+          "path": "tls13-h1/ca.pem",
+          "sha256": "51925f0077329a381a18cd2965af50e40c4e1b1112926f1852b3357a1ad1b736"
+        },
+        {
+          "role": "client-result",
+          "path": "tls13-h1/client-result.json",
+          "sha256": "ad02ffa4f7aed1977a49622422873f9beddb17166546a6d3cf663bbfe9b7a809"
+        },
+        {
+          "role": "golden-body",
+          "path": "tls13-h1/golden-body.bin",
+          "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+        },
+        {
+          "role": "corrupt-keylog",
+          "path": "tls13-h1/corrupt.keys",
+          "sha256": "5d21650cc956a1d1d855f1da08b711b306e0283f117a39164f9b45f299a273ff"
+        },
+        {
+          "role": "missing-handshake",
+          "path": "tls13-h1/missing-handshake.pcap",
+          "sha256": "c143357fdadcbf2a4d8f710bea9fd55eedb4bbdbca89dcd69759dbe7f5084c29"
+        },
+        {
+          "role": "missing-segment",
+          "path": "tls13-h1/missing-segment.pcap",
+          "sha256": "ea866b3b4285ce78eefb2d541350540a04f62374558ca293562b48cf7b0e4347"
+        }
+      ],
+      "generation": {
+        "generatedAtUtc": "2026-10-12T03:08:42.212349Z",
+        "command": [
+          "python",
+          "native_build/verification/tls/generate_fixture.py",
+          "generate",
+          "--output",
+          "native_build/verification/tls/fixtures",
+          "--tshark",
+          "${TSHARK}",
+          "--dumpcap",
+          "${DUMPCAP}",
+          "--interface",
+          "\\Device\\NPF_Loopback"
+        ],
+        "workingDirectory": "repository-root",
+        "toolVersions": {
+          "python": "3.11.5",
+          "openssl": "OpenSSL 3.0.9 30 May 2023",
+          "h2": "4.3.0",
+          "cryptography": "46.0.3",
+          "jsonschema": "4.23.0",
+          "tshark": "TShark (Wireshark) 3.6.0 (v3.6.0-0-g3a34e44d02c9)",
+          "dumpcap": "Dumpcap (Wireshark) 3.6.0 (v3.6.0-0-g3a34e44d02c9)"
+        },
+        "captureMethod": "host-loopback"
+      },
+      "cipherSuite": "TLS_AES_256_GCM_SHA384"
+    },
+    {
+      "fixtureId": "tls13-h2",
+      "tlsVersion": "TLS1.3",
+      "alpn": "h2",
+      "source": "synthetic-local-test-only",
+      "expectedBody": {
+        "encoding": "utf-8",
+        "text": "LayerAnalyzer TLS fixture v1\n",
+        "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+      },
+      "files": [
+        {
+          "role": "pcap",
+          "path": "tls13-h2/capture.pcap",
+          "sha256": "f8f41da8da9c3ad594d42033f8bdfc9f056f1a9de402fb661c752be394eb06a8",
+          "connectionId": "client-random:f9e6cabf964b8088d8d8e4385158b931f06ca2a94c5ac48c8fe3a403663007a1"
+        },
+        {
+          "role": "keylog",
+          "path": "tls13-h2/session.keys",
+          "sha256": "dd5471fa36ddf1983002be393f3bc11c1fca86adedc019fc23b412f3563327a5",
+          "connectionId": "client-random:f9e6cabf964b8088d8d8e4385158b931f06ca2a94c5ac48c8fe3a403663007a1",
+          "keyDirection": "direct-test-connection"
+        },
+        {
+          "role": "wrong-keylog",
+          "path": "tls13-h2/wrong.keys",
+          "sha256": "76384676a3f00e7d44dcdc06472e72e82ffb0fb0de9b7d688b25fcecd02022a6",
+          "connectionId": "client-random:0d65ad3bc8001f5ffdb39b74f55760942ade1d7ee6927e58e17b4198f063561b",
+          "keyDirection": "direct-test-connection"
+        },
+        {
+          "role": "ca-certificate",
+          "path": "tls13-h2/ca.pem",
+          "sha256": "e72636f2d559539f10cc5409fe1dba4dbd840d9197b80ca55058edee9091f5af"
+        },
+        {
+          "role": "client-result",
+          "path": "tls13-h2/client-result.json",
+          "sha256": "43b9cfb630363a3b411b158d748d15a17511f94592e9d03c436b9926efc8f432"
+        },
+        {
+          "role": "golden-body",
+          "path": "tls13-h2/golden-body.bin",
+          "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+        },
+        {
+          "role": "corrupt-keylog",
+          "path": "tls13-h2/corrupt.keys",
+          "sha256": "63d43332c350080c5fe34b2f8faa55ce953a7bc430844f31b113a7f3caa6ca60"
+        },
+        {
+          "role": "missing-handshake",
+          "path": "tls13-h2/missing-handshake.pcap",
+          "sha256": "76868d34b9d149b85e4d00362a61a3e20c8ec2080b5fdd6040d27cf9f4e0aee4"
+        },
+        {
+          "role": "missing-segment",
+          "path": "tls13-h2/missing-segment.pcap",
+          "sha256": "9ac8e31a5b204d1824663ddefc133a9ebfdca6cf8bfc1ef53cef5c51d2174d0b"
+        }
+      ],
+      "generation": {
+        "generatedAtUtc": "2026-10-12T03:08:48.087552Z",
+        "command": [
+          "python",
+          "native_build/verification/tls/generate_fixture.py",
+          "generate",
+          "--output",
+          "native_build/verification/tls/fixtures",
+          "--tshark",
+          "${TSHARK}",
+          "--dumpcap",
+          "${DUMPCAP}",
+          "--interface",
+          "\\Device\\NPF_Loopback"
+        ],
+        "workingDirectory": "repository-root",
+        "toolVersions": {
+          "python": "3.11.5",
+          "openssl": "OpenSSL 3.0.9 30 May 2023",
+          "h2": "4.3.0",
+          "cryptography": "46.0.3",
+          "jsonschema": "4.23.0",
+          "tshark": "TShark (Wireshark) 3.6.0 (v3.6.0-0-g3a34e44d02c9)",
+          "dumpcap": "Dumpcap (Wireshark) 3.6.0 (v3.6.0-0-g3a34e44d02c9)"
+        },
+        "captureMethod": "host-loopback"
+      },
+      "cipherSuite": "TLS_AES_256_GCM_SHA384"
+    },
+    {
+      "fixtureId": "tls12-h2",
+      "tlsVersion": "TLS1.2",
+      "alpn": "h2",
+      "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+      "features": [],
+      "source": "synthetic-local-test-only",
+      "expectedBody": {
+        "encoding": "utf-8",
+        "text": "LayerAnalyzer TLS fixture v1\n",
+        "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+      },
+      "files": [
+        {
+          "role": "pcap",
+          "path": "tls12-h2/capture.pcap",
+          "sha256": "b62d6ca88f13d0c550a0eca53c7b90ed4aa466f63a8286e5ea1594f22110900a",
+          "connectionId": "client-random:20d984b0ee947825acc53ee07a0aaee0f6b29262a7937b6354af7eafe32a84f7"
+        },
+        {
+          "role": "keylog",
+          "path": "tls12-h2/session.keys",
+          "sha256": "8fc38893ea07d976e6359138d0b4a8d9afc110e018b8e5126bf6b6c8e201cced",
+          "connectionId": "client-random:20d984b0ee947825acc53ee07a0aaee0f6b29262a7937b6354af7eafe32a84f7",
+          "keyDirection": "downstream-tls-a"
+        },
+        {
+          "role": "wrong-keylog",
+          "path": "tls12-h2/wrong.keys",
+          "sha256": "f60546597d1696606e335ab421e8bd714f966d174ff07d4ff7af941ca30be2c9",
+          "connectionId": "client-random:9529eb2e420a028c7d8c5000ec1a4d86cb48ca0db1aed240879ea862ebde9fa8",
+          "keyDirection": "upstream-tls-b"
+        },
+        {
+          "role": "upstream-pcap",
+          "path": "tls12-h2/upstream.pcap",
+          "sha256": "ad38e95fa8200892a2a9a6cf9c64e28c48785f597db42ae5cac34c066b0ee687",
+          "connectionId": "client-random:9529eb2e420a028c7d8c5000ec1a4d86cb48ca0db1aed240879ea862ebde9fa8"
+        },
+        {
+          "role": "untrusted-pcap",
+          "path": "tls12-h2/untrusted.pcap",
+          "sha256": "c75ec0fce88a3d3edadc09fabb96f327a39383763072075184ddb74d6c3d11eb"
+        },
+        {
+          "role": "wrong-name-pcap",
+          "path": "tls12-h2/wrong-name.pcap",
+          "sha256": "dffdd50605bf3b78531960ff6c3f3f55adbb630baec0a8e2cb21d4de88e8cd2e"
+        },
+        {
+          "role": "ca-certificate",
+          "path": "tls12-h2/ca.pem",
+          "sha256": "e20dfb52c9ad3cbd4cdbbd3e433b7c43b24a59cb7c88458deb7831507fcb570c"
+        },
+        {
+          "role": "golden-body",
+          "path": "tls12-h2/golden-body.bin",
+          "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+        },
+        {
+          "role": "client-result",
+          "path": "tls12-h2/client-result.json",
+          "sha256": "05a225756209ba3ef0a8c00adb7d52c95daee12d8ba17cbaf1d2d6622abdf2f1"
+        },
+        {
+          "role": "corrupt-keylog",
+          "path": "tls12-h2/corrupt.keys",
+          "sha256": "a1f5130cf895a53cfeb728240fcb8c8e85575f798991454f72ab62d0740f8fe6"
+        },
+        {
+          "role": "missing-handshake",
+          "path": "tls12-h2/missing-handshake.pcap",
+          "sha256": "2ab0dd647ee336c470d38e43c6af7de4f99089986ddd0c9fc21887c8b5008be7"
+        },
+        {
+          "role": "missing-segment",
+          "path": "tls12-h2/missing-segment.pcap",
+          "sha256": "2b218ec2534e20008453da92b150421a4cee19a11f419de14a3c3b4477eb9018"
+        }
+      ],
+      "generation": {
+        "generatedAtUtc": "2026-10-16T01:24:09.137275Z",
+        "command": [
+          "python",
+          "native_build/verification/tls/generate_release_fixture.py",
+          "--output",
+          "build/tls-401-generated5",
+          "--libssl",
+          "${LIBSSL}",
+          "--tshark",
+          "${TSHARK}"
+        ],
+        "workingDirectory": "repository-root",
+        "captureMethod": "synthetic-tcp-serialization",
+        "toolVersions": {
+          "python": "3.11.5",
+          "openssl": "OpenSSL 3.0.9 30 May 2023",
+          "h2": "4.3.0",
+          "cryptography": "46.0.3"
+        }
+      }
+    },
+    {
+      "fixtureId": "tls13-chacha-h1",
+      "tlsVersion": "TLS1.3",
+      "alpn": "http/1.1",
+      "cipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+      "features": [],
+      "source": "synthetic-local-test-only",
+      "expectedBody": {
+        "encoding": "utf-8",
+        "text": "LayerAnalyzer TLS fixture v1\n",
+        "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+      },
+      "files": [
+        {
+          "role": "pcap",
+          "path": "tls13-chacha-h1/capture.pcap",
+          "sha256": "5b2e9c384cfdc636a3940dca9e94b9d42527fefcedd9164c4830ef98ff3d17fc",
+          "connectionId": "client-random:3d95fa82e0e0e2a2081c56c88b1d8c71cf577515dbfdd58850eb78fafa0eb0a4"
+        },
+        {
+          "role": "keylog",
+          "path": "tls13-chacha-h1/session.keys",
+          "sha256": "cd782b56e8c63c08ba56fc18cc8ee02ac158b185d4104b7e4e5cee43323cc70b",
+          "connectionId": "client-random:3d95fa82e0e0e2a2081c56c88b1d8c71cf577515dbfdd58850eb78fafa0eb0a4",
+          "keyDirection": "downstream-tls-a"
+        },
+        {
+          "role": "wrong-keylog",
+          "path": "tls13-chacha-h1/wrong.keys",
+          "sha256": "41d4ba498d71f8b9c3e20f0567926a9724eb3cd783fba15a287ab3f7c4e3f7c6",
+          "connectionId": "client-random:691ad4c736589f6627f2c23da509871e25efa52279397993c70c6d1b06dc89b5",
+          "keyDirection": "upstream-tls-b"
+        },
+        {
+          "role": "upstream-pcap",
+          "path": "tls13-chacha-h1/upstream.pcap",
+          "sha256": "6c6dbe33928e26d71f46a95ec6050389abadce39f06c5230e32ab5ce9e9ee8ef",
+          "connectionId": "client-random:691ad4c736589f6627f2c23da509871e25efa52279397993c70c6d1b06dc89b5"
+        },
+        {
+          "role": "untrusted-pcap",
+          "path": "tls13-chacha-h1/untrusted.pcap",
+          "sha256": "0e33570ed30ba5abba19933c6a9dd4568da384a169c3d05720feba78f9cc4cdb"
+        },
+        {
+          "role": "wrong-name-pcap",
+          "path": "tls13-chacha-h1/wrong-name.pcap",
+          "sha256": "cec6e7678bd5747e5ab9e80f272ecb89ad97f28e06c5e87d7f7fc25424abaa56"
+        },
+        {
+          "role": "ca-certificate",
+          "path": "tls13-chacha-h1/ca.pem",
+          "sha256": "79836a548e3c0d9c82225780d158130b20fa783f649619bf4cb22991040c368d"
+        },
+        {
+          "role": "golden-body",
+          "path": "tls13-chacha-h1/golden-body.bin",
+          "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+        },
+        {
+          "role": "client-result",
+          "path": "tls13-chacha-h1/client-result.json",
+          "sha256": "c0df97a5803f9e50af89e55729b2eacdf1eab92ffbc138ff4147d54c40a78b76"
+        },
+        {
+          "role": "corrupt-keylog",
+          "path": "tls13-chacha-h1/corrupt.keys",
+          "sha256": "e12efe8dcda5b6a472be3184a3006ff5e97e8c77b43e6883de31a9c278087885"
+        },
+        {
+          "role": "missing-handshake",
+          "path": "tls13-chacha-h1/missing-handshake.pcap",
+          "sha256": "03c3b752ef49e48a003727f61d4a69e2903407f13e0e8916ab97c2886d6bb467"
+        },
+        {
+          "role": "missing-segment",
+          "path": "tls13-chacha-h1/missing-segment.pcap",
+          "sha256": "87299f23612459dee32343c1398c194bcd4c274f834edf9ea7c3e8c3441a22ac"
+        }
+      ],
+      "generation": {
+        "generatedAtUtc": "2026-10-16T01:24:09.548531Z",
+        "command": [
+          "python",
+          "native_build/verification/tls/generate_release_fixture.py",
+          "--output",
+          "build/tls-401-generated5",
+          "--libssl",
+          "${LIBSSL}",
+          "--tshark",
+          "${TSHARK}"
+        ],
+        "workingDirectory": "repository-root",
+        "captureMethod": "synthetic-tcp-serialization",
+        "toolVersions": {
+          "python": "3.11.5",
+          "openssl": "OpenSSL 3.0.9 30 May 2023",
+          "h2": "4.3.0",
+          "cryptography": "46.0.3"
+        }
+      }
+    },
+    {
+      "fixtureId": "tls13-chacha-h2",
+      "tlsVersion": "TLS1.3",
+      "alpn": "h2",
+      "cipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+      "features": [],
+      "source": "synthetic-local-test-only",
+      "expectedBody": {
+        "encoding": "utf-8",
+        "text": "LayerAnalyzer TLS fixture v1\n",
+        "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+      },
+      "files": [
+        {
+          "role": "pcap",
+          "path": "tls13-chacha-h2/capture.pcap",
+          "sha256": "b632d0b3dfe6ff26af75acc63c1e4b4c541c60dd0d758ba4100e7ff2fd9f9b56",
+          "connectionId": "client-random:ac6db70d643d8692da9e6f8c2a812b725936c2f5981c7bc555af1a0468f6863b"
+        },
+        {
+          "role": "keylog",
+          "path": "tls13-chacha-h2/session.keys",
+          "sha256": "258e9e0617b3993956ea72e43739dc74ba7bb70798a926b4f46460e8339a3c4f",
+          "connectionId": "client-random:ac6db70d643d8692da9e6f8c2a812b725936c2f5981c7bc555af1a0468f6863b",
+          "keyDirection": "downstream-tls-a"
+        },
+        {
+          "role": "wrong-keylog",
+          "path": "tls13-chacha-h2/wrong.keys",
+          "sha256": "a9598c294b9822ebaf8aa792e1b0cb79c8a98665abbc50628c22542444af9d28",
+          "connectionId": "client-random:61e8f3264ebc1bb807f8f77a34991fc0fe0b8a1fe09973c89dc62222d58cce07",
+          "keyDirection": "upstream-tls-b"
+        },
+        {
+          "role": "upstream-pcap",
+          "path": "tls13-chacha-h2/upstream.pcap",
+          "sha256": "b4b42294d0a58bf3aed46e5c0efc67d7ed678bd08757aed72263bab9c870db9d",
+          "connectionId": "client-random:61e8f3264ebc1bb807f8f77a34991fc0fe0b8a1fe09973c89dc62222d58cce07"
+        },
+        {
+          "role": "untrusted-pcap",
+          "path": "tls13-chacha-h2/untrusted.pcap",
+          "sha256": "5dee80c76372e04af6754dfbee2fda361370f769f749b120522c065cc7483f8f"
+        },
+        {
+          "role": "wrong-name-pcap",
+          "path": "tls13-chacha-h2/wrong-name.pcap",
+          "sha256": "060afc91ce876855ccecaecfb0530629c7f7cb340ec9efa5f8a08af4406791e6"
+        },
+        {
+          "role": "ca-certificate",
+          "path": "tls13-chacha-h2/ca.pem",
+          "sha256": "ba5a864f8c6950474e1861ebca4dd2e48c5aecdb884c36588af5e6294c2a7ebf"
+        },
+        {
+          "role": "golden-body",
+          "path": "tls13-chacha-h2/golden-body.bin",
+          "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+        },
+        {
+          "role": "client-result",
+          "path": "tls13-chacha-h2/client-result.json",
+          "sha256": "0b26c6afd08eb45eecebf3187c431728184680f3f69fce17a2a524571eca430e"
+        },
+        {
+          "role": "corrupt-keylog",
+          "path": "tls13-chacha-h2/corrupt.keys",
+          "sha256": "08da8d10cfa5fa73e4d6339b27acf874b56179be5e9b361460d267adcb495c5a"
+        },
+        {
+          "role": "missing-handshake",
+          "path": "tls13-chacha-h2/missing-handshake.pcap",
+          "sha256": "6b445d22e2698f24e8ca03c5caf5e2863099216930aad6f3c1e5a5a43a697f9a"
+        },
+        {
+          "role": "missing-segment",
+          "path": "tls13-chacha-h2/missing-segment.pcap",
+          "sha256": "ddd7ce98319de5ea7e345fe2ea64ecb9692f8d3286a25bfab4567878e44b628d"
+        }
+      ],
+      "generation": {
+        "generatedAtUtc": "2026-10-16T01:24:09.875223Z",
+        "command": [
+          "python",
+          "native_build/verification/tls/generate_release_fixture.py",
+          "--output",
+          "build/tls-401-generated5",
+          "--libssl",
+          "${LIBSSL}",
+          "--tshark",
+          "${TSHARK}"
+        ],
+        "workingDirectory": "repository-root",
+        "captureMethod": "synthetic-tcp-serialization",
+        "toolVersions": {
+          "python": "3.11.5",
+          "openssl": "OpenSSL 3.0.9 30 May 2023",
+          "h2": "4.3.0",
+          "cryptography": "46.0.3"
+        }
+      }
+    },
+    {
+      "fixtureId": "tls13-hrr-h1",
+      "tlsVersion": "TLS1.3",
+      "alpn": "http/1.1",
+      "cipherSuite": "TLS_AES_128_GCM_SHA256",
+      "features": [
+        "hrr"
+      ],
+      "source": "synthetic-local-test-only",
+      "expectedBody": {
+        "encoding": "utf-8",
+        "text": "LayerAnalyzer TLS fixture v1\n",
+        "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+      },
+      "files": [
+        {
+          "role": "pcap",
+          "path": "tls13-hrr-h1/capture.pcap",
+          "sha256": "7e9a4a07ad6071c3bb09ddd31221240849cd42700bc0caa243ad094e68dc7469",
+          "connectionId": "client-random:06d6c39b7c8f47ed0b44c66264781a3699247fffc70982042d9b106b60f407f3"
+        },
+        {
+          "role": "keylog",
+          "path": "tls13-hrr-h1/session.keys",
+          "sha256": "b10df75f00d7e308c0afe602cdfd6a65700175061804ec1a4d10f638eb5defb8",
+          "connectionId": "client-random:06d6c39b7c8f47ed0b44c66264781a3699247fffc70982042d9b106b60f407f3",
+          "keyDirection": "downstream-tls-a"
+        },
+        {
+          "role": "wrong-keylog",
+          "path": "tls13-hrr-h1/wrong.keys",
+          "sha256": "daa1311a81b0044a9a8d6983868eee502bf5598d5f8ab0ab1b011c149025dee9",
+          "connectionId": "client-random:c8ed59f75aa31aa368c1c73a8445ad6d2d93018779a6c1c873a99f643b95f756",
+          "keyDirection": "upstream-tls-b"
+        },
+        {
+          "role": "upstream-pcap",
+          "path": "tls13-hrr-h1/upstream.pcap",
+          "sha256": "bedfdb1b6ed358186c879966f1ec13ce442d5c56df907aff1e947d0fa37bc5bd",
+          "connectionId": "client-random:c8ed59f75aa31aa368c1c73a8445ad6d2d93018779a6c1c873a99f643b95f756"
+        },
+        {
+          "role": "untrusted-pcap",
+          "path": "tls13-hrr-h1/untrusted.pcap",
+          "sha256": "f935ac6c213dd0fadfd635739ff75fa54efc78b7a9c7396f8d626a48ebe3dd90"
+        },
+        {
+          "role": "wrong-name-pcap",
+          "path": "tls13-hrr-h1/wrong-name.pcap",
+          "sha256": "9f198e9038121f8272d59343ae37c80b3477ef20178bf924a1f2d3b95463c6d3"
+        },
+        {
+          "role": "ca-certificate",
+          "path": "tls13-hrr-h1/ca.pem",
+          "sha256": "d9b9c7d7f1e8addea3ab174fa3758d911ced51604c8519e1e8655230cb9fd28b"
+        },
+        {
+          "role": "golden-body",
+          "path": "tls13-hrr-h1/golden-body.bin",
+          "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+        },
+        {
+          "role": "client-result",
+          "path": "tls13-hrr-h1/client-result.json",
+          "sha256": "85927ebb2f6776b744c3a2631143a69d8a81b1155bf6c6312b433c1a5ccf61a2"
+        },
+        {
+          "role": "corrupt-keylog",
+          "path": "tls13-hrr-h1/corrupt.keys",
+          "sha256": "5d17d9a3a967912161bd8c46d02ddb64f0662bf2d3700a81d72f49f2438a6ce7"
+        },
+        {
+          "role": "missing-handshake",
+          "path": "tls13-hrr-h1/missing-handshake.pcap",
+          "sha256": "9af8b944a5bfee99e98065728dc189408f0fa2f90e8ff64a6962403b413c44d8"
+        },
+        {
+          "role": "missing-segment",
+          "path": "tls13-hrr-h1/missing-segment.pcap",
+          "sha256": "1d94434bb061da1e2e2594fb9afb3f85f07398641dbabf1abbcfcc3c9afc9e02"
+        }
+      ],
+      "generation": {
+        "generatedAtUtc": "2026-10-16T01:24:10.417290Z",
+        "command": [
+          "python",
+          "native_build/verification/tls/generate_release_fixture.py",
+          "--output",
+          "build/tls-401-generated5",
+          "--libssl",
+          "${LIBSSL}",
+          "--tshark",
+          "${TSHARK}"
+        ],
+        "workingDirectory": "repository-root",
+        "captureMethod": "synthetic-tcp-serialization",
+        "toolVersions": {
+          "python": "3.11.5",
+          "openssl": "OpenSSL 3.0.9 30 May 2023",
+          "h2": "4.3.0",
+          "cryptography": "46.0.3"
+        }
+      }
+    },
+    {
+      "fixtureId": "tls13-keyupdate-h1",
+      "tlsVersion": "TLS1.3",
+      "alpn": "http/1.1",
+      "cipherSuite": "TLS_AES_128_GCM_SHA256",
+      "features": [
+        "key-update"
+      ],
+      "source": "synthetic-local-test-only",
+      "expectedBody": {
+        "encoding": "utf-8",
+        "text": "LayerAnalyzer TLS fixture v1\n",
+        "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+      },
+      "files": [
+        {
+          "role": "pcap",
+          "path": "tls13-keyupdate-h1/capture.pcap",
+          "sha256": "3ad340d212240cdc67373132588b2028d6fc66e1f0782aece13fa81c96bfa4f8",
+          "connectionId": "client-random:df8028ddc4e97aebf4d84b01001a86a44e4578ff5780495852afa9402f9c6a34"
+        },
+        {
+          "role": "keylog",
+          "path": "tls13-keyupdate-h1/session.keys",
+          "sha256": "bf5ae857d5b6275c5e287e5ac0fd06d1cf3989255880687750a9e4e93ac20abf",
+          "connectionId": "client-random:df8028ddc4e97aebf4d84b01001a86a44e4578ff5780495852afa9402f9c6a34",
+          "keyDirection": "downstream-tls-a"
+        },
+        {
+          "role": "wrong-keylog",
+          "path": "tls13-keyupdate-h1/wrong.keys",
+          "sha256": "c3ac01542d08e74bc69287bdf29175be581320208c6c33b056207ddfcd4c1003",
+          "connectionId": "client-random:f1c1e88ed46fd8161d408729c4694598624c69b9e756edfcbaa27f3b0a53f3dd",
+          "keyDirection": "upstream-tls-b"
+        },
+        {
+          "role": "upstream-pcap",
+          "path": "tls13-keyupdate-h1/upstream.pcap",
+          "sha256": "2b50ac689511ba3f0a5929d134fc48cd5170e2c1d12956013e608c4d667854f4",
+          "connectionId": "client-random:f1c1e88ed46fd8161d408729c4694598624c69b9e756edfcbaa27f3b0a53f3dd"
+        },
+        {
+          "role": "untrusted-pcap",
+          "path": "tls13-keyupdate-h1/untrusted.pcap",
+          "sha256": "ef066160169a6bbc7791262ebeefeb10adfe3118b60d268dc60426a7056bcf82"
+        },
+        {
+          "role": "wrong-name-pcap",
+          "path": "tls13-keyupdate-h1/wrong-name.pcap",
+          "sha256": "c0293d10dbea41f9139acf757c1b490e7822840882814a097742fd837ab18c0c"
+        },
+        {
+          "role": "ca-certificate",
+          "path": "tls13-keyupdate-h1/ca.pem",
+          "sha256": "896d9ae579dd6cbc18fe98d09973459d59ec3d2279f61bc63856517618897ec7"
+        },
+        {
+          "role": "golden-body",
+          "path": "tls13-keyupdate-h1/golden-body.bin",
+          "sha256": "9b1ce3253f3312a2d0f896f307a944a2effe972d55ba1a33cc939feb6e6fd7c4"
+        },
+        {
+          "role": "client-result",
+          "path": "tls13-keyupdate-h1/client-result.json",
+          "sha256": "7d2b7849b969c42cea2abf842a6835333fbaf460dae5eeada748c1365c5857de"
+        },
+        {
+          "role": "corrupt-keylog",
+          "path": "tls13-keyupdate-h1/corrupt.keys",
+          "sha256": "ecd3e4be7cb5183b9c6b6ce2cf1d7bc4989e28d9bcd414ffc7b5ec1332aa135a"
+        },
+        {
+          "role": "missing-handshake",
+          "path": "tls13-keyupdate-h1/missing-handshake.pcap",
+          "sha256": "988f357af0396b34d5e365fe7c0bb9b8436fec55fed5f11fe5fc83c1921ff214"
+        },
+        {
+          "role": "missing-segment",
+          "path": "tls13-keyupdate-h1/missing-segment.pcap",
+          "sha256": "866faddd9ebd973ec2d90029cf4c41f4bb9f145e6a2f297fa34adbbad33e8fea"
+        }
+      ],
+      "generation": {
+        "generatedAtUtc": "2026-10-16T01:24:10.932703Z",
+        "command": [
+          "python",
+          "native_build/verification/tls/generate_release_fixture.py",
+          "--output",
+          "build/tls-401-generated5",
+          "--libssl",
+          "${LIBSSL}",
+          "--tshark",
+          "${TSHARK}"
+        ],
+        "workingDirectory": "repository-root",
+        "captureMethod": "synthetic-tcp-serialization",
+        "toolVersions": {
+          "python": "3.11.5",
+          "openssl": "OpenSSL 3.0.9 30 May 2023",
+          "h2": "4.3.0",
+          "cryptography": "46.0.3"
+        }
+      }
+    }
+  ],
+  "suiteVersion": "tls-golden-v1",
+  "referenceVersions": {
+    "embedded": "4.0.10",
+    "desktop": "3.6.0"
+  },
+  "certificateChecks": [
+    {
+      "fixtureId": "tls12-h2",
+      "case": "untrusted",
+      "verified": false,
+      "verifyResult": 19
+    },
+    {
+      "fixtureId": "tls12-h2",
+      "case": "wrong-name",
+      "verified": false,
+      "verifyResult": 62
+    },
+    {
+      "fixtureId": "tls13-chacha-h1",
+      "case": "untrusted",
+      "verified": false,
+      "verifyResult": 19
+    },
+    {
+      "fixtureId": "tls13-chacha-h1",
+      "case": "wrong-name",
+      "verified": false,
+      "verifyResult": 62
+    },
+    {
+      "fixtureId": "tls13-chacha-h2",
+      "case": "untrusted",
+      "verified": false,
+      "verifyResult": 19
+    },
+    {
+      "fixtureId": "tls13-chacha-h2",
+      "case": "wrong-name",
+      "verified": false,
+      "verifyResult": 62
+    },
+    {
+      "fixtureId": "tls13-hrr-h1",
+      "case": "untrusted",
+      "verified": false,
+      "verifyResult": 19
+    },
+    {
+      "fixtureId": "tls13-hrr-h1",
+      "case": "wrong-name",
+      "verified": false,
+      "verifyResult": 62
+    },
+    {
+      "fixtureId": "tls13-keyupdate-h1",
+      "case": "untrusted",
+      "verified": false,
+      "verifyResult": 19
+    },
+    {
+      "fixtureId": "tls13-keyupdate-h1",
+      "case": "wrong-name",
+      "verified": false,
+      "verifyResult": 62
+    }
+  ]
+}

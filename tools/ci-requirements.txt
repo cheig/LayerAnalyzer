@@ -1,0 +1,2 @@
+# Host-only workflow structure checks; not an application dependency.
+PyYAML==6.0.3

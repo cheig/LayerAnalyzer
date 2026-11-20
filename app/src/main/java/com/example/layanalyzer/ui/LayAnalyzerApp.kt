@@ -34,6 +34,10 @@ import com.example.layanalyzer.model.WorkspacePage
 import com.example.layanalyzer.media.RtpPlayerState
 import com.example.layanalyzer.ui.components.PacketDetailScreen
 import com.example.layanalyzer.ui.components.PacketListScreen
+import com.example.layanalyzer.ui.components.PacketListAgentInputs
+import com.example.layanalyzer.ui.components.PacketListRtpInputs
+import com.example.layanalyzer.ui.components.PacketListTlsInputs
+import com.example.layanalyzer.ui.components.PacketListVoipInputs
 import com.example.layanalyzer.ui.components.shareExportResult
 import com.example.layanalyzer.ui.components.rtp.rtpExportDestination
 import com.example.layanalyzer.viewmodel.PacketDetailViewModel
@@ -105,7 +109,9 @@ fun LayAnalyzerApp(
     val followStream by detailViewModel.followStream.collectAsState()
     val isFollowingStream by detailViewModel.isFollowingStream.collectAsState()
     val packetBytesViewer by detailViewModel.packetBytesViewer.collectAsState()
+    val dataSourceState by detailViewModel.dataSourceState.collectAsState()
     val currentFile by listViewModel.currentFile.collectAsState()
+    val tlsKeyLogImportState by listViewModel.tlsKeyLogImportState.collectAsState()
     val workspacePage by listViewModel.workspacePage.collectAsState()
     val rtpState by rtpViewModel.state.collectAsState()
     val rtpPlayerState by rtpViewModel.playerState.collectAsState()
@@ -144,13 +150,27 @@ fun LayAnalyzerApp(
     val statisticsState by listViewModel.statisticsState.collectAsState()
     val httpObjectsState by listViewModel.httpObjectsState.collectAsState()
     val packetContextActions by listViewModel.packetContextActions.collectAsState()
+    val tlsFollowViewer by listViewModel.tlsFollowViewer.collectAsState()
+    val tlsFollowExportState by listViewModel.tlsFollowExportState.collectAsState()
+    val savedCaptureOpenInfo by listViewModel.savedCaptureOpenInfo.collectAsState()
+    // TLS-315: why the last start request for an intercepted capture was refused.
+    val tlsStartBlock by listViewModel.tlsStartBlock.collectAsState()
     val highlightedFrames by listViewModel.highlightedFrames.collectAsState()
     val preferences by listViewModel.preferences.collectAsState()
     val listExportState by listViewModel.exportState.collectAsState()
     val decodeAsRules by listViewModel.decodeAsRules.collectAsState()
     val detailExportState by detailViewModel.exportState.collectAsState()
     val liveCaptureState by listViewModel.liveCaptureState.collectAsState()
+    // TLS-306: the live TLS summary and its projected counts. The service publishes
+    // both at most once per C10's 250 ms gate, so collecting them is cheap.
+    val tlsConnectionSnapshot by listViewModel.tlsConnectionSnapshot.collectAsState()
+    val tlsConnectionSummary by listViewModel.tlsConnectionSummary.collectAsState()
+    // Seed for the capture settings draft (TLS-304); the store is written only when
+    // a capture is started, so this is stable across a session.
+    val liveCaptureSettings = remember(listViewModel) { listViewModel.loadLiveCaptureSettings() }
     val bookmarkedFrames by detailViewModel.bookmarkedFrames.collectAsState()
+    val isResolvingReassembly by detailViewModel.isResolvingReassembly.collectAsState()
+    val detailActionMessage by detailViewModel.actionMessage.collectAsState()
     val healthSummary by listViewModel.healthSummary.collectAsState()
     val workspace by listViewModel.workspace.collectAsState()
     // EVL-EXPORT-01: whether the evidence-frame export scope may be offered.
@@ -189,6 +209,37 @@ fun LayAnalyzerApp(
         PacketListScreen(
             packetItems = packetItems,
             currentFile = currentFile,
+            tls = PacketListTlsInputs(
+                tlsKeyLogImportState = tlsKeyLogImportState,
+                onBeginTlsKeyLogSelection = listViewModel::beginTlsKeyLogSelection,
+                onImportTlsKeyLog = listViewModel::importTlsKeyLog,
+                onClearTlsKeyLog = listViewModel::clearTlsKeyLog,
+                onCancelTlsKeyLogImport = listViewModel::cancelTlsKeyLogImport,
+                liveCaptureState = liveCaptureState,
+                liveCaptureSettings = liveCaptureSettings,
+                tlsConnectionSnapshot = tlsConnectionSnapshot,
+                tlsConnectionSummary = tlsConnectionSummary,
+                loadTlsCaState = { listViewModel.loadTlsCaState() },
+                tlsStartBlock = tlsStartBlock,
+                onDismissTlsStartBlock = { listViewModel.clearTlsStartBlock() },
+                tlsFollowViewer = tlsFollowViewer,
+                tlsFollowExportState = tlsFollowExportState,
+                onFollowTlsStream = { listViewModel.openTlsFollow(it) },
+                onCloseTlsFollow = { listViewModel.closeTlsFollow() },
+                onExportTlsFollow = { listViewModel.exportTlsFollowForShare() },
+                onCancelTlsFollowExport = { listViewModel.cancelTlsFollowExport() },
+                onClearTlsFollowExportState = { listViewModel.clearTlsFollowExportState() },
+                savedCaptureOpenInfo = savedCaptureOpenInfo,
+                onDismissSavedCaptureOpenInfo = { listViewModel.dismissSavedCaptureOpenInfo() },
+                onPrepareCaptureExport = listViewModel::prepareCaptureExport,
+                onSaveCaptureExport = listViewModel::saveCaptureExport,
+                onImportCaptureBundle = listViewModel::importTlsCaptureBundle,
+                onCancelCaptureExport = listViewModel::cancelCaptureExport,
+                onStartLiveCapture = { listViewModel.startLiveCapture(it) },
+                onStopLiveCapture = { listViewModel.stopLiveCapture() },
+                onOpenSavedLiveCapture = { listViewModel.openSavedLiveCapture() },
+                onClearLiveCaptureError = { listViewModel.clearLiveCaptureError() },
+            ),
             openProgress = openProgress,
             openError = openError,
             espDecryptionNotice = espDecryptionNotice,
@@ -204,12 +255,143 @@ fun LayAnalyzerApp(
             highlightedFrames = highlightedFrames,
             communicationAnalysis = communicationAnalysis,
             analysisJob = analysisJob,
-            agentUiState = agentUiState,
-            agentJob = agentJob,
+            agent = PacketListAgentInputs(
+                agentUiState = agentUiState,
+                agentJob = agentJob,
+                onAgentSubmitQuestion = { question, scope, displayFilterOverride, evidenceFrameCount ->
+                    // EVL-CONTEXT-04: when the run is framed by an evidence
+                    // override, the packet list must show the same view the agent
+                    // analyzes.  Apply it through the normal applyDisplayFilter
+                    // path — its existing error handling surfaces any failure, so
+                    // an unapplied override is never silently pretended to be in
+                    // effect.
+                    if (displayFilterOverride != null &&
+                        AgentEvidenceScope.shouldApplyOverrideToPacketList(
+                            displayFilterOverride, displayFilterUiState.appliedExpression
+                        )
+                    ) {
+                        listViewModel.applyDisplayFilter(displayFilterOverride)
+                    }
+                    agentViewModel.submitQuestion(
+                        question, scope,
+                        displayFilterOverride = displayFilterOverride,
+                        evidenceFrameCount = evidenceFrameCount
+                    )
+                },
+                onAgentContinueConversation = { agentViewModel.continueConversation(it) },
+                onAgentCancel = { agentViewModel.cancel() },
+                onAgentRetry = { agentViewModel.retry() },
+                onAgentNewConversation = { agentViewModel.startNewConversation() },
+                onAgentClearTransientError = { agentViewModel.clearTransientError() },
+                agentFilterPreview = agentFilterPreview,
+                onAgentEvidenceClick = { evidence, report ->
+                    when {
+                        !evidence.displayFilter.isNullOrBlank() -> {
+                            listViewModel.prepareAgentFilterPreview(evidence, report)
+                        }
+                        evidence.frameNumber != null &&
+                            listViewModel.validateAgentEvidence(evidence, report) == null -> {
+                            detailViewModel.loadPacketDetail(evidence.frameNumber)
+                        }
+                    }
+                },
+                onAgentSaveFinding = { finding, report ->
+                    listViewModel.saveAgentFinding(finding, report)
+                },
+                onAgentExportReport = { report ->
+                    listViewModel.exportAgentReportForShare(report, agentRunRecord)
+                },
+                onConfirmAgentFilterPreview = { listViewModel.applyAgentFilterPreview() },
+                onDismissAgentFilterPreview = { listViewModel.dismissAgentFilterPreview() },
+                agentSettings = agentConfiguration,
+                agentConsentPrompt = agentConsentPrompt,
+                gatewayAccount = gatewayAccount,
+                onRefreshGatewayAccount = { agentViewModel.refreshGatewayAccount() },
+                agentByokEnabled = true,
+                agentResponseCaptureAvailable = BuildConfig.DEBUG,
+                onAgentClearResponseDumps = {
+                    (appContext as? LayerAnalyzerApplication)?.clearAgentResponseDebugCaptures()
+                },
+                onAgentSettingsChange = { agentViewModel.updateSettings(it) },
+                onAgentPrivacyModeChange = { agentViewModel.updatePrivacyMode(it) },
+                onAgentModelSelectionChange = { providerId, modelId ->
+                    agentViewModel.selectModel(providerId, modelId)
+                },
+                onAgentAcceptConsent = { agentViewModel.acceptConsent() },
+                onAgentDeclineConsent = { agentViewModel.declineConsent() },
+                onAgentSaveProviderKey = { providerId, secret ->
+                    agentViewModel.saveByokSecret(providerId, secret)
+                },
+                onAgentClearProviderKey = { providerId ->
+                    agentViewModel.clearByokSecret(providerId)
+                },
+                onAgentFetchProviderModels = agentViewModel::fetchProviderModels,
+                agentSavedSessions = agentSavedSessions,
+                agentDeletingSavedSessions = agentDeletingSavedSessions,
+                agentRestoredSession = agentRestoredSession,
+                agentRestoredSessionMatchesCapture = agentViewModel.canOpenRestoredEvidence(),
+                agentInterruptedJob = agentInterruptedJob,
+                onAgentResumeInterruptedJob = { agentViewModel.resumeInterruptedJob() },
+                onAgentDismissInterruptedJob = { agentViewModel.dismissInterruptedJob() },
+                agentLocalDataUsage = agentLocalDataUsage,
+                onAgentOpenSavedSession = { agentViewModel.restoreSavedSession(it) },
+                onAgentDeleteSavedSession = { agentViewModel.deleteSavedSession(it) },
+                onAgentDismissRestoredSession = { agentViewModel.dismissRestoredSession() },
+                onAgentClearLocalData = { agentViewModel.clearLocalData(it) },
+                onAgentExportDiagnostics = {
+                    exportScope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            val content = agentViewModel.exportDiagnostics()
+                            if (content.isNullOrBlank()) {
+                                null
+                            } else {
+                                runCatching {
+                                    val directory = File(appContext.filesDir, "exports").apply { mkdirs() }
+                                    val file = File(
+                                        directory,
+                                        "agent-diagnostics-${System.currentTimeMillis()}.json"
+                                    )
+                                    file.writeText(content, Charsets.UTF_8)
+                                    ExportResult(
+                                        filePath = file.absolutePath,
+                                        displayName = file.name,
+                                        mimeType = "application/json"
+                                    )
+                                }.getOrNull()
+                            }
+                        }
+                        result?.let { exported ->
+                            runCatching { shareExportResult(appContext, exported) }
+                        }
+                    }
+                },
+                agentScenarioPackage = agentScenarioPackage,
+                agentPlaybooks = agentPlaybooks,
+                onAgentClearScenarioPackage = { agentViewModel.clearDownloadedScenarioPackage() },
+                onAgentPlaybookUsed = agentViewModel::recordPlaybookUsage,
+                onAgentEditScenario = agentViewModel::startEditScenario,
+                onAgentCopyScenario = agentViewModel::copyScenario,
+                onAgentDeleteScenario = agentViewModel::deleteScenario,
+                onAgentNewScenario = agentViewModel::startNewScenario,
+                onAgentViewScenarioDetails = agentViewModel::startViewScenario,
+                agentEditingScenario = agentEditingScenario,
+                agentScenarioToolWhitelist = agentViewModel.scenarioToolWhitelist,
+                onAgentDismissScenarioEditor = agentViewModel::dismissEditingScenario,
+                onAgentSaveScenario = agentViewModel::saveScenario,
+                agentScenarioSaving = agentSavingScenario,
+                onAgentScenarioPlaybookChange = { playbook ->
+                    // Controlled editor (OPT-DRAFT-01): the ViewModel's draft is
+                    // the single source of the editing input, so field changes
+                    // land there and survive an activity recreation.
+                    agentViewModel.updateDraft { draft -> draft.copy(playbook = playbook) }
+                },
+                agentScenarioSaveCompleted = agentScenarioSaveCompleted,
+                agentScenarioQuarantineCodes = agentScenarioQuarantineCodes,
+                agentRunRecord = agentRunRecord,
+            ),
             preferences = preferences,
             exportState = listExportState,
             decodeAsRules = decodeAsRules,
-            liveCaptureState = liveCaptureState,
             healthSummary = healthSummary,
             workspace = workspace,
             evidenceFramesScopeAvailability = evidenceFramesScopeAvailability,
@@ -269,279 +451,149 @@ fun LayAnalyzerApp(
                 listViewModel.addDecodeAsRule(scope, transport, source, destination, sourcePort, destinationPort, protocol)
             },
             onRemoveDecodeAsRule = { listViewModel.removeDecodeAsRule(it) },
-            onStartLiveCapture = { listViewModel.startLiveCapture(it) },
-            onStopLiveCapture = { listViewModel.stopLiveCapture() },
-            onOpenSavedLiveCapture = { listViewModel.openSavedLiveCapture() },
-            onClearLiveCaptureError = { listViewModel.clearLiveCaptureError() },
             onRefreshDashboard = { listViewModel.refreshDashboard() },
             onApplyScenarioStep = { listViewModel.applyScenarioStep(it) },
             onToggleFavoriteFilter = { listViewModel.toggleFavoriteFilter(it) },
-            onAgentSubmitQuestion = { question, scope, displayFilterOverride, evidenceFrameCount ->
-                // EVL-CONTEXT-04: when the run is framed by an evidence
-                // override, the packet list must show the same view the agent
-                // analyzes.  Apply it through the normal applyDisplayFilter
-                // path — its existing error handling surfaces any failure, so
-                // an unapplied override is never silently pretended to be in
-                // effect.
-                if (displayFilterOverride != null &&
-                    AgentEvidenceScope.shouldApplyOverrideToPacketList(
-                        displayFilterOverride, displayFilterUiState.appliedExpression
-                    )
-                ) {
-                    listViewModel.applyDisplayFilter(displayFilterOverride)
-                }
-                agentViewModel.submitQuestion(
-                    question, scope,
-                    displayFilterOverride = displayFilterOverride,
-                    evidenceFrameCount = evidenceFrameCount
-                )
-            },
-            onAgentContinueConversation = { agentViewModel.continueConversation(it) },
-            onAgentCancel = { agentViewModel.cancel() },
-            onAgentRetry = { agentViewModel.retry() },
-            onAgentNewConversation = { agentViewModel.startNewConversation() },
-            onAgentClearTransientError = { agentViewModel.clearTransientError() },
-            agentFilterPreview = agentFilterPreview,
-            onAgentEvidenceClick = { evidence, report ->
-                when {
-                    !evidence.displayFilter.isNullOrBlank() -> {
-                        listViewModel.prepareAgentFilterPreview(evidence, report)
-                    }
-                    evidence.frameNumber != null &&
-                        listViewModel.validateAgentEvidence(evidence, report) == null -> {
-                        detailViewModel.loadPacketDetail(evidence.frameNumber)
-                    }
-                }
-            },
-            onAgentSaveFinding = { finding, report ->
-                listViewModel.saveAgentFinding(finding, report)
-            },
-            onAgentExportReport = { report ->
-                listViewModel.exportAgentReportForShare(report, agentRunRecord)
-            },
-            onConfirmAgentFilterPreview = { listViewModel.applyAgentFilterPreview() },
-            onDismissAgentFilterPreview = { listViewModel.dismissAgentFilterPreview() },
-            agentSettings = agentConfiguration,
-            agentConsentPrompt = agentConsentPrompt,
-            gatewayAccount = gatewayAccount,
-            onRefreshGatewayAccount = { agentViewModel.refreshGatewayAccount() },
-            agentByokEnabled = true,
-            agentResponseCaptureAvailable = BuildConfig.DEBUG,
-            onAgentClearResponseDumps = {
-                (appContext as? LayerAnalyzerApplication)?.clearAgentResponseDebugCaptures()
-            },
-            onAgentSettingsChange = { agentViewModel.updateSettings(it) },
-            onAgentPrivacyModeChange = { agentViewModel.updatePrivacyMode(it) },
-            onAgentModelSelectionChange = { providerId, modelId ->
-                agentViewModel.selectModel(providerId, modelId)
-            },
-            onAgentAcceptConsent = { agentViewModel.acceptConsent() },
-            onAgentDeclineConsent = { agentViewModel.declineConsent() },
-            onAgentSaveProviderKey = { providerId, secret ->
-                agentViewModel.saveByokSecret(providerId, secret)
-            },
-            onAgentClearProviderKey = { providerId ->
-                agentViewModel.clearByokSecret(providerId)
-            },
-            onAgentFetchProviderModels = agentViewModel::fetchProviderModels,
-            agentSavedSessions = agentSavedSessions,
-            agentDeletingSavedSessions = agentDeletingSavedSessions,
-            agentRestoredSession = agentRestoredSession,
-            agentRestoredSessionMatchesCapture = agentViewModel.canOpenRestoredEvidence(),
-            agentInterruptedJob = agentInterruptedJob,
-            onAgentResumeInterruptedJob = { agentViewModel.resumeInterruptedJob() },
-            onAgentDismissInterruptedJob = { agentViewModel.dismissInterruptedJob() },
-            agentLocalDataUsage = agentLocalDataUsage,
-            onAgentOpenSavedSession = { agentViewModel.restoreSavedSession(it) },
-            onAgentDeleteSavedSession = { agentViewModel.deleteSavedSession(it) },
-            onAgentDismissRestoredSession = { agentViewModel.dismissRestoredSession() },
-            onAgentClearLocalData = { agentViewModel.clearLocalData(it) },
-            onAgentExportDiagnostics = {
-                exportScope.launch {
-                    val result = withContext(Dispatchers.IO) {
-                        val content = agentViewModel.exportDiagnostics()
-                        if (content.isNullOrBlank()) {
-                            null
-                        } else {
-                            runCatching {
-                                val directory = File(appContext.filesDir, "exports").apply { mkdirs() }
-                                val file = File(
-                                    directory,
-                                    "agent-diagnostics-${System.currentTimeMillis()}.json"
-                                )
-                                file.writeText(content, Charsets.UTF_8)
-                                ExportResult(
-                                    filePath = file.absolutePath,
-                                    displayName = file.name,
-                                    mimeType = "application/json"
-                                )
-                            }.getOrNull()
-                        }
-                    }
-                    result?.let { exported ->
-                        runCatching { shareExportResult(appContext, exported) }
-                    }
-                }
-            },
-            agentScenarioPackage = agentScenarioPackage,
-            agentPlaybooks = agentPlaybooks,
-            onAgentClearScenarioPackage = { agentViewModel.clearDownloadedScenarioPackage() },
-            onAgentPlaybookUsed = agentViewModel::recordPlaybookUsage,
-            onAgentEditScenario = agentViewModel::startEditScenario,
-            onAgentCopyScenario = agentViewModel::copyScenario,
-            onAgentDeleteScenario = agentViewModel::deleteScenario,
-            onAgentNewScenario = agentViewModel::startNewScenario,
-            onAgentViewScenarioDetails = agentViewModel::startViewScenario,
-            agentEditingScenario = agentEditingScenario,
-            agentScenarioToolWhitelist = agentViewModel.scenarioToolWhitelist,
-            onAgentDismissScenarioEditor = agentViewModel::dismissEditingScenario,
-            onAgentSaveScenario = agentViewModel::saveScenario,
-            agentScenarioSaving = agentSavingScenario,
-            onAgentScenarioPlaybookChange = { playbook ->
-                // Controlled editor (OPT-DRAFT-01): the ViewModel's draft is
-                // the single source of the editing input, so field changes
-                // land there and survive an activity recreation.
-                agentViewModel.updateDraft { draft -> draft.copy(playbook = playbook) }
-            },
-            agentScenarioSaveCompleted = agentScenarioSaveCompleted,
-            agentScenarioQuarantineCodes = agentScenarioQuarantineCodes,
-            agentRunRecord = agentRunRecord,
             onPacketClick = { frameNumber -> detailViewModel.loadPacketDetail(frameNumber) },
             onSaveWorkspaceNote = listViewModel::saveWorkspaceNote,
             onRemoveEvidence = listViewModel::removeEvidence,
             onRemoveEvidenceFrames = listViewModel::removeEvidenceFrames,
             onClearEvidence = listViewModel::clearEvidence,
             onShowEvidenceFramesOnly = { listViewModel.showEvidenceFramesOnly() },
-            rtpState = rtpState,
-            rtpHeuristicEnabled = preferences.rtpHeuristicEnabled,
-            rtpHighlightedStreamId = rtpHighlightedStreamId,
-            rtpOpenRequest = pendingRtpIdentity,
-            rtpHeuristicApplyVersion = rtpHeuristicApplyVersion,
-            onRtpOpenRequestHandled = { pendingRtpIdentity = null },
-            onRtpScan = rtpViewModel::scan,
-            onRtpCancel = rtpViewModel::cancel,
-            onRtpToggleHeuristic = { enabled -> listViewModel.setRtpHeuristicEnabled(enabled) },
-            onRtpSetOverride = rtpViewModel::setOverride,
-            onRtpHighlightStream = rtpViewModel::highlightStream,
-            rtpPlayerState = rtpPlayerState,
-            rtpPlaybackState = rtpPlaybackState,
-            rtpPlayerPositionMs = rtpPlayerPositionMs,
-            rtpExportState = rtpExportState,
-            onRtpOpenPlayer = { stream ->
-                rtpViewModel.openPlayer(listOf(stream), autoPlay = false)
-            },
-            onRtpPlayStream = rtpViewModel::openPlayerStream,
-            onRtpPlayStreams = { streams -> rtpViewModel.openPlayer(streams) },
-            onRtpExportWav = { streams, destinations ->
-                rtpViewModel.exportWav(streams, destinations)
-            },
-            onRtpExportRaw = { streams, destinations ->
-                rtpViewModel.exportRaw(streams, destinations)
-            },
-            // RTP4-KT-03：导出格式对话框选完格式后的目的地写入，以及「外部打开」的
-            // 容器准备（容器优先、WAV 回退的判定在 RtpPlayerScreen 里）。
-            onRtpExportFormat = { stream, format, destination ->
-                rtpViewModel.exportFormat(stream, format, destination)
-            },
-            rtpExternalOpenState = rtpExternalOpenState,
-            onRtpOpenExternal = { stream -> rtpViewModel.prepareExternalOpen(stream) },
-            onRtpClearExternalOpenState = rtpViewModel::clearExternalOpenState,
-            onRtpClosePlayer = rtpViewModel::closePlayer,
-            onRtpPlayerPlayPause = {
-                if (rtpPlaybackState == RtpPlayerState.Playing) {
-                    rtpViewModel.pausePlayer()
-                } else {
-                    rtpViewModel.playPlayer()
-                }
-            },
-            onRtpPlayerSeek = rtpViewModel::seekPlayer,
-            onRtpPlayerTimingChange = rtpViewModel::setPlayerTiming,
-            onRtpPlayerCancelDecode = rtpViewModel::cancelPlayerDecode,
-            onRtpPlayerRetryDecode = rtpViewModel::retryPlayerDecode,
-            onRtpPlayerSelectStream = rtpViewModel::selectPlayerStream,
-            onRtpPlayerExportWav = { uri ->
-                rtpPlayerState.selectedStream?.let { stream ->
-                    rtpViewModel.exportWav(
+            rtp = PacketListRtpInputs(
+                rtpState = rtpState,
+                rtpHeuristicEnabled = preferences.rtpHeuristicEnabled,
+                rtpHighlightedStreamId = rtpHighlightedStreamId,
+                rtpOpenRequest = pendingRtpIdentity,
+                rtpHeuristicApplyVersion = rtpHeuristicApplyVersion,
+                onRtpOpenRequestHandled = { pendingRtpIdentity = null },
+                onRtpScan = rtpViewModel::scan,
+                onRtpCancel = rtpViewModel::cancel,
+                onRtpToggleHeuristic = { enabled -> listViewModel.setRtpHeuristicEnabled(enabled) },
+                onRtpSetOverride = rtpViewModel::setOverride,
+                onRtpHighlightStream = rtpViewModel::highlightStream,
+                rtpPlayerState = rtpPlayerState,
+                rtpPlaybackState = rtpPlaybackState,
+                rtpPlayerPositionMs = rtpPlayerPositionMs,
+                rtpExportState = rtpExportState,
+                onRtpOpenPlayer = { stream ->
+                    rtpViewModel.openPlayer(listOf(stream), autoPlay = false)
+                },
+                onRtpPlayStream = rtpViewModel::openPlayerStream,
+                onRtpPlayStreams = { streams -> rtpViewModel.openPlayer(streams) },
+                onRtpExportWav = { streams, destinations ->
+                    rtpViewModel.exportWav(streams, destinations)
+                },
+                onRtpExportRaw = { streams, destinations ->
+                    rtpViewModel.exportRaw(streams, destinations)
+                },
+                // RTP4-KT-03：导出格式对话框选完格式后的目的地写入，以及「外部打开」的
+                // 容器准备（容器优先、WAV 回退的判定在 RtpPlayerScreen 里）。
+                onRtpExportFormat = { stream, format, destination ->
+                    rtpViewModel.exportFormat(stream, format, destination)
+                },
+                rtpExternalOpenState = rtpExternalOpenState,
+                onRtpOpenExternal = { stream -> rtpViewModel.prepareExternalOpen(stream) },
+                onRtpClearExternalOpenState = rtpViewModel::clearExternalOpenState,
+                onRtpClosePlayer = rtpViewModel::closePlayer,
+                onRtpPlayerPlayPause = {
+                    if (rtpPlaybackState == RtpPlayerState.Playing) {
+                        rtpViewModel.pausePlayer()
+                    } else {
+                        rtpViewModel.playPlayer()
+                    }
+                },
+                onRtpPlayerSeek = rtpViewModel::seekPlayer,
+                onRtpPlayerTimingChange = rtpViewModel::setPlayerTiming,
+                onRtpPlayerCancelDecode = rtpViewModel::cancelPlayerDecode,
+                onRtpPlayerRetryDecode = rtpViewModel::retryPlayerDecode,
+                onRtpPlayerSelectStream = rtpViewModel::selectPlayerStream,
+                onRtpPlayerExportWav = { uri ->
+                    rtpPlayerState.selectedStream?.let { stream ->
+                        rtpViewModel.exportWav(
+                            streams = listOf(stream),
+                            destinations = listOf(
+                                rtpExportDestination(
+                                    context = appContext,
+                                    uri = uri,
+                                    displayName = rtpWavFileName(stream)
+                                )
+                            ),
+                            timing = rtpPlayerState.timing
+                        )
+                    }
+                },
+                onRtpPlayerShareWav = {
+                    rtpPlayerState.selectedStream?.let { stream ->
+                        rtpViewModel.shareWav(
+                            streams = listOf(stream),
+                            timing = rtpPlayerState.timing
+                        )
+                    }
+                },
+                onRtpPlayerClearExportState = rtpViewModel::clearExportState,
+                rtpVideoExportState = rtpVideoExportState,
+                // 一次点击 = 一条流：卡片菜单的「导出 MP4」「导出裸流」都是单流的（多流视频导出
+                // 不在 RTP5-UI-01 的菜单里），目的地也只有一个，所以两个列表各放一项。
+                // `paramSets` 故意不传：SDP 的那一路（KT-00 的 `SdpVideoParams.from`）在仓库里
+                // 还没有生产者（RTP3-NAT-04 的 `readRtpSetupInfo` 不存在），所以带内没有参数集的
+                // 流今天导不出 MP4 —— 那是 ViewModel 里说清楚过的失败，不是这里能绕过的。
+                onRtpExportVideo = { stream, format, destination, startAtKeyframe, dropCorrupt ->
+                    rtpViewModel.exportVideo(
                         streams = listOf(stream),
-                        destinations = listOf(
-                            rtpExportDestination(
-                                context = appContext,
-                                uri = uri,
-                                displayName = rtpWavFileName(stream)
-                            )
-                        ),
-                        timing = rtpPlayerState.timing
+                        format = format,
+                        destinations = listOf(destination),
+                        startAtKeyframe = startAtKeyframe,
+                        dropCorrupt = dropCorrupt
                     )
-                }
-            },
-            onRtpPlayerShareWav = {
-                rtpPlayerState.selectedStream?.let { stream ->
-                    rtpViewModel.shareWav(
-                        streams = listOf(stream),
-                        timing = rtpPlayerState.timing
-                    )
-                }
-            },
-            onRtpPlayerClearExportState = rtpViewModel::clearExportState,
-            voipCallsState = voipCallsState,
-            onVoipCallsLoad = { voipCallsViewModel.load() },
-            voipPlayback = voipPlayback,
-            onVoipPlayCall = { callId -> voipCallsViewModel.selectCall(callId) },
-            voipDualTrack = voipDualTrack,
-            voipPlayerPlaybackState = voipPlayerPlaybackState,
-            voipPlayerPositionMs = voipPlayerPositionMs,
-            voipPlayerMuteState = voipPlayerMuteState,
-            onVoipPlayerPlayPause = { voipCallsViewModel.playPause() },
-            onVoipPlayerSeek = { positionMs -> voipCallsViewModel.seekPlayer(positionMs) },
-            onVoipPlayerMute = { left, right -> voipCallsViewModel.setTrackMuted(left, right) },
-            onVoipClosePlayer = { voipCallsViewModel.closePlayback() },
-            rtpVideoExportState = rtpVideoExportState,
-            // 一次点击 = 一条流：卡片菜单的「导出 MP4」「导出裸流」都是单流的（多流视频导出
-            // 不在 RTP5-UI-01 的菜单里），目的地也只有一个，所以两个列表各放一项。
-            // `paramSets` 故意不传：SDP 的那一路（KT-00 的 `SdpVideoParams.from`）在仓库里
-            // 还没有生产者（RTP3-NAT-04 的 `readRtpSetupInfo` 不存在），所以带内没有参数集的
-            // 流今天导不出 MP4 —— 那是 ViewModel 里说清楚过的失败，不是这里能绕过的。
-            onRtpExportVideo = { stream, format, destination, startAtKeyframe, dropCorrupt ->
-                rtpViewModel.exportVideo(
-                    streams = listOf(stream),
-                    format = format,
-                    destinations = listOf(destination),
-                    startAtKeyframe = startAtKeyframe,
-                    dropCorrupt = dropCorrupt
-                )
-            },
-            onRtpClearVideoExportState = rtpViewModel::clearVideoExportState,
-            onRtpCancelVideoExport = rtpViewModel::cancelVideoExport,
-            onRtpCancelAudioExport = rtpViewModel::cancelAudioExport,
-            rtpVideoOpenState = rtpVideoOpenState,
-            // 「外部播放」用 ViewModel 的默认格式（裸流）：卡片只给这一个「打开」入口，
-            // KT-02 为它准备的正是 `video/h264` → `application/octet-stream` 的那条回退
-            // （`rtp_open_external_video_fallback`），而裸流那条路既不经过封装器也不需要
-            // 参数集，是最少前提条件的一条。要 MP4 的用户走「导出 MP4」。
-            onRtpOpenVideoExternal = { stream -> rtpViewModel.prepareExternalVideoOpen(stream) },
-            onRtpClearVideoOpenState = rtpViewModel::clearVideoOpenState,
-            rtpHevcDecoderAvailability = rtpHevcDecoderAvailability,
-            onRtpRefreshHevcDecoderAvailability = rtpViewModel::refreshHevcDecoderAvailability,
-            rtpVideoPreviewState = rtpVideoPreview,
-            rtpVideoPreviewAvailability = rtpVideoPreviewAvailability,
-            rtpVideoPreviewPlaybackState = rtpVideoPreviewPlaybackState,
-            rtpVideoPreviewPositionMs = rtpVideoPreviewPositionMs,
-            rtpVideoPreviewDurationMs = rtpVideoPreviewDurationMs,
-            onRtpVideoPreviewAvailable = rtpViewModel::refreshVideoPreviewAvailability,
-            onRtpOpenVideoPreview = rtpViewModel::openVideoPreview,
-            onRtpPrepareVideoPreview = rtpViewModel::prepareVideoPreview,
-            onRtpCloseVideoPreview = rtpViewModel::closeVideoPreview,
-            onRtpVideoPreviewPlayPause = {
-                if (rtpVideoPreviewPlaybackState == RtpPlayerState.Playing) {
-                    rtpViewModel.pauseVideoPreview()
-                } else {
-                    rtpViewModel.playVideoPreview()
-                }
-            },
-            onRtpVideoPreviewSeek = rtpViewModel::seekVideoPreview,
-            // 预览页的 Surface 只能走 ViewModel 这道门：控制器是它的构造参数，宿主拿不到。
-            onRtpAttachVideoPreviewSurface = rtpViewModel::attachVideoPreviewSurface,
-            onRtpDetachVideoPreviewSurface = rtpViewModel::detachVideoPreviewSurface
+                },
+                onRtpClearVideoExportState = rtpViewModel::clearVideoExportState,
+                onRtpCancelVideoExport = rtpViewModel::cancelVideoExport,
+                onRtpCancelAudioExport = rtpViewModel::cancelAudioExport,
+                rtpVideoOpenState = rtpVideoOpenState,
+                // 「外部播放」用 ViewModel 的默认格式（裸流）：卡片只给这一个「打开」入口，
+                // KT-02 为它准备的正是 `video/h264` → `application/octet-stream` 的那条回退
+                // （`rtp_open_external_video_fallback`），而裸流那条路既不经过封装器也不需要
+                // 参数集，是最少前提条件的一条。要 MP4 的用户走「导出 MP4」。
+                onRtpOpenVideoExternal = { stream -> rtpViewModel.prepareExternalVideoOpen(stream) },
+                onRtpClearVideoOpenState = rtpViewModel::clearVideoOpenState,
+                rtpHevcDecoderAvailability = rtpHevcDecoderAvailability,
+                onRtpRefreshHevcDecoderAvailability = rtpViewModel::refreshHevcDecoderAvailability,
+                rtpVideoPreviewState = rtpVideoPreview,
+                rtpVideoPreviewAvailability = rtpVideoPreviewAvailability,
+                rtpVideoPreviewPlaybackState = rtpVideoPreviewPlaybackState,
+                rtpVideoPreviewPositionMs = rtpVideoPreviewPositionMs,
+                rtpVideoPreviewDurationMs = rtpVideoPreviewDurationMs,
+                onRtpVideoPreviewAvailable = rtpViewModel::refreshVideoPreviewAvailability,
+                onRtpOpenVideoPreview = rtpViewModel::openVideoPreview,
+                onRtpPrepareVideoPreview = rtpViewModel::prepareVideoPreview,
+                onRtpCloseVideoPreview = rtpViewModel::closeVideoPreview,
+                onRtpVideoPreviewPlayPause = {
+                    if (rtpVideoPreviewPlaybackState == RtpPlayerState.Playing) {
+                        rtpViewModel.pauseVideoPreview()
+                    } else {
+                        rtpViewModel.playVideoPreview()
+                    }
+                },
+                onRtpVideoPreviewSeek = rtpViewModel::seekVideoPreview,
+                // 预览页的 Surface 只能走 ViewModel 这道门：控制器是它的构造参数，宿主拿不到。
+                onRtpAttachVideoPreviewSurface = rtpViewModel::attachVideoPreviewSurface,
+                onRtpDetachVideoPreviewSurface = rtpViewModel::detachVideoPreviewSurface,
+            ),
+            voip = PacketListVoipInputs(
+                voipCallsState = voipCallsState,
+                onVoipCallsLoad = { voipCallsViewModel.load() },
+                voipPlayback = voipPlayback,
+                onVoipPlayCall = { callId -> voipCallsViewModel.selectCall(callId) },
+                voipDualTrack = voipDualTrack,
+                voipPlayerPlaybackState = voipPlayerPlaybackState,
+                voipPlayerPositionMs = voipPlayerPositionMs,
+                voipPlayerMuteState = voipPlayerMuteState,
+                onVoipPlayerPlayPause = { voipCallsViewModel.playPause() },
+                onVoipPlayerSeek = { positionMs -> voipCallsViewModel.seekPlayer(positionMs) },
+                onVoipPlayerMute = { left, right -> voipCallsViewModel.setTrackMuted(left, right) },
+                onVoipClosePlayer = { voipCallsViewModel.closePlayback() },
+            ),
         )
     } else {
         BackHandler {
@@ -556,6 +608,7 @@ fun LayAnalyzerApp(
             followStream = followStream,
             isFollowingStream = isFollowingStream,
             packetBytesViewer = packetBytesViewer,
+            dataSourceState = dataSourceState,
             exportState = detailExportState,
             defaultTreeExpansionDepth = preferences.defaultTreeExpansionDepth,
             appliedFilter = displayFilterUiState.appliedExpression,
@@ -569,7 +622,15 @@ fun LayAnalyzerApp(
             workspaceNote = workspace?.notes?.firstOrNull { it.frameNumber == selectedPacket?.frameNumber }?.text.orEmpty(),
             isEvidence = selectedPacket?.frameNumber in (workspace?.evidenceFrames ?: emptySet()),
             onFieldSelected = { detailViewModel.selectField(it) },
+            onGoToFrame = detailViewModel::loadPacketDetail,
+            onSetReassemblyHighlighted = { selection, highlighted ->
+                detailViewModel.setReassemblyHighlighted(selection, highlighted, listViewModel::setPacketHighlights)
+            },
+            isResolvingReassembly = isResolvingReassembly,
+            actionMessage = detailActionMessage,
+            onClearActionMessage = detailViewModel::clearActionMessage,
             onShowPacketBytes = { detailViewModel.showPacketBytes(it) },
+            onSwitchDataSource = { detailViewModel.selectPacketDataSource(it) },
             onDismissPacketBytesViewer = { detailViewModel.dismissPacketBytesViewer() },
             onByteSelected = { detailViewModel.selectByte(it) },
             onByteRangeSelected = { detailViewModel.selectByteRange(it) },

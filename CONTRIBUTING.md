@@ -45,6 +45,8 @@ PR 请描述用户可见的变化、验证命令和结果，并说明是否影�
 更新 Gradle 运行依赖时，按 [运行依赖许可核对](docs/dependency-licenses.md) 重新导出实际
 `releaseRuntimeClasspath`，复核上游通知，并检查 APK 中的许可证全文和离线阅读入口。
 
+TLS 引擎使用[锁定的 Go 工具链](native_go/tlsbridge/REBUILD.md)。在 `native_go/tlsbridge/` 运行 `go test -count=1 ./...` 和 `go test -race -count=1 ./...`。Android 的 TLS ON/OFF 两种构建都应通过单测；生产 APK 不含调试探针。TLS 合成测试输入的来源见 [SOURCES.md](app/src/androidTest/assets/tls/SOURCES.md)，请勿提交实际抓包密钥、CA 私钥或用户流量。
+
 ## 测试数据
 
 `tools/golden_capture/generate_golden_captures.mjs` 生成 16 个确定性的协议场景、SHA-256 清单和期望值。地址使用 RFC 5737 文档地址，域名使用 `.invalid`，不包含真实通信记录。应用冒烟测试使用的 `app/src/main/assets/test.pcap` 是其中 `ims_call_success` 场景的副本，由同一脚本生成并校验。两个 AMR 夹具由 `gen_amr_rtp_fixture.py` 使用独立编码器和合成信号生成。
@@ -82,10 +84,10 @@ python tools/prepare_rtp_fixtures.py --check
 [native-sources.json](native_build/native-sources.json) 固定对应源码包和 SHA-256。先下载、校验，再解压到独立目录；包中已经应用 Android 源码修改，补丁也单独保留在 `native_build/patches/local-build/`，不要重复应用这些源码补丁。
 
 ```sh
-python tools/check_native_source_archive.py --archive /path/to/native-sources-wireshark-4.0.10-r2.tar.gz
+python tools/check_native_source_archive.py --archive /path/to/native-sources-wireshark-4.0.10-r3.tar.gz
 ```
 
-当前固定的 r2 归档需要另行应用 [构建兼容补丁](native_build/patches/rebuild/r2-build-compatibility.patch)：在每份独立解压目录的根目录执行 `patch -p1 < /path/to/LayerAnalyzer/native_build/patches/rebuild/r2-build-compatibility.patch`。它只修改构建脚本，修复 CMake 3.22.1 / NDK r27 下 x86_64 PCRE2 的策略错误、ARM64 c-ares 的 16 KB 链接参数，并避免已有 GLib 源码时重复下载。补丁哈希记录在源码清单的 `rebuildAdjustments` 中；不要把旧归档描述为已经包含这些修复。
+r3 归档已包含名称解析缓存修复和构建脚本兼容调整；`includedPatches` 记录其 SHA-256，不要重复应用。
 
 依赖 Linux/WSL2、Linux 版 NDK `27.0.12077973`、C/C++ 主机编译器、CMake `3.22.1`、Ninja、Meson、Make、pkg-config、Python，以及常见的 Autotools 工具。本次验证使用 Meson 1.10.0、Ninja 1.10.1、Make 4.3、GCC 11.4.0、Python 3.10.12、pkg-config 0.29.2。设置 `ANDROID_NDK_HOME` 指向 Linux NDK，并确认 `cmake --version` 使用上述版本。在解压目录中按以下顺序构建：
 
@@ -96,7 +98,7 @@ python tools/check_native_source_archive.py --archive /path/to/native-sources-wi
 
 两个 ABI 使用不同的输出目录：`native_build/output/` 和 `native_build/output_x86_64/`。建议为不同 ABI 分别解压一份源码，避免 Autotools 的原地配置互相影响。构建后将依赖清单中的 14 个库从对应 `lib/` 目录复制到应用的 `app/src/main/cpp/libs/<abi>/`。
 
-更新依赖时，必须同时核对对应源码、补丁、头文件、Wireshark 数据文件、两组 ABI 和校验清单，并检查每个动态库的所有 LOAD 段满足 16 KB 对齐。固定库与独立重建库的对应记录、编译配置差异及验证边界见 [原生来源与重建记录](docs/native-provenance.md)。双 ABI 已完成本地干净重建；完整重建尚未纳入 CI，也不承诺字节级重现。应用仍使用 `native-deps.json` 固定的 r1 库；独立候选通过验证后，需结合安全维护决定是否更换交付版本。
+更新依赖时，必须同时核对对应源码、补丁、头文件、Wireshark 数据文件、两组 ABI 和校验清单，并检查每个动态库的所有 LOAD 段满足 16 KB 对齐。固定库与独立重建库的对应记录、编译配置差异及验证边界见 [原生来源与重建记录](docs/native-provenance.md)。双 ABI 已完成本地干净重建；完整重建尚未纳入 CI，也不承诺字节级重现。应用使用 `native-deps.json` 固定的 r3 库。
 
 ## 固定字节与签名
 
@@ -115,7 +117,7 @@ python tools/check_native_source_archive.py --archive /path/to/native-sources-wi
 
 配置后运行 `assembleRelease`；分发渠道需要 AAB 时再运行 `bundleRelease`。GitHub Actions 的对应 Repository secrets 为 `RELEASE_KEYSTORE_BASE64`、`RELEASE_KEYSTORE_PASSWORD`、`RELEASE_KEY_ALIAS`、`RELEASE_KEY_PASSWORD`。普通 PR 的检查不读取签名 Secrets。
 
-当前打包继续使用 Wireshark 4.0.10 / r1 二进制及 r2 对应源码；升级和安全补丁回移不作为本次打包前置条件，已知问题保留在 [安全维护评估](docs/wireshark-security-maintenance.md)。维护者设置 Repository variable `ENABLE_APK_PACKAGING=true` 后，只有推送 `v*` tag、前置检查通过才会生成签名 APK 附件及 GitHub Release 草稿；`workflow_dispatch` 不执行 package。标签必须等于 `v` 加 APK 的 `versionName`，新版本递增 `versionCode`，并准备 `docs/releases/<tag>.md`。CI 额外运行 Release 单元测试、lint、版本/ABI/不可调试检查、正式证书与 v2 签名验证、APK 16 KB ZIP 对齐检查。自动发布只生成 APK 和 SHA256SUMS；商店需要 AAB 时另外执行本地 `bundleRelease`。
+当前打包继续使用 Wireshark 4.0.10 / r3 二进制及其对应源码；升级和安全补丁回移不作为本次打包前置条件，已知问题保留在 [安全维护评估](docs/wireshark-security-maintenance.md)。维护者设置 Repository variable `ENABLE_APK_PACKAGING=true` 后，只有推送 `v*` tag、前置检查通过才会生成签名 APK 附件及 GitHub Release 草稿；`workflow_dispatch` 不执行 package。标签必须等于 `v` 加 APK 的 `versionName`，新版本递增 `versionCode`，并准备 `docs/releases/<tag>.md`。CI 额外运行 Release 单元测试、lint、版本/ABI/不可调试检查、正式证书与 v2 签名验证、APK 16 KB ZIP 对齐检查。自动发布只生成 APK 和 SHA256SUMS；商店需要 AAB 时另外执行本地 `bundleRelease`。
 
 发布附件仅为 `LayerAnalyzer-<架构>-<版本>.apk` 和 `SHA256SUMS`，从同一 staging 目录生成、校验和上传；例如 `LayerAnalyzer-arm64-v8a-1.0.0.apk`。源码、原生对应源码、构建与许可材料通过 Release 说明中的固定提交/版本链接提供，许可证全文仍随 APK 打包。实际依赖清单仅用于构建校验，不上传源码包、SBOM 或额外清单。详见 [发布附件流程](docs/release-packaging.md)。独立 `release-draft` job 从同次运行的 artifact 创建草稿，核对远端附件集合和哈希；仅该 job 拥有 `contents: write`，不读取签名 Secrets。工作流不会发布 Release，也不覆盖已发布附件。下载本次 CI APK 完成设备验收并记录结果后，再手工发布草稿。正式证书公开指纹固定在 `tools/release-signing-certificate.sha256`；私钥应与本地正式版相同。原生 ZIP 与源码包使用固定 tag 和 SHA-256；更新时创建新版本，不覆盖已经发布的文件。
 

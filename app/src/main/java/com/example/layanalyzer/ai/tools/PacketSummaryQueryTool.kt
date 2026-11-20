@@ -35,6 +35,7 @@ class PacketSummaryQueryTool(
 
     override val definition = AgentToolDefinition(
         name = "query_packet_summaries",
+        version = "2",
         description = "List packet-list rows (frame number, time, addresses, ports, protocol, " +
             "length, info) for the frames matching an optional display filter. " +
             "Use this to find candidate frames before reading any of them in detail.",
@@ -96,7 +97,11 @@ class PacketSummaryQueryTool(
             value.offset.toLong() + entries.size < value.total.toLong()
 
         val data = mapOf(
-            "packets" to entries.map(AgentPacketSummaryEntry::toAgentJson),
+            "packets" to entries.map { entry ->
+                entry.toAgentJson() + if (value.infoMayContainDecryptedContent) {
+                    mapOf("infoMayContainDecryptedContent" to true)
+                } else emptyMap()
+            },
             "filter" to filter,
             "sort" to sort.wireName,
             "offset" to value.offset,

@@ -1,0 +1,714 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "tls-routing-policy-v1",
+  "description": [
+    "Shared TLS-208 fixture. Kotlin reads 'rules' (normalization), each policy's",
+    "'settings'/'allowedApplications'/'frozen'/'prefilter', and asserts that its",
+    "own normalizer and frozen encoding reproduce them exactly. Go reads 'rules'",
+    "(canonical form is accepted, everything else is rejected) and each policy's",
+    "'frozen'/'connections', and asserts that the sole decision maker produces the",
+    "recorded class, reason and identity. Neither side re-implements the other's",
+    "rule: Kotlin never decides, and Go never normalizes."
+  ],
+  "rules": [
+    {"input": "example.test", "kind": "exactDomain", "value": "example.test", "canonical": true},
+    {"input": "badexample.test", "kind": "exactDomain", "value": "badexample.test", "canonical": true},
+    {"input": "xn--bcher-kva.example", "kind": "exactDomain", "value": "xn--bcher-kva.example", "canonical": true},
+    {"input": "*.example.test", "kind": "subdomains", "value": "example.test", "canonical": true},
+    {"input": "*.bypass.example.test", "kind": "subdomains", "value": "bypass.example.test", "canonical": true},
+    {"input": "192.0.2.1", "kind": "exactIp", "value": "192.0.2.1", "canonical": true},
+    {"input": "2001:db8:0:0:0:0:0:1", "kind": "exactIp", "value": "2001:db8:0:0:0:0:0:1", "canonical": true},
+    {"input": "Example.TEST.", "kind": "exactDomain", "value": "example.test", "canonical": false},
+    {"input": "example.test.", "kind": "exactDomain", "value": "example.test", "canonical": false},
+    {"input": "*.Example.test.", "kind": "subdomains", "value": "example.test", "canonical": false},
+    {"input": "bücher.example", "kind": "exactDomain", "value": "xn--bcher-kva.example", "canonical": false},
+    {"input": "BÜCHER.Example.", "kind": "exactDomain", "value": "xn--bcher-kva.example", "canonical": false},
+    {"input": "例え.test", "kind": "exactDomain", "value": "xn--r8jz45g.test", "canonical": false},
+    {"input": "日本.example", "kind": "exactDomain", "value": "xn--wgv71a.example", "canonical": false},
+    {"input": "faß.de", "kind": "exactDomain", "value": "fass.de", "canonical": false},
+    {"input": "straße.de", "kind": "exactDomain", "value": "strasse.de", "canonical": false},
+    {"input": "2001:0DB8::1", "kind": "exactIp", "value": "2001:db8:0:0:0:0:0:1", "canonical": false},
+    {"input": "::1", "kind": "exactIp", "value": "0:0:0:0:0:0:0:1", "canonical": false},
+    {"input": "::ffff:192.0.2.1", "kind": "exactIp", "value": "0:0:0:0:0:ffff:c000:201", "canonical": false},
+    {"input": "192.0.2.1.", "kind": null, "value": null, "canonical": false},
+    {"input": "192.0.2.1:443", "kind": null, "value": null, "canonical": false},
+    {"input": "example.test:443", "kind": null, "value": null, "canonical": false},
+    {"input": "*.192.0.2.1", "kind": null, "value": null, "canonical": false},
+    {"input": "*.2001:db8::1", "kind": null, "value": null, "canonical": false},
+    {"input": "example.*", "kind": null, "value": null, "canonical": false},
+    {"input": "*", "kind": null, "value": null, "canonical": false},
+    {"input": "*.*.example.test", "kind": null, "value": null, "canonical": false},
+    {"input": "https://example.test", "kind": null, "value": null, "canonical": false},
+    {"input": "example/test", "kind": null, "value": null, "canonical": false},
+    {"input": "[2001:db8::1]:443", "kind": null, "value": null, "canonical": false},
+    {"input": "[::1]", "kind": null, "value": null, "canonical": false},
+    {"input": "fe80::1%wlan0", "kind": null, "value": null, "canonical": false},
+    {"input": "example..test", "kind": null, "value": null, "canonical": false},
+    {"input": "example.test..", "kind": null, "value": null, "canonical": false},
+    {"input": " example.test", "kind": null, "value": null, "canonical": false},
+    {"input": "example.test ", "kind": null, "value": null, "canonical": false},
+    {"input": "ex_ample.test", "kind": null, "value": null, "canonical": false},
+    {"input": "-leading.test", "kind": null, "value": null, "canonical": false},
+    {"input": "trailing-.test", "kind": null, "value": null, "canonical": false},
+    {"input": "", "kind": null, "value": null, "canonical": false},
+    {"input": ".", "kind": null, "value": null, "canonical": false},
+    {"input": "1.2.3", "kind": null, "value": null, "canonical": false},
+    {"input": "256.0.2.1", "kind": null, "value": null, "canonical": false},
+    {"input": "192.00.2.1", "kind": null, "value": null, "canonical": false},
+    {"input": "::gggg", "kind": null, "value": null, "canonical": false},
+    {"input": "1::2::3", "kind": null, "value": null, "canonical": false},
+    {"input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.test", "kind": null, "value": null, "canonical": false}
+  ],
+  "policies": [
+    {
+      "id": "disabled-with-rules",
+      "description": "Interception off. The rules are still frozen, and still decide nothing.",
+      "allowedApplications": [],
+      "settings": {
+        "schemaVersion": 1,
+        "enabled": false,
+        "candidatePorts": [443],
+        "hostScope": "ExplicitHosts",
+        "includeHosts": ["api.example.test"],
+        "bypassHosts": [],
+        "quicPolicy": "Preserve",
+        "retainSecrets": true
+      },
+      "frozen": {
+        "schemaVersion": 1,
+        "enabled": false,
+        "hostScope": "ExplicitHosts",
+        "candidatePorts": [443],
+        "include": [{"kind": "exactDomain", "value": "api.example.test"}],
+        "bypass": [],
+        "applications": []
+      },
+      "prefilter": [
+        {"port": 443, "application": "", "expect": "disabled"},
+        {"port": 8443, "application": "", "expect": "disabled"}
+      ],
+      "connections": [
+        {
+          "id": "named-host-is-still-not-intercepted",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "api.example.test",
+          "expect": {"class": "out_of_scope", "reason": "disabled", "identity": "", "identityKind": "", "code": "OK"}
+        }
+      ]
+    },
+    {
+      "id": "explicit-empty-include",
+      "description": "Explicit scope with an empty include list decrypts no domain, while an explicit bypass still applies.",
+      "allowedApplications": [],
+      "settings": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "candidatePorts": [443],
+        "hostScope": "ExplicitHosts",
+        "includeHosts": [],
+        "bypassHosts": ["blocked.example.test"],
+        "quicPolicy": "Preserve",
+        "retainSecrets": true
+      },
+      "frozen": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "hostScope": "ExplicitHosts",
+        "candidatePorts": [443],
+        "include": [],
+        "bypass": [{"kind": "exactDomain", "value": "blocked.example.test"}],
+        "applications": []
+      },
+      "prefilter": [
+        {"port": 443, "application": "", "expect": "candidate"},
+        {"port": 80, "application": "", "expect": "port_not_candidate"}
+      ],
+      "connections": [
+        {
+          "id": "empty-include-matches-nothing",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "example.test",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "explicit-bypass-wins-over-an-empty-include",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "blocked.example.test",
+          "expect": {"class": "bypassed", "reason": "bypass_rule", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "not-tls-stays-a-protocol-result",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "not_tls",
+          "probeReason": "malformed_client_hello",
+          "sni": "",
+          "expect": {"class": "not_tls", "reason": "malformed_client_hello", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "unsupported-stays-separate-from-not-tls",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "unsupported",
+          "probeReason": "no_supported_version",
+          "sni": "example.test",
+          "expect": {"class": "unsupported", "reason": "no_supported_version", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "undecided-probe-is-not-a-failure",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "incomplete",
+          "probeReason": "probe_timeout",
+          "sni": "",
+          "expect": {"class": "undecided", "reason": "probe_timeout", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "candidate-port-is-checked-before-the-probe-result",
+          "destination": "198.51.100.7",
+          "port": 8443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "blocked.example.test",
+          "expect": {"class": "out_of_scope", "reason": "port_not_candidate", "identity": "", "identityKind": "", "code": "OK"}
+        }
+      ]
+    },
+    {
+      "id": "explicit-rules",
+      "description": "Exact name, subdomain wildcard, root name, bad suffix, IDNA-normalized name, IP target, explicit bypass and conflicting rules.",
+      "allowedApplications": [],
+      "settings": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "candidatePorts": [8443, 443],
+        "hostScope": "ExplicitHosts",
+        "includeHosts": ["checkout.example.test", "*.example.test", "192.0.2.1"],
+        "bypassHosts": ["api.example.test", "*.blocked.test"],
+        "quicPolicy": "Preserve",
+        "retainSecrets": true
+      },
+      "frozen": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "hostScope": "ExplicitHosts",
+        "candidatePorts": [443, 8443],
+        "include": [
+          {"kind": "exactDomain", "value": "checkout.example.test"},
+          {"kind": "subdomains", "value": "example.test"},
+          {"kind": "exactIp", "value": "192.0.2.1"}
+        ],
+        "bypass": [
+          {"kind": "exactDomain", "value": "api.example.test"},
+          {"kind": "subdomains", "value": "blocked.test"}
+        ],
+        "applications": []
+      },
+      "prefilter": [
+        {"port": 443, "application": "", "expect": "candidate"},
+        {"port": 8443, "application": "", "expect": "candidate"},
+        {"port": 80, "application": "com.example.fixture.app", "expect": "port_not_candidate"}
+      ],
+      "connections": [
+        {
+          "id": "exact-name",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "checkout.example.test",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "checkout.example.test", "identityKind": "domain", "code": "OK"}
+        },
+        {
+          "id": "subdomain-of-a-wildcard",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "www.example.test",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "www.example.test", "identityKind": "domain", "code": "OK"}
+        },
+        {
+          "id": "multi-label-subdomain",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "a.b.example.test",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "a.b.example.test", "identityKind": "domain", "code": "OK"}
+        },
+        {
+          "id": "wildcard-does-not-match-the-root-name",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "example.test",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "wildcard-does-not-match-a-bad-suffix",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "badexample.test",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "wildcard-does-not-match-a-longer-name",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "checkout.example.test.evil",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "explicit-bypass-beats-an-included-wildcard",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "api.example.test",
+          "expect": {"class": "bypassed", "reason": "bypass_rule", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "bypass-wildcard-subdomain",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "x.blocked.test",
+          "expect": {"class": "bypassed", "reason": "bypass_rule", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "bypass-wildcard-does-not-match-its-root",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "blocked.test",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "sni-is-lower-cased-and-one-trailing-dot-removed",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "CHECKOUT.Example.TEST.",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "checkout.example.test", "identityKind": "domain", "code": "OK"}
+        },
+        {
+          "id": "no-sni-uses-the-destination-address",
+          "destination": "192.0.2.1",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "192.0.2.1", "identityKind": "ip", "code": "OK"}
+        },
+        {
+          "id": "no-sni-and-no-address-rule",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "an-asserted-name-is-the-identity-not-the-destination",
+          "destination": "192.0.2.1",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "example.test",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "an-address-in-sni-is-not-a-name",
+          "destination": "192.0.2.1",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "1.2.3.4",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "192.0.2.1", "identityKind": "ip", "code": "OK"}
+        },
+        {
+          "id": "an-unusable-name-is-not-a-name",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "bad name.example",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "an-unusable-name-falls-back-to-an-address-rule",
+          "destination": "192.0.2.1",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "bad name.example",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "192.0.2.1", "identityKind": "ip", "code": "OK"}
+        },
+        {
+          "id": "alternate-candidate-port-is-intercepted-too",
+          "destination": "198.51.100.7",
+          "port": 8443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "www.example.test",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "www.example.test", "identityKind": "domain", "code": "OK"}
+        }
+      ]
+    },
+    {
+      "id": "selected-applications",
+      "description": "The application scope never forges an identity: a missing, blank, UID-like or unlisted application is not a match.",
+      "allowedApplications": ["com.example.fixture.other", "com.example.fixture.app"],
+      "settings": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "candidatePorts": [443, 8443],
+        "hostScope": "SelectedApplicationsCandidates",
+        "includeHosts": [],
+        "bypassHosts": ["blocked.example.test"],
+        "quicPolicy": "Preserve",
+        "retainSecrets": true
+      },
+      "frozen": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "hostScope": "SelectedApplicationsCandidates",
+        "candidatePorts": [443, 8443],
+        "include": [],
+        "bypass": [{"kind": "exactDomain", "value": "blocked.example.test"}],
+        "applications": ["com.example.fixture.app", "com.example.fixture.other"]
+      },
+      "prefilter": [
+        {"port": 443, "application": "com.example.fixture.app", "expect": "candidate"},
+        {"port": 8443, "application": "com.example.fixture.other", "expect": "candidate"},
+        {"port": 443, "application": "com.example.fixture.missing", "expect": "application_not_selected"},
+        {"port": 443, "application": "com.example.fixture.app.extra", "expect": "application_not_selected"},
+        {"port": 443, "application": "10142", "expect": "application_not_selected"},
+        {"port": 443, "application": "", "expect": "application_not_selected"},
+        {"port": 443, "application": null, "expect": "application_not_selected"}
+      ],
+      "connections": [
+        {
+          "id": "selected-application-with-a-name",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "com.example.fixture.app",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "shop.example.test",
+          "expect": {"class": "intercepted", "reason": "selected_application", "identity": "shop.example.test", "identityKind": "domain", "code": "OK"}
+        },
+        {
+          "id": "selected-application-without-a-name",
+          "destination": "198.51.100.7",
+          "port": 8443,
+          "application": "com.example.fixture.other",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "",
+          "expect": {"class": "intercepted", "reason": "selected_application", "identity": "198.51.100.7", "identityKind": "ip", "code": "OK"}
+        },
+        {
+          "id": "unlisted-application-is-not-decrypted",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "com.example.fixture.missing",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "shop.example.test",
+          "expect": {"class": "out_of_scope", "reason": "application_not_selected", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "a-uid-is-not-an-application",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "10142",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "",
+          "expect": {"class": "out_of_scope", "reason": "application_not_selected", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "an-unknown-application-is-not-every-application",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "shop.example.test",
+          "expect": {"class": "out_of_scope", "reason": "application_not_selected", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "explicit-bypass-still-applies-inside-the-application-scope",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "com.example.fixture.app",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "blocked.example.test",
+          "expect": {"class": "bypassed", "reason": "bypass_rule", "identity": "", "identityKind": "", "code": "OK"}
+        }
+      ]
+    },
+    {
+      "id": "selected-applications-with-include",
+      "description": "An include list in the application scope narrows it; the two mechanisms never add up to something broader than either.",
+      "allowedApplications": ["com.example.fixture.app"],
+      "settings": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "candidatePorts": [443],
+        "hostScope": "SelectedApplicationsCandidates",
+        "includeHosts": ["allowed.example.test"],
+        "bypassHosts": [],
+        "quicPolicy": "Preserve",
+        "retainSecrets": true
+      },
+      "frozen": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "hostScope": "SelectedApplicationsCandidates",
+        "candidatePorts": [443],
+        "include": [{"kind": "exactDomain", "value": "allowed.example.test"}],
+        "bypass": [],
+        "applications": ["com.example.fixture.app"]
+      },
+      "prefilter": [
+        {"port": 443, "application": "com.example.fixture.app", "expect": "candidate"}
+      ],
+      "connections": [
+        {
+          "id": "selected-application-and-included-name",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "com.example.fixture.app",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "allowed.example.test",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "allowed.example.test", "identityKind": "domain", "code": "OK"}
+        },
+        {
+          "id": "selected-application-but-name-not-included",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "com.example.fixture.app",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "other.example.test",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        }
+      ]
+    },
+    {
+      "id": "ipv6-targets",
+      "description": "IPv6 rules and identities are matched by address value, so the frozen spelling and the identity spelling never have to agree.",
+      "allowedApplications": [],
+      "settings": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "candidatePorts": [443],
+        "hostScope": "ExplicitHosts",
+        "includeHosts": ["2001:db8::1"],
+        "bypassHosts": [],
+        "quicPolicy": "Preserve",
+        "retainSecrets": true
+      },
+      "frozen": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "hostScope": "ExplicitHosts",
+        "candidatePorts": [443],
+        "include": [{"kind": "exactIp", "value": "2001:db8:0:0:0:0:0:1"}],
+        "bypass": [],
+        "applications": []
+      },
+      "prefilter": [
+        {"port": 443, "application": "", "expect": "candidate"}
+      ],
+      "connections": [
+        {
+          "id": "ipv6-address-rule",
+          "destination": "2001:db8::1",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "",
+          "expect": {"class": "intercepted", "reason": "included_host", "identity": "2001:db8::1", "identityKind": "ip", "code": "OK"}
+        },
+        {
+          "id": "another-ipv6-address-does-not-match",
+          "destination": "2001:db8::2",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        },
+        {
+          "id": "an-address-rule-does-not-match-an-asserted-name",
+          "destination": "2001:db8::1",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "www.example.test",
+          "expect": {"class": "out_of_scope", "reason": "no_include_match", "identity": "", "identityKind": "", "code": "OK"}
+        }
+      ]
+    },
+    {
+      "id": "malformed-input",
+      "description": "Cases the decision maker must refuse rather than guess about. Kotlin has no equivalent: it never decides.",
+      "allowedApplications": [],
+      "settings": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "candidatePorts": [443],
+        "hostScope": "ExplicitHosts",
+        "includeHosts": ["*.example.test"],
+        "bypassHosts": [],
+        "quicPolicy": "Preserve",
+        "retainSecrets": true
+      },
+      "frozen": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "hostScope": "ExplicitHosts",
+        "candidatePorts": [443],
+        "include": [{"kind": "subdomains", "value": "example.test"}],
+        "bypass": [],
+        "applications": []
+      },
+      "prefilter": [],
+      "connections": [
+        {
+          "id": "unspecified-destination",
+          "destination": "0.0.0.0",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "www.example.test",
+          "expect": {"class": "invalid", "reason": "", "identity": "", "identityKind": "", "code": "INVALID_ARGUMENT"}
+        },
+        {
+          "id": "zoned-destination",
+          "destination": "fe80::1%wlan0",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "www.example.test",
+          "expect": {"class": "invalid", "reason": "", "identity": "", "identityKind": "", "code": "INVALID_ARGUMENT"}
+        },
+        {
+          "id": "probe-contract-violated-by-a-reason-on-client-hello",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "probe_timeout",
+          "sni": "www.example.test",
+          "expect": {"class": "invalid", "reason": "", "identity": "", "identityKind": "", "code": "INVALID_ARGUMENT"}
+        },
+        {
+          "id": "probe-contract-violated-by-a-missing-reason",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "not_tls",
+          "probeReason": "",
+          "sni": "",
+          "expect": {"class": "invalid", "reason": "", "identity": "", "identityKind": "", "code": "INVALID_ARGUMENT"}
+        }
+      ]
+    },
+    {
+      "id": "rejected-settings",
+      "description": "Settings Kotlin refuses to freeze as a whole; the policy silently becomes the disabled default rather than dropping only the bad rule.",
+      "allowedApplications": [],
+      "expectIssues": [
+        {"code": "INVALID_HOST_RULE", "field": "bypassHosts", "index": 0}
+      ],
+      "settings": {
+        "schemaVersion": 1,
+        "enabled": true,
+        "candidatePorts": [443],
+        "hostScope": "ExplicitHosts",
+        "includeHosts": ["*.example.test"],
+        "bypassHosts": ["private-host:443"],
+        "quicPolicy": "Preserve",
+        "retainSecrets": true
+      },
+      "frozen": {
+        "schemaVersion": 1,
+        "enabled": false,
+        "hostScope": "ExplicitHosts",
+        "candidatePorts": [443],
+        "include": [],
+        "bypass": [],
+        "applications": []
+      },
+      "prefilter": [
+        {"port": 443, "application": "", "expect": "disabled"}
+      ],
+      "connections": [
+        {
+          "id": "nothing-is-intercepted-after-a-rejected-configuration",
+          "destination": "198.51.100.7",
+          "port": 443,
+          "application": "",
+          "verdict": "client_hello",
+          "probeReason": "",
+          "sni": "www.example.test",
+          "expect": {"class": "out_of_scope", "reason": "disabled", "identity": "", "identityKind": "", "code": "OK"}
+        }
+      ]
+    }
+  ]
+}

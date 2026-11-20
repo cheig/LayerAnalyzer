@@ -12,6 +12,7 @@
 #include "layanalyzer/rtp/RtpMediaSnapshot.h"
 #include "layanalyzer/rtp/RtpScanSnapshot.h"
 #include "layanalyzer/rtp/core/RtpPayloadOverrides.h"
+#include "layanalyzer/tls/TlsDataSources.h"
 
 using layanalyzer::rtp::RtpMediaSnapshot;
 using layanalyzer::rtp::RtpPayloadOverrides;
@@ -30,6 +31,15 @@ struct CachedPacketSummary {
 };
 
 struct WiresharkSession {
+  // Wireshark 4.0 has one process-wide file scope. Held through final epan
+  // destruction, including sessions already detached from the registry.
+  bool owns_file_scope = false;
+  std::atomic<uint64_t> dissection_generation{0};
+  // Configuration writes hold RuntimeExclusiveGuard; never log this path.
+  uint64_t tls_secrets_generation = 0;
+  std::string tls_keylog_path;
+  // Protected by dissect_mutex (or drained RuntimeExclusiveGuard).
+  layanalyzer::tls::PacketDataSnapshots data_snapshots;
   wtap *wth = nullptr;                // Wiretap handle
   // Set by closeFile before the handle is removed from the registry.
   // Active long operations retain a shared_ptr, so this is their signal
@@ -54,6 +64,18 @@ struct WiresharkSession {
   // Accessed only from dissect_frame_internal and invalidate_summary_cache,
   // both of which honour the dissect_mutex contract documented below.
   std::vector<uint8_t> dissected_frames;
+  // One persistent frame_data per frame, created the first time that frame is
+  // dissected -- Wireshark's own cf->frames. frame_data owns `pfd`, the
+  // file-scope protocol data dissectors hang off the frame, and the TLS
+  // dissector caches each decrypted record there so that later passes can show
+  // the plaintext without a decoder (packet-tls.c skips decryption once
+  // `visited` is set, to keep the cipher stream in step; ssl_get_record_info
+  // says outright that the cache exists "to avoid the need for a decoder in the
+  // second pass"). A frame_data rebuilt per call drops all of that, which is
+  // why decrypted content used to survive only the first pass over each frame.
+  // Entries are allocated lazily so a large capture pays for the frames that
+  // were actually dissected, not for its frame count.
+  std::vector<std::unique_ptr<frame_data>> frame_data_store;
   // Sparse, bounded cache: allocating one CachedPacketSummary per frame made
   // a million-frame capture consume hundreds of MB before the first page.
   std::unordered_map<int, CachedPacketSummary> summary_cache;
@@ -108,21 +130,12 @@ struct WiresharkSession {
   std::condition_variable interactive_cv;
   mutable std::shared_mutex state_mutex;
 
-  ~WiresharkSession() {
-    for (export_object_entry_t *entry : http_objects) {
-      eo_free_entry(entry);
-    }
-    http_objects.clear();
-    if (epan) {
-      epan_free(epan);
-      epan = nullptr;
-    }
-    if (wth) {
-      wtap_close(wth);
-      wth = nullptr;
-    }
-  }
+  ~WiresharkSession();
 };
+
+// Called by openFile while holding an engine activity, before epan_new.
+// Refuses a second file even while the previous handle's last lease drains.
+bool acquire_session_file_scope(WiresharkSession* session);
 
 class InteractiveReadGuard {
  public:
@@ -131,8 +144,10 @@ class InteractiveReadGuard {
   }
 
   ~InteractiveReadGuard() {
-    session_->interactive_reads.fetch_sub(1, std::memory_order_acq_rel);
-    session_->interactive_cv.notify_all();
+    if (session_->interactive_reads.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+      std::lock_guard<std::mutex> lock(session_->interactive_mutex);
+      session_->interactive_cv.notify_all();
+    }
   }
 
   InteractiveReadGuard(const InteractiveReadGuard &) = delete;
@@ -179,6 +194,9 @@ class SessionLease {
   void release() {
     if (!counted_) return;
     counted_ = false;
+    // A detached session must finish epan_free/TLS cleanup BEFORE a waiting
+    // exclusive guard sees zero users (shared_ptr members die after the body).
+    session_.reset();
     {
       std::lock_guard<std::mutex> lock(g_lease_mutex);
       if (g_active_session_leases > 0) --g_active_session_leases;
@@ -205,6 +223,10 @@ class RuntimeExclusiveGuard {
     std::unique_lock<std::mutex> lease_lock(g_lease_mutex);
     g_lease_cv.wait(lease_lock,
                     [] { return g_active_session_leases == 0; });
+    // acquire_session takes registry -> lease. Do not invert that order here:
+    // an arriving cancel/read may hold the registry while checking shutdown.
+    // Shutdown remains true under runtime_lock_, so no new lease can start.
+    lease_lock.unlock();
     // Acquire the registry only after all activities have drained. Taking it
     // first would deadlock with openFile's final publication step: openFile
     // still owns an activity lease while waiting to publish its Session.
@@ -249,7 +271,10 @@ struct FrameRead {
 struct DissectedFrame {
   wtap_rec rec;
   Buffer buf;
-  frame_data fd;
+  // Borrowed from WiresharkSession::frame_data_store, which owns it for the
+  // capture's lifetime. Never owned here: frame_data holds the frame's
+  // file-scope proto data and has to outlive a single dissection call.
+  frame_data *fd = nullptr;
   column_info cinfo;
   epan_dissect_t *edt = nullptr;
   bool has_columns = false;
@@ -257,7 +282,6 @@ struct DissectedFrame {
   DissectedFrame() {
     wtap_rec_init(&rec);
     ws_buffer_init(&buf, 1500);
-    memset(&fd, 0, sizeof(frame_data));
     memset(&cinfo, 0, sizeof(column_info));
   }
 
@@ -294,7 +318,8 @@ void invalidate_scoped_query_cache(WiresharkSession *session);
 //
 // Must be called inside a RuntimeExclusiveGuard: it frees file-scope memory no
 // session may still be dissecting against.
-void reset_dissection_state();
+// Advances dissection_generation only after a successful epan rebuild.
+bool reset_dissection_state();
 bool load_cached_packet_summary(WiresharkSession *session, int frameIdx,
                                 CachedPacketSummary &summary,
                                 bool record_stats = true);
@@ -311,6 +336,9 @@ int visible_frame_count(WiresharkSession *session);
 std::vector<int> snapshot_visible_frames(WiresharkSession *session);
 int visible_frame_at(WiresharkSession *session, int visibleIndex);
 
+// Clear display summaries without resetting Wireshark's first-pass state.
+void clear_cached_packet_summaries(WiresharkSession *session);
+
 /**
  * The one dissection entry used by every read path. Callers that need
  * serialized access must already hold session->dissect_mutex; dissect_frame
@@ -318,6 +346,13 @@ int visible_frame_at(WiresharkSession *session, int visibleIndex);
  */
 bool dissect_frame(WiresharkSession *session, int frameIdx,
                    bool createTree, bool setupColumns,
+                   dfilter_t *primeFilter, DissectedFrame &out,
+                   int *errOut = nullptr, gchar **errInfoOut = nullptr);
+
+// Only primed filter paths may hide the tree; field readers and taps need
+// visible trees so dissectors populate their display fields and labels.
+bool dissect_frame(WiresharkSession *session, int frameIdx,
+                   bool createTree, bool treeVisible, bool setupColumns,
                    dfilter_t *primeFilter, DissectedFrame &out,
                    int *errOut = nullptr, gchar **errInfoOut = nullptr);
 

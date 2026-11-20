@@ -15,6 +15,8 @@ WIRESHARK_VER="4.0.10"
 SRC_DIR="$EXTERNAL_DIR/wireshark-$WIRESHARK_VER"
 BUILD_DIR="$SRC_DIR/build-android-x86_64"
 
+python3 "$SCRIPT_DIR/apply_wireshark_scope_patch.py" --source "$SRC_DIR"
+
 echo "===== 任务4: Wireshark 核心库编译 (x86_64) ====="
 echo "INSTALL_DIR: $INSTALL_DIR"
 echo ""

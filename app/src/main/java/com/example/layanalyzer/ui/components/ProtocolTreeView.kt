@@ -25,9 +25,13 @@ import androidx.compose.material.icons.filled.DataArray
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Highlight
+import androidx.compose.material.icons.filled.HighlightOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.example.layanalyzer.R
 import com.example.layanalyzer.model.ProtocolNode
+import com.example.layanalyzer.model.PacketReassembly
 
 @Immutable
 private data class VisibleProtocolNode(
@@ -65,8 +70,12 @@ fun ProtocolTreeView(
     defaultExpansionDepth: Int = 1,
     onFieldSelected: (ProtocolNode) -> Unit,
     onApplyFieldAsFilter: (String) -> Unit,
-    onShowPacketBytes: (ProtocolNode) -> Unit = {}
+    onShowPacketBytes: (ProtocolNode) -> Unit = {},
+    onGoToFrame: (Long) -> Unit = {},
+    onSetReassemblyHighlighted: (PacketReassembly, Boolean) -> Unit = { _, _ -> },
+    isResolvingReassembly: Boolean = false
 ) {
+    val reassemblyActions = remember(root) { PacketReassembly.actions(root) }
     val expanded = remember(root, defaultExpansionDepth) {
         mutableStateMapOf<String, Boolean>().apply {
             fun seed(node: ProtocolNode, id: String, level: Int): Boolean {
@@ -109,7 +118,11 @@ fun ProtocolTreeView(
                 },
                 onSelect = { onFieldSelected(visible.node) },
                 onApplyFieldAsFilter = onApplyFieldAsFilter,
-                onShowPacketBytes = onShowPacketBytes
+                onShowPacketBytes = onShowPacketBytes,
+                onGoToFrame = onGoToFrame,
+                reassembly = reassemblyActions[visible.id],
+                onSetReassemblyHighlighted = onSetReassemblyHighlighted,
+                isResolvingReassembly = isResolvingReassembly
             )
         }
     }
@@ -124,7 +137,11 @@ private fun ProtocolTreeRow(
     onToggle: () -> Unit,
     onSelect: () -> Unit,
     onApplyFieldAsFilter: (String) -> Unit,
-    onShowPacketBytes: (ProtocolNode) -> Unit = {}
+    onShowPacketBytes: (ProtocolNode) -> Unit,
+    onGoToFrame: (Long) -> Unit,
+    reassembly: PacketReassembly?,
+    onSetReassemblyHighlighted: (PacketReassembly, Boolean) -> Unit,
+    isResolvingReassembly: Boolean
 ) {
     val node = item.node
     val isExceptional = node.severity.equals("error", true) || node.severity.equals("warn", true)
@@ -187,6 +204,23 @@ private fun ProtocolTreeRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            node.referencedFrame?.let { frame ->
+                IconButton(onClick = { onGoToFrame(frame) }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = stringResource(R.string.go_to_referenced_frame, frame),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            if (reassembly != null && node.referencedFrame == null && PacketReassembly.fromNode(node) != null) {
+                IconButton(
+                    onClick = { onSetReassemblyHighlighted(reassembly, true) },
+                    enabled = !isResolvingReassembly
+                ) {
+                    Icon(Icons.Default.Highlight, contentDescription = stringResource(R.string.highlight_reassembly))
+                }
+            }
         }
         if (contextMenuExpanded) {
             val clipboard = LocalClipboardManager.current
@@ -196,6 +230,36 @@ private fun ProtocolTreeRow(
                 expanded = true,
                 onDismissRequest = { contextMenuExpanded = false }
             ) {
+                node.referencedFrame?.let { frame ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.go_to_referenced_frame, frame)) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
+                        onClick = {
+                            contextMenuExpanded = false
+                            onGoToFrame(frame)
+                        }
+                    )
+                }
+                if (reassembly != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.highlight_reassembly)) },
+                        leadingIcon = { Icon(Icons.Default.Highlight, contentDescription = null) },
+                        enabled = !isResolvingReassembly,
+                        onClick = {
+                            contextMenuExpanded = false
+                            onSetReassemblyHighlighted(reassembly, true)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.clear_reassembly_highlights)) },
+                        leadingIcon = { Icon(Icons.Default.HighlightOff, contentDescription = null) },
+                        enabled = !isResolvingReassembly,
+                        onClick = {
+                            contextMenuExpanded = false
+                            onSetReassemblyHighlighted(reassembly, false)
+                        }
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.apply_as_filter)) },
                     leadingIcon = { Icon(Icons.Default.FilterAlt, contentDescription = null) },

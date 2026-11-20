@@ -13,6 +13,7 @@
 #include "layanalyzer/internal/TextUtils.h"
 #include "layanalyzer/session/WiresharkSession.h"
 #include "layanalyzer/projection/ProtocolProjection.h"
+#include "layanalyzer/projection/TextEncoding.h"
 #include "layanalyzer/projection/TreeFieldReader.h"
 #include "layanalyzer/analysis/StatisticsLegacy.h"
 #include "layanalyzer/stream/HttpObjectCallbacks.h"
@@ -27,14 +28,14 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
   json result = {{"success", false}, {"error", ""}, {"files", json::array()}};
   if (!session || !session->wth || !session->epan) {
     result["error"] = "No capture is open.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   const char *dirChars = env->GetStringUTFChars(jOutputDir, nullptr);
   std::string output_dir = dirChars ? dirChars : "";
   env->ReleaseStringUTFChars(jOutputDir, dirChars);
   if (output_dir.empty()) {
     result["error"] = "An output directory is required.";
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   }
   if (output_dir.back() != '/') output_dir.push_back('/');
   mkdir(output_dir.c_str(), 0775);  // 已存在则忽略
@@ -66,14 +67,14 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
       std::string err = df_err ? df_err : "invalid filter";
       g_free(df_err);
       result["error"] = "compile-filter: " + err;
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
   }
   std::vector<int> filter_matches;
   for (int i = 0; i < total_frames; ++i) {
     std::unique_lock<std::mutex> dissect_lock(session->dissect_mutex);
     DissectedFrame frame;
-    if (dissect_frame(session, i, TRUE, FALSE, df, frame) &&
+    if (dissect_frame(session, i, TRUE, FALSE, FALSE, df, frame) &&
         (!df || dfilter_apply_edt(df, frame.edt))) {
       filter_matches.push_back(i);
     }
@@ -88,7 +89,7 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
     out << "matches=" << filter_matches.size() << "\n";
     for (int idx : filter_matches) out << (idx + 1) << "\n";
     if (!write_text("filter_tcp.txt", out.str())) {
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
     result["files"].push_back("filter_tcp.txt");
   }
@@ -160,7 +161,7 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
     for (int n : hits) out << n << "\n";
     std::string name = "search_" + mode + ".txt";
     if (!write_text(name, out.str())) {
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
     result["files"].push_back(name);
   }
@@ -195,8 +196,8 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
     root["errors"] = errors;
     root["totalItems"] = total_items;
     root["truncated"] = total_items > static_cast<int>(root["items"].size());
-    if (!write_text("expert.json", root.dump(2))) {
-      return new_java_string(env, result.dump());
+    if (!write_text("expert.json", dump_json_pretty(root))) {
+      return new_java_string(env, dump_json(result));
     }
     result["files"].push_back("expert.json");
   }
@@ -307,7 +308,10 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
       std::string protocol = resolve_protocol_label(
           pinfo, safe_col_text(&frame.cinfo, COL_PROTOCOL));
       if (is_unusable_protocol_label(protocol)) protocol = "Unknown";
-      std::string info = safe_col_text(&frame.cinfo, COL_INFO);
+      // P2-1: same GBK hazard as the packet list column -- this text ends up in
+    // the analysis snapshot / exported report, so decode it for display.
+    std::string info = layanalyzer::projection::column_to_display_utf8(
+        safe_col_text(&frame.cinfo, COL_INFO));
       std::string protocol_upper = uppercase_copy(protocol);
 
       const int dns_response_value = parse_tree_integer(frame.edt->tree, dns_response_flag);
@@ -569,8 +573,8 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
         {"average", packet_count > 0 ?
             static_cast<double>(byte_count) / packet_count : 0.0},
         {"totalBytes", byte_count}, {"buckets", length_buckets}};
-    if (!write_text("statistics.json", root.dump(2))) {
-      return new_java_string(env, result.dump());
+    if (!write_text("statistics.json", dump_json_pretty(root))) {
+      return new_java_string(env, dump_json(result));
     }
     result["files"].push_back("statistics.json");
   }
@@ -657,8 +661,8 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
       }
     }
     std::string name = std::string("follow_stream_") + proto + ".json";
-    if (!write_text(name, root.dump(2))) {
-      return new_java_string(env, result.dump());
+    if (!write_text(name, dump_json_pretty(root))) {
+      return new_java_string(env, dump_json(result));
     }
     result["files"].push_back(name);
   }
@@ -716,8 +720,8 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
       }
       clear_http_objects(session);
     }
-    if (!write_text("http_objects.json", root.dump(2))) {
-      return new_java_string(env, result.dump());
+    if (!write_text("http_objects.json", dump_json_pretty(root))) {
+      return new_java_string(env, dump_json(result));
     }
     result["files"].push_back("http_objects.json");
   }
@@ -727,7 +731,7 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
     std::vector<int> visible_frames = snapshot_visible_frames(session);
     if (visible_frames.empty()) {
       result["error"] = "export: no visible frames";
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
     int first_index = visible_frames.front();
     int err = 0;
@@ -740,7 +744,7 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
                           &first.rec, &first.buf, &err, &err_info)) {
         result["error"] = err_info ? err_info : "Unable to read first packet.";
         g_free(err_info);
-        return new_java_string(env, result.dump());
+        return new_java_string(env, dump_json(result));
       }
       prepare_packet_record(session->wth, &first.rec);
       first_encap = first.rec.rec_header.packet_header.pkt_encap;
@@ -748,7 +752,7 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
     int link_type = link_type_for_encapsulation(first_encap);
     if (link_type < 0) {
       result["error"] = "export: unsupported encapsulation";
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
     uint32_t snapshot_length = wtap_snapshot_length(session->wth);
     if (snapshot_length == 0) snapshot_length = 65535;
@@ -756,7 +760,7 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
     FILE *output = fopen(pcap_path.c_str(), "wb");
     if (!output) {
       result["error"] = "Unable to write " + pcap_path;
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
     bool ok = write_le32(output, 0xa1b2c3d4u) && write_le16(output, 2) &&
               write_le16(output, 4) && write_le32(output, 0) &&
@@ -810,7 +814,7 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
       if (result["error"].get<std::string>().empty()) {
         result["error"] = "export: write failed";
       }
-      return new_java_string(env, result.dump());
+      return new_java_string(env, dump_json(result));
     }
     result["files"].push_back("visible.pcap");
     result["visibleFrames"] = exported;
@@ -822,6 +826,6 @@ Java_com_example_layanalyzer_NativeEngine_exportPerfResults(JNIEnv *env,
       static_cast<int>(snapshot_visible_frames(session).size());
   LOGI("[PERF-export] exported %d files to %s",
        static_cast<int>(result["files"].size()), output_dir.c_str());
-  return new_java_string(env, result.dump());
+  return new_java_string(env, dump_json(result));
 }
 #endif  // !NDEBUG

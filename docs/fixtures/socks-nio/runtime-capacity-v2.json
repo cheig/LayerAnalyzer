@@ -1,0 +1,680 @@
+{
+  "schemaVersion": 1,
+  "vectors": [
+    {
+      "name": "legacy",
+      "config": {
+        "schemaVersion": 1,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 64,
+        "udp": 64,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-64-64-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 64,
+          "udp": 64,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 64,
+        "udp": 64,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-64-64-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 64,
+          "udp": 64,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 64,
+        "udp": 64,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-64-128-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 64,
+          "udp": 128,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 64,
+        "udp": 128,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-64-128-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 64,
+          "udp": 128,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 64,
+        "udp": 128,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-64-256-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 64,
+          "udp": 256,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 64,
+        "udp": 256,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-64-256-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 64,
+          "udp": 256,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 64,
+        "udp": 256,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-128-64-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 128,
+          "udp": 64,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 128,
+        "udp": 64,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-128-64-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 128,
+          "udp": 64,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 128,
+        "udp": 64,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-128-128-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 128,
+          "udp": 128,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 128,
+        "udp": 128,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-128-128-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 128,
+          "udp": 128,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 128,
+        "udp": 128,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-128-256-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 128,
+          "udp": 256,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 128,
+        "udp": 256,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-128-256-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 128,
+          "udp": 256,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 128,
+        "udp": 256,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-256-64-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 256,
+          "udp": 64,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 256,
+        "udp": 64,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-256-64-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 256,
+          "udp": 64,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 256,
+        "udp": 64,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-256-128-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 256,
+          "udp": 128,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 256,
+        "udp": 128,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-256-128-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 256,
+          "udp": 128,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 256,
+        "udp": 128,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-256-256-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 256,
+          "udp": 256,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 256,
+        "udp": 256,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-256-256-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 256,
+          "udp": 256,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 256,
+        "udp": 256,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-512-64-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 512,
+          "udp": 64,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 512,
+        "udp": 64,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-512-64-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 512,
+          "udp": 64,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 512,
+        "udp": 64,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-512-128-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 512,
+          "udp": 128,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 512,
+        "udp": 128,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-512-128-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 512,
+          "udp": 128,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 512,
+        "udp": 128,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-512-256-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 512,
+          "udp": 256,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 512,
+        "udp": 256,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-512-256-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 512,
+          "udp": 256,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 512,
+        "udp": 256,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-1024-64-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 1024,
+          "udp": 64,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 1024,
+        "udp": 64,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-1024-64-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 1024,
+          "udp": 64,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 1024,
+        "udp": 64,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-1024-128-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 1024,
+          "udp": 128,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 1024,
+        "udp": 128,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-1024-128-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 1024,
+          "udp": 128,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 1024,
+        "udp": 128,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-1024-256-64",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 1024,
+          "udp": 256,
+          "authentication": 64,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 1024,
+        "udp": 256,
+        "authentication": 64,
+        "tlsHandshakes": 8
+      }
+    },
+    {
+      "name": "nio-1024-256-128",
+      "config": {
+        "schemaVersion": 2,
+        "captureId": "capacity-fixture",
+        "networkGeneration": 7,
+        "socksRuntime": {
+          "mode": "NIO",
+          "tcp": 1024,
+          "udp": 256,
+          "authentication": 128,
+          "tlsHandshakes": 8
+        }
+      },
+      "effective": {
+        "mode": "NIO",
+        "tcp": 1024,
+        "udp": 256,
+        "authentication": 128,
+        "tlsHandshakes": 8
+      }
+    }
+  ]
+}

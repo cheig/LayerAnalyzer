@@ -62,6 +62,21 @@ fun HttpObjectsScreen(
 ) {
     BackHandler(onBack = onBack)
     var query by remember { mutableStateOf("") }
+    var pendingObject by remember(state) { mutableStateOf<HttpObjectEntry?>(null) }
+    var confirmAll by remember(state) { mutableStateOf(false) }
+    if (!exportState.isExporting && (pendingObject != null || confirmAll)) {
+        val selected = pendingObject
+        SensitivePlaintextExportDialog(
+            if (selected != null) stringResource(R.string.tls_plaintext_export_object_scope, selected.filename)
+            else stringResource(R.string.tls_plaintext_export_objects_scope, state.objects.size),
+            onConfirm = {
+                pendingObject = null
+                confirmAll = false
+                if (selected != null) onExport(selected) else onExportAll()
+            },
+            onDismiss = { pendingObject = null; confirmAll = false }
+        )
+    }
     val visibleObjects = remember(state.objects, query) {
         val needle = query.trim()
         if (needle.isBlank()) {
@@ -86,7 +101,7 @@ fun HttpObjectsScreen(
                 },
                 actions = {
                     TextButton(
-                        onClick = onExportAll,
+                        onClick = { confirmAll = true },
                         enabled = state.objects.isNotEmpty() && !state.isLoading && !exportState.isExporting
                     ) {
                         Text(stringResource(R.string.export_all))
@@ -141,7 +156,7 @@ fun HttpObjectsScreen(
                         HttpObjectRow(
                             entry = entry,
                             exportEnabled = !exportState.isExporting,
-                            onExport = onExport,
+                            onExport = { pendingObject = it },
                             onPacketClick = onPacketClick
                         )
                         HorizontalDivider()

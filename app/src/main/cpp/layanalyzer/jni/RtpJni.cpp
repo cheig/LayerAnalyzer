@@ -1488,7 +1488,7 @@ jstring read_setup_info_json(JNIEnv *env, jlong session_handle,
     }
     const json result = layanalyzer::rtp::read_rtp_setup_info(
         session.get(), request, sdp_only);
-    return new_java_string(env, result.dump());
+    return new_java_string(env, dump_json(result));
   } catch (...) {
     // Parser/dissection/serialization errors must not cross JNI or disclose
     // input-bearing exception messages (SIP URIs and fmtp can be sensitive).
@@ -1535,7 +1535,7 @@ Java_com_example_layanalyzer_NativeEngine_scanRtpStreams(
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // 解析请求：解析失败（或字段缺失/类型不对）时保持默认值
@@ -1577,7 +1577,7 @@ Java_com_example_layanalyzer_NativeEngine_scanRtpStreams(
     DissectedFrame first;
     if (!session->frame_offsets.empty() &&
         dissect_frame(session, 0, FALSE, FALSE, nullptr, first)) {
-      first_frame_abs_ms = nstime_to_msec(&first.fd.abs_ts);
+      first_frame_abs_ms = nstime_to_msec(&first.fd->abs_ts);
     }
   }
 
@@ -1601,7 +1601,7 @@ Java_com_example_layanalyzer_NativeEngine_scanRtpStreams(
     std::unique_lock<std::mutex> dissect_lock(session->dissect_mutex);
     if (!collector.registerTap(tap_error)) {
       root["error"] = tap_error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
   }
 
@@ -1669,7 +1669,7 @@ Java_com_example_layanalyzer_NativeEngine_scanRtpStreams(
     root["framesScanned"] = static_cast<uint64_t>(frames_scanned);
     LOGI("scanRtpStreams: session closed after %zu frames take=%lldms",
          frames_scanned, take_ms);
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (cancelled) {
     // 绝不返回部分结果，也绝不写 rtp_last_scan。
@@ -1677,7 +1677,7 @@ Java_com_example_layanalyzer_NativeEngine_scanRtpStreams(
     root["framesScanned"] = static_cast<uint64_t>(frames_scanned);
     LOGI("scanRtpStreams: frames=%zu streams=0 take=%lldms", frames_scanned,
          take_ms);
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   collector.finalize(&overrides_snapshot);
@@ -1894,7 +1894,7 @@ Java_com_example_layanalyzer_NativeEngine_scanRtpStreams(
   }
   LOGI("scanRtpStreams: frames=%zu streams=%zu take=%lldms", frames_scanned,
        collected.size(), take_ms);
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 // ---------------------------------------------------------------------------
@@ -2221,11 +2221,11 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!requestJson || !outDir) {
     root["error"] = "Missing decode request or output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::string request_text;
@@ -2242,7 +2242,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
   }
   if (output_directory.empty()) {
     root["error"] = "RTP output directory is empty.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   layanalyzer::rtp::RtpDecodeRequest request;
@@ -2250,7 +2250,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
   if (!layanalyzer::rtp::parse_rtp_decode_request(request_text, request,
                                                   request_error)) {
     root["error"] = request_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const uint64_t current_generation =
@@ -2273,7 +2273,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
           {{"streamId", stream_id}, {"reason", "staleScan"}});
     }
     root["unsupported"] = std::move(unsupported);
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   bool snapshot_stale =
@@ -2300,16 +2300,16 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
     std::string wav_mix_error;
     if (!parse_wav_mix_inputs(request_text, wav_mix, wav_mix_error)) {
       root["error"] = wav_mix_error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     if (wav_mix.has_any_wav()) {
       if (!wav_mix.has_both_wavs()) {
         root["error"] = "mix.leftWav and mix.rightWav must be given together.";
-        return new_java_string(env, root.dump());
+        return new_java_string(env, dump_json(root));
       }
       if (snapshot_stale || !media_snapshot) {
         root["error"] = "staleScan";
-        return new_java_string(env, root.dump());
+        return new_java_string(env, dump_json(root));
       }
       const auto left_it =
           media_snapshot->media.find(request.mix.left_stream_id);
@@ -2318,7 +2318,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
       if (left_it == media_snapshot->media.end() ||
           right_it == media_snapshot->media.end()) {
         root["error"] = "RTP mix requires two decoded streams.";
-        return new_java_string(env, root.dump());
+        return new_java_string(env, dump_json(root));
       }
 
       json mix_json;
@@ -2331,7 +2331,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
               mix_json, wav_mix_error)) {
         root["error"] = wav_mix_error.empty() ? "Unable to build the RTP mix."
                                               : wav_mix_error;
-        return new_java_string(env, root.dump());
+        return new_java_string(env, dump_json(root));
       }
       root["mix"] = std::move(mix_json);
       LOGI(
@@ -2342,7 +2342,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
               std::chrono::duration_cast<std::chrono::milliseconds>(
                   std::chrono::steady_clock::now() - decode_start)
                   .count()));
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
   }
 
@@ -2386,7 +2386,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
   root["unsupported"] = std::move(unsupported);
 
   if (selected.empty()) {
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::error_code directory_error;
@@ -2395,7 +2395,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
   if (directory_error) {
     remove_request_dir(output_directory);
     root["error"] = "Unable to create RTP output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::vector<int> frames;
@@ -2458,12 +2458,12 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
   if (extraction.cancelled) {
     remove_request_dir(output_directory);
     root["cancelled"] = true;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!extraction.error.empty()) {
     remove_request_dir(output_directory);
     root["error"] = extraction.error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (total_frames == 0) {
     report_progress(80, 100);
@@ -2488,14 +2488,14 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
     if (long_operation_cancelled(cancel_generation)) {
       remove_request_dir(output_directory);
       root["cancelled"] = true;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
 
     const auto path_it = extraction.rtpp_paths.find(stream.id);
     if (path_it == extraction.rtpp_paths.end()) {
       remove_request_dir(output_directory);
       root["error"] = "RTP payload output is missing.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
 
     layanalyzer::rtp::RtppReadResult records;
@@ -2504,19 +2504,19 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
                                           file_error)) {
       remove_request_dir(output_directory);
       root["error"] = file_error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     if (records.records.empty()) {
       remove_request_dir(output_directory);
       root["error"] = "No RTP payload records were extracted.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
 
     layanalyzer::rtp::RtpMediaDecoder decoder(stream.media.codec);
     if (!decoder.available()) {
       remove_request_dir(output_directory);
       root["error"] = "RTP codec is unavailable.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
 
     std::vector<layanalyzer::rtp::RtpRenderPacket> packets;
@@ -2537,7 +2537,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
       if (long_operation_cancelled(cancel_generation)) {
         remove_request_dir(output_directory);
         root["cancelled"] = true;
-        return new_java_string(env, root.dump());
+        return new_java_string(env, dump_json(root));
       }
 
       const layanalyzer::rtp::RtppFileRecord &record =
@@ -2552,7 +2552,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
         if (!report_progress(percent, 100)) {
           remove_request_dir(output_directory);
           root["cancelled"] = true;
-          return new_java_string(env, root.dump());
+          return new_java_string(env, dump_json(root));
         }
       }
 
@@ -2608,7 +2608,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
     if (packets.empty()) {
       remove_request_dir(output_directory);
       root["error"] = "No decodable RTP packets were found.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
 
     layanalyzer::rtp::RtpRenderOptions render_options;
@@ -2619,12 +2619,12 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
     if (!rendered.error.empty()) {
       remove_request_dir(output_directory);
       root["error"] = rendered.error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     if (rendered.samples.empty() || rendered.sample_rate == 0) {
       remove_request_dir(output_directory);
       root["error"] = "RTP rendering produced no audio.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
 
     const layanalyzer::rtp::RtppRecordHeader &first_decoded =
@@ -2725,7 +2725,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
                                       item_error)) {
       remove_request_dir(output_directory);
       root["error"] = item_error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     if (request.dtmf && stream.media.telephone_event_pt >= 0) {
       audio_item.item["dtmf"] = std::move(dtmf);
@@ -2757,7 +2757,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
     if (left == nullptr || right == nullptr) {
       remove_request_dir(output_directory);
       root["error"] = "RTP mix requires two decoded streams.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
 
     json mix_json;
@@ -2769,7 +2769,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
       remove_request_dir(output_directory);
       root["error"] = mix_error.empty() ? "Unable to write RTP mix output."
                                         : mix_error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     root["mix"] = std::move(mix_json);
   }
@@ -2781,7 +2781,7 @@ Java_com_example_layanalyzer_NativeEngine_decodeRtpAudio(
        std::chrono::duration_cast<std::chrono::milliseconds>(
            std::chrono::steady_clock::now() - decode_start)
            .count());
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 // exportRtpPayloadRaw request/result contract:
@@ -2798,11 +2798,11 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!requestJson || !outPath) {
     root["error"] = "Missing RTP raw export request or output path.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::string request_text;
@@ -2819,21 +2819,21 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
   }
   if (output_path_text.empty()) {
     root["error"] = "RTP raw export output path is empty.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpRawExportRequest request;
   std::string request_error;
   if (!parse_rtp_raw_export_request(request_text, request, request_error)) {
     root["error"] = request_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const uint64_t current_generation =
       session->rtp_scan_generation.load(std::memory_order_acquire);
   if (request.scan_generation != current_generation) {
     root["error"] = "staleScan";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::shared_ptr<const layanalyzer::rtp::RtpMediaSnapshot> media_snapshot;
@@ -2844,7 +2844,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
   if (!media_snapshot ||
       media_snapshot->scan_generation != request.scan_generation) {
     root["error"] = "notFound";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const auto key_it =
@@ -2853,24 +2853,24 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
   if (key_it == media_snapshot->stream_keys.end() ||
       media_it == media_snapshot->media.end()) {
     root["error"] = "notFound";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const char *unsupported =
       raw_export_unsupported_reason(media_it->second);
   if (unsupported != nullptr) {
     root["error"] = unsupported;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (media_it->second.primary_pt < 0) {
     root["error"] = "No primary RTP payload type was found.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const std::filesystem::path output_path(output_path_text);
   if (output_path.filename().empty()) {
     root["error"] = "RTP raw export output path is invalid.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::filesystem::path output_parent = output_path.parent_path();
@@ -2879,14 +2879,14 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
     output_parent = std::filesystem::current_path(current_path_error);
     if (current_path_error) {
       root["error"] = "Unable to resolve RTP raw export output directory.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
   }
   std::error_code parent_error;
   std::filesystem::create_directories(output_parent, parent_error);
   if (parent_error) {
     root["error"] = "Unable to create RTP raw export output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::filesystem::path work_directory;
@@ -2895,7 +2895,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
           output_parent, output_path.filename().string(), work_directory,
           work_error)) {
     root["error"] = work_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   ScopedPathRemoval work_cleanup(work_directory);
 
@@ -2921,17 +2921,17 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
           std::function<bool(uint32_t, uint32_t)>(), cancel_generation);
   if (extraction.cancelled) {
     root["error"] = "cancelled";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!extraction.error.empty()) {
     root["error"] = extraction.error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const auto rtpp_it = extraction.rtpp_paths.find(request.stream_id);
   if (rtpp_it == extraction.rtpp_paths.end()) {
     root["error"] = "RTP payload extraction output is missing.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   layanalyzer::rtp::RtppReadResult records;
@@ -2939,11 +2939,11 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
   if (!layanalyzer::rtp::read_rtpp_file(
           rtpp_it->second, records, records_error)) {
     root["error"] = records_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (records.records.empty()) {
     root["error"] = "No RTP payload records were extracted.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::vector<layanalyzer::rtp::RtppIndexEntry> sequence_index;
@@ -2951,20 +2951,20 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
     const auto index_it = extraction.index_paths.find(request.stream_id);
     if (index_it == extraction.index_paths.end()) {
       root["error"] = "RTP payload index is missing.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     std::string index_error;
     if (!layanalyzer::rtp::read_rtpp_index(
             index_it->second, sequence_index, index_error)) {
       root["error"] = index_error;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
   }
 
   std::FILE *output = std::fopen(output_path_text.c_str(), "wb");
   if (!output) {
     root["error"] = "Unable to open RTP raw payload output.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   ScopedPathRemoval output_cleanup(output_path);
 
@@ -3053,11 +3053,11 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
     root["error"] =
         write_error.empty() ? "Unable to write RTP raw payload output."
                             : write_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!close_raw_output(output, output_path, write_error)) {
     root["error"] = write_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   output_cleanup.release();
@@ -3068,7 +3068,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpPayloadRaw(
        static_cast<unsigned long long>(packet_count),
        static_cast<unsigned long long>(total_bytes),
        request.order == RtpRawExportOrder::Sequence ? "seq" : "arrival");
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 // {"schemaVersion":1,"enabled":<值>,"failed":[...],"error":""}.
@@ -3106,7 +3106,7 @@ Java_com_example_layanalyzer_NativeEngine_setRtpHeuristicEnabled(JNIEnv *env,
                {"enabled", next_enabled},
                {"failed", std::move(failed)},
                {"error", ""}};
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -3146,7 +3146,7 @@ Java_com_example_layanalyzer_NativeEngine_getRtpCodecCapabilities(
                {"video", std::move(video)},
                {"g729", layanalyzer::rtp::kBuildIncludesG729},
                {"ilbc", layanalyzer::rtp::kBuildIncludesIlbc}};
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 // {"overrides":[{"pt":96,"codec":"AMR-WB","clockRate":16000,"channels":1}]}
@@ -3161,11 +3161,11 @@ Java_com_example_layanalyzer_NativeEngine_setRtpPayloadOverrides(
   auto session = acquire_session(sessionPtr);
   if (!session) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!jsonArg) {
     root["error"] = "Missing overrides JSON.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::string request;
@@ -3181,7 +3181,7 @@ Java_com_example_layanalyzer_NativeEngine_setRtpPayloadOverrides(
   if (!parsed.set_from_json(request, error)) {
     root["error"] = error;
     LOGW("setRtpPayloadOverrides: rejected overrides request");
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // clockRate 不在 {0,8000,16000,44100,48000} 的条目：接受但记 warning（只打 PT 与
@@ -3210,7 +3210,7 @@ Java_com_example_layanalyzer_NativeEngine_setRtpPayloadOverrides(
 
   root["count"] = static_cast<int>(count);
   LOGI("setRtpPayloadOverrides: count=%zu", count);
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 // extractRtpCodecFrames request/result contract: RTP4-NAT-06 card (m4.md), and
@@ -3252,11 +3252,11 @@ Java_com_example_layanalyzer_NativeEngine_extractRtpCodecFrames(
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!requestJson || !outDir) {
     root["error"] = "Missing codec frame request or output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::string request_text;
@@ -3273,14 +3273,14 @@ Java_com_example_layanalyzer_NativeEngine_extractRtpCodecFrames(
   }
   if (output_directory.empty()) {
     root["error"] = "RTP output directory is empty.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpCodecFramesRequest request;
   std::string request_error;
   if (!parse_rtp_codec_frames_request(request_text, request, request_error)) {
     root["error"] = request_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpCodecFramesContext context;
@@ -3288,7 +3288,7 @@ Java_com_example_layanalyzer_NativeEngine_extractRtpCodecFrames(
   if (!resolve_codec_frames_stream(session.get(), request, context,
                                    reject_reason)) {
     root["error"] = reject_reason;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::error_code directory_error;
@@ -3297,7 +3297,7 @@ Java_com_example_layanalyzer_NativeEngine_extractRtpCodecFrames(
   if (directory_error) {
     remove_request_dir(output_directory);
     root["error"] = "Unable to create RTP output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   jmethodID progress_method = nullptr;
@@ -3332,12 +3332,12 @@ Java_com_example_layanalyzer_NativeEngine_extractRtpCodecFrames(
     remove_request_dir(output_directory);
     if (extracted.cancelled) {
       root["cancelled"] = true;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     root["error"] = extracted.error.empty()
                         ? "Unable to extract RTP codec frames."
                         : extracted.error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const std::string frames_path =
@@ -3352,7 +3352,7 @@ Java_com_example_layanalyzer_NativeEngine_extractRtpCodecFrames(
     root["error"] =
         write_error.empty() ? "Unable to write RTP codec frame output."
                             : write_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   root["framesPath"] = frames_path;
@@ -3424,7 +3424,7 @@ Java_com_example_layanalyzer_NativeEngine_extractRtpCodecFrames(
           std::chrono::duration_cast<std::chrono::milliseconds>(
               std::chrono::steady_clock::now() - extract_start)
               .count()));
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 // exportRtpContainer contract.
@@ -3464,11 +3464,11 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!requestJson || !outDir) {
     root["error"] = "Missing container export request or output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::string request_text;
@@ -3485,19 +3485,19 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
   }
   if (output_directory.empty()) {
     root["error"] = "RTP output directory is empty.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpCodecFramesRequest request;
   std::string request_error;
   if (!parse_rtp_codec_frames_request(request_text, request, request_error)) {
     root["error"] = request_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (request.format != "amr" && request.format != "awb" &&
       request.format != "opus") {
     root["error"] = "format must be amr, awb or opus.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpCodecFramesContext context;
@@ -3505,7 +3505,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
   if (!resolve_codec_frames_stream(session.get(), request, context,
                                    reject_reason)) {
     root["error"] = reject_reason;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // The caller names the container, so the name has to agree with the stream: a
@@ -3518,7 +3518,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
                                            : "amr");
   if (request.format != expected_format) {
     root["error"] = "format does not match the stream codec.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::error_code directory_error;
@@ -3526,7 +3526,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
       std::filesystem::path(output_directory), directory_error);
   if (directory_error) {
     root["error"] = "Unable to create RTP container output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpCodecFramesResult extracted;
@@ -3535,12 +3535,12 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
           std::function<bool(uint32_t, uint32_t)>(), extracted)) {
     if (extracted.cancelled) {
       root["cancelled"] = true;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     root["error"] = extracted.error.empty()
                         ? "Unable to export the RTP container."
                         : extracted.error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const std::string container_path =
@@ -3603,7 +3603,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
     std::FILE *file = std::fopen(container_path.c_str(), "wb");
     if (!file) {
       root["error"] = "Unable to open RTP container output.";
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     write_ok = std::fwrite(magic, 1, magic_length, file) == magic_length;
     if (write_ok) {
@@ -3635,7 +3635,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
     // The guard removes the half-written container on the way out.
     root["error"] = write_error.empty() ? "Unable to write the RTP container."
                                         : write_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   container_cleanup.release();
 
@@ -3653,7 +3653,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpContainer(
            std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now() - export_start)
                .count()));
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 // renderRtpAudioFromPcm request/result contract: RTP4-NAT-07 card (m4.md) and
@@ -3704,11 +3704,11 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!requestJson || !outDir) {
     root["error"] = "Missing PCM render request or output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::string request_text;
@@ -3725,14 +3725,14 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
   }
   if (output_directory.empty()) {
     root["error"] = "RTP output directory is empty.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpPcmRenderRequest request;
   std::string request_error;
   if (!parse_rtp_pcm_render_request(request_text, request, request_error)) {
     root["error"] = request_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // The same snapshot lookup RTP4-NAT-06 uses, and deliberately nothing else
@@ -3748,7 +3748,7 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
                            request.stream_id, context, reject_reason)) {
     remove_request_dir(output_directory);
     root["error"] = reject_reason;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // Everything below up to the first writer is validation: any failure returns
@@ -3768,26 +3768,26 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
     remove_request_dir(output_directory);
     root["error"] =
         file_error.empty() ? "Unable to read the RTP frame index." : file_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (entries.empty()) {
     remove_request_dir(output_directory);
     root["error"] = "The RTP frame index is empty.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::vector<uint8_t> pcm_bytes;
   if (!read_binary_file(request.pcm_path, pcm_bytes, file_error)) {
     remove_request_dir(output_directory);
     root["error"] = file_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   std::vector<RtpPcmChunk> chunks;
   if (!parse_pcm_chunks(pcm_bytes, request.sample_rate, request.channels,
                         entries.size(), chunks, file_error)) {
     remove_request_dir(output_directory);
     root["error"] = file_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // `.pcmchunks` is written in decode order and `.fidx` is the order the
@@ -3810,7 +3810,7 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
     if (long_operation_cancelled(cancel_generation)) {
       remove_request_dir(output_directory);
       root["cancelled"] = true;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
 
     const layanalyzer::rtp::FidxEntry &entry = entries[index];
@@ -3870,7 +3870,7 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
   if (packets.empty()) {
     remove_request_dir(output_directory);
     root["error"] = "No decoded PCM chunks were found for this stream.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::vector<layanalyzer::rtp::RtpRenderGap> lost_gaps;
@@ -3904,12 +3904,12 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
   if (!rendered.error.empty()) {
     remove_request_dir(output_directory);
     root["error"] = rendered.error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (rendered.samples.empty() || rendered.sample_rate == 0) {
     remove_request_dir(output_directory);
     root["error"] = "RTP rendering produced no audio.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // Merge the two gap sources and re-sort by time, the way `decodeRtpAudio`
@@ -3959,7 +3959,7 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
   if (directory_error) {
     remove_request_dir(output_directory);
     root["error"] = "Unable to create RTP output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpDecodedAudioItem audio_item;
@@ -3968,7 +3968,7 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
                                     audio_item, item_error)) {
     remove_request_dir(output_directory);
     root["error"] = item_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // The item's key set, spelled out field by field. `dtmf` is the one key
@@ -3997,7 +3997,7 @@ Java_com_example_layanalyzer_NativeEngine_renderRtpAudioFromPcm(
           std::chrono::duration_cast<std::chrono::milliseconds>(
               std::chrono::steady_clock::now() - render_start)
               .count()));
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
 
 // ---------------------------------------------------------------------------
@@ -4933,11 +4933,11 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
   auto session = acquire_session(sessionPtr);
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (!requestJson || !outDir) {
     root["error"] = "Missing video export request or output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::string request_text;
@@ -4954,14 +4954,14 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
   }
   if (output_directory.empty()) {
     root["error"] = "RTP output directory is empty.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   RtpVideoExportRequest request;
   std::string request_error;
   if (!parse_rtp_video_export_request(request_text, request, request_error)) {
     root["error"] = request_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // Step 1 of the card: the scan generation, the notFound case and the display
@@ -4974,17 +4974,17 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
   if (!resolve_scan_stream(session.get(), request.scan_generation,
                            request.stream_id, context, reject_reason)) {
     root["error"] = reject_reason;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   // Decision 16: SRTP and needsMapping, the M2/M4 rejections.
   const char *unsupported = codec_frames_reject_reason(context.media);
   if (unsupported != nullptr) {
     root["error"] = unsupported;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   if (context.media.primary_pt < 0) {
     root["error"] = "No primary RTP payload type was found.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   // Decision 16: the request's codec has to be the stream's, or the
   // de-packetizer would be fed another codec's bytes.
@@ -4993,7 +4993,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
       request.codec == RtpVideoCodecKind::H264 ? "H264" : "H265";
   if (!stream_codec.empty() && stream_codec != requested_codec) {
     root["error"] = "codec does not match the stream.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   std::error_code directory_error;
@@ -5001,7 +5001,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
       std::filesystem::path(output_directory), directory_error);
   if (directory_error) {
     root["error"] = "Unable to create RTP output directory.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   // Decision 15: armed once the directory exists, so every failure and the
   // cancel path remove it and the success path releases it.
@@ -5044,11 +5044,11 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
                         report_progress, exported)) {
     if (exported.cancelled) {
       root["cancelled"] = true;
-      return new_java_string(env, root.dump());
+      return new_java_string(env, dump_json(root));
     }
     root["error"] = exported.error.empty() ? "Unable to export the RTP video."
                                            : exported.error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const std::string es_path = join_path(
@@ -5062,7 +5062,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
   if (!write_binary_file(es_path, exported.es, write_error)) {
     // No half-written ES survives this: the removal guard is still armed.
     root["error"] = write_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
   std::vector<layanalyzer::rtp::VidxEntry> entries;
   entries.reserve(exported.records.size());
@@ -5078,7 +5078,7 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
   if (!layanalyzer::rtp::write_vidx_file(index_path, entries, write_error)) {
     root["error"] = write_error.empty() ? "Unable to write the video index."
                                         : write_error;
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   // Success: the files stay, the guard goes.
@@ -5139,5 +5139,5 @@ Java_com_example_layanalyzer_NativeEngine_exportRtpVideo(
           std::chrono::duration_cast<std::chrono::milliseconds>(
               std::chrono::steady_clock::now() - export_start)
               .count()));
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }

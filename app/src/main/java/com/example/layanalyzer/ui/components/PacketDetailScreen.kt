@@ -105,9 +105,11 @@ import com.example.layanalyzer.model.FollowStreamRecord
 import com.example.layanalyzer.model.FollowStreamResult
 import com.example.layanalyzer.model.PacketSummary
 import com.example.layanalyzer.model.ProtocolNode
+import com.example.layanalyzer.model.PacketReassembly
 import com.example.layanalyzer.model.RtpStreamIdentity
 import com.example.layanalyzer.viewmodel.PacketDetailState
 import com.example.layanalyzer.viewmodel.PacketBytesViewerState
+import com.example.layanalyzer.viewmodel.PacketDataSourceState
 import com.example.layanalyzer.viewmodel.PacketNavigationState
 import kotlinx.coroutines.launch
 
@@ -122,6 +124,7 @@ fun PacketDetailScreen(
     followStream: FollowStreamResult?,
     isFollowingStream: Boolean,
     packetBytesViewer: PacketBytesViewerState?,
+    dataSourceState: PacketDataSourceState,
     exportState: ExportUiState,
     defaultTreeExpansionDepth: Int,
     appliedFilter: String,
@@ -134,6 +137,7 @@ fun PacketDetailScreen(
     onByteRangeSelected: (IntRange) -> Unit,
     onApplyFieldAsFilter: (String) -> Unit,
     onShowPacketBytes: (ProtocolNode) -> Unit = {},
+    onSwitchDataSource: (String) -> Unit = {},
     onDismissPacketBytesViewer: () -> Unit,
     onPrepareFieldFilter: (String) -> Unit,
     onFollowStream: (String) -> Unit,
@@ -148,6 +152,11 @@ fun PacketDetailScreen(
     onSaveNote: (String) -> Unit,
     onToggleEvidence: () -> Unit,
     onAnalyzeRtpStream: (RtpStreamIdentity) -> Unit = {},
+    onGoToFrame: (Long) -> Unit = {},
+    onSetReassemblyHighlighted: (PacketReassembly, Boolean) -> Unit = { _, _ -> },
+    isResolvingReassembly: Boolean = false,
+    actionMessage: String? = null,
+    onClearActionMessage: () -> Unit = {},
     onBack: () -> Unit
 ) {
     if (followStream != null) {
@@ -161,12 +170,27 @@ fun PacketDetailScreen(
     val snackbarScope = rememberCoroutineScope()
     var actionsExpanded by remember { mutableStateOf(false) }
     var showNoteDialog by remember { mutableStateOf(false) }
+    var pendingPlaintextDetails by remember(detailState?.frameNumber, dataSourceState.detail?.snapshot,
+        dataSourceState.sourceId, dataSourceState.selection) { mutableStateOf<Boolean?>(null) }
+    pendingPlaintextDetails?.let { details ->
+        SensitivePlaintextExportDialog(stringResource(if (details) R.string.tls_plaintext_export_details_scope
+            else R.string.tls_plaintext_export_bytes_scope), {
+            pendingPlaintextDetails = null
+            if (details) onExportPacketDetails() else onExportSelectedBytes()
+        }, { pendingPlaintextDetails = null })
+    }
     val rtpIdentity = remember(detailState?.root) {
         RtpStreamIdentity.fromProtocolTree(detailState?.root)
     }
 
     LaunchedEffect(exportState.error, exportState.message) {
         (exportState.error ?: exportState.message)?.let { snackbarHostState.showSnackbar(it) }
+    }
+    LaunchedEffect(actionMessage) {
+        actionMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            onClearActionMessage()
+        }
     }
     LaunchedEffect(exportState.shareResult) {
         exportState.shareResult?.let {
@@ -226,8 +250,17 @@ fun PacketDetailScreen(
                         )
                     }
                     HorizontalDivider()
-                    PacketActionItem(R.string.export_details, { actionsExpanded = false; onExportPacketDetails() }, Icons.Default.Download, !exportState.isExporting)
-                    PacketActionItem(R.string.export_hex, { actionsExpanded = false; onExportSelectedBytes() }, Icons.Default.Download, !exportState.isExporting)
+                    PacketActionItem(R.string.export_details, {
+                        actionsExpanded = false
+                        if (detailState?.dataSnapshot?.sources.orEmpty().any {
+                            it.kind == com.example.layanalyzer.model.PacketDataSourceKind.DecryptedTls
+                        }) pendingPlaintextDetails = true else onExportPacketDetails()
+                    }, Icons.Default.Download, !exportState.isExporting)
+                    PacketActionItem(R.string.export_hex, {
+                        actionsExpanded = false
+                        if (dataSourceState.source?.kind == com.example.layanalyzer.model.PacketDataSourceKind.DecryptedTls)
+                            pendingPlaintextDetails = false else onExportSelectedBytes()
+                    }, Icons.Default.Download, !exportState.isExporting)
                     if (selectedByteRange != null) {
                         PacketActionItem(R.string.copy_hex, {
                             actionsExpanded = false
@@ -297,6 +330,10 @@ fun PacketDetailScreen(
                     onApplyFieldAsFilter,
                     onShowPacketBytes,
                     onPrepareFieldFilter,
+                    onGoToFrame,
+                    onSetReassemblyHighlighted,
+                    isResolvingReassembly,
+                    dataSourceState = dataSourceState,
                     compact = isCompactChrome
                 )
             }
@@ -305,9 +342,11 @@ fun PacketDetailScreen(
 
     if (packetBytesViewer != null && detailState != null) {
         PacketBytesDialog(
-            state = packetBytesViewer,
-            frameBytes = detailState.bytes,
+            viewer = packetBytesViewer,
+            state = dataSourceState,
+            legacyFrameBytes = detailState.bytes,
             onDismiss = onDismissPacketBytesViewer,
+            onSwitchSource = onSwitchDataSource,
             onCopied = {
                 snackbarScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.bytes_copied)) }
             },
@@ -391,10 +430,21 @@ private fun PacketDetailContent(
     onApplyFieldAsFilter: (String) -> Unit,
     onShowPacketBytes: (ProtocolNode) -> Unit,
     onPrepareFieldFilter: (String) -> Unit,
+    onGoToFrame: (Long) -> Unit,
+    onSetReassemblyHighlighted: (PacketReassembly, Boolean) -> Unit,
+    isResolvingReassembly: Boolean,
+    dataSourceState: PacketDataSourceState = PacketDataSourceState(),
     compact: Boolean = false
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize()) {
+        if (isResolvingReassembly) {
+            Text(
+                stringResource(R.string.resolving_reassembly),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
         detailState.summary?.let { PacketSummaryBand(it, expertSeverity, compact) }
         TabRow(
             selectedTab,
@@ -404,10 +454,15 @@ private fun PacketDetailContent(
             Tab(selectedTab == 1, { selectedTab = 1 }, text = { Text(stringResource(R.string.bytes)) })
         }
         if (selectedField != null) {
+            val fieldSource = dataSourceState.sources.firstOrNull { it.id == selectedField.dataSourceId }
+            val fieldSourceLabel = fieldSource?.let { descriptor ->
+                stringResource(descriptor.kind.labelRes).ifBlank { descriptor.name }
+            }
             SelectedFieldBar(
                 node = selectedField,
+                sourceLabel = fieldSourceLabel,
                 appliedFilter = appliedFilter,
-                onViewBytes = { selectedTab = 1 },
+                onViewBytes = { onShowPacketBytes(selectedField) },
                 onApplyFilter = onApplyFieldAsFilter,
                 onPrepareFilter = onPrepareFieldFilter,
                 compact = compact
@@ -421,6 +476,9 @@ private fun PacketDetailContent(
                 onFieldSelected = onFieldSelected,
                 onApplyFieldAsFilter = onApplyFieldAsFilter,
                 onShowPacketBytes = onShowPacketBytes,
+                onGoToFrame = onGoToFrame,
+                onSetReassemblyHighlighted = onSetReassemblyHighlighted,
+                isResolvingReassembly = isResolvingReassembly,
                 modifier = Modifier.weight(1f)
             )
         } else {
@@ -473,6 +531,7 @@ private fun PacketSummaryBand(summary: PacketSummary, severity: String, compact:
 @Composable
 private fun SelectedFieldBar(
     node: ProtocolNode,
+    sourceLabel: String?,
     appliedFilter: String,
     onViewBytes: () -> Unit,
     onApplyFilter: (String) -> Unit,
@@ -497,6 +556,7 @@ private fun SelectedFieldBar(
                         append(rangeLabel)
                         if (node.generated) append(" · $generatedLabel")
                         if (node.hidden) append(" · $hiddenLabel")
+                        sourceLabel?.let { append(" · $it") }
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

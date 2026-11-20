@@ -24,8 +24,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -89,36 +87,34 @@ fun AgentFindingCard(
     var detailsExpanded by rememberSaveable(finding.id.ifBlank { finding.title }) {
         mutableStateOf(false)
     }
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    AnalyzerCard(
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(13.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                agentFindingHeaderBadges(finding).forEachIndexed { index, badge ->
-                    if (index > 0) Spacer(Modifier.width(8.dp))
+        Column(Modifier.padding(AnalyzerSpacing.CardPadding)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                agentFindingHeaderBadges(finding).forEach { badge ->
                     when (badge) {
                         AgentFindingHeaderBadge.Severity -> AgentSeverityBadge(finding.severity)
                         is AgentFindingHeaderBadge.Polarity -> AgentPolarityBadge(badge.polarity)
                         is AgentFindingHeaderBadge.Hypothesis -> AgentHypothesisChip(badge.hypothesisId)
                     }
                 }
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = finding.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
             }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = finding.title,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.fillMaxWidth()
+            )
             // Severity and confidence are read together; a screen reader that
             // announced only the title would drop exactly the qualifiers that
             // tell the user how much to trust the conclusion.
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "$severityLabel · $confidenceLabel",
+                text = confidenceLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.semantics { contentDescription = "$severityLabel, $confidenceLabel" }
@@ -346,32 +342,27 @@ fun AgentEvidenceChip(
 /**
  * Truncation, missing packets, scope and budget stops.
  *
- * Rendered in an error-tinted container rather than as plain body text: a
- * limitation is the reason a conclusion may be wrong, and it should not read as
- * a footnote under a confident-looking report.
+ * The error icon and heading keep limitations visible before the supporting text.
  */
 @Composable
 fun AgentLimitationCard(limitations: List<String>, modifier: Modifier = Modifier) {
     if (limitations.isEmpty()) return
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+    AnalyzerCard(
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(13.dp)) {
+        Column(Modifier.padding(AnalyzerSpacing.CardPadding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.ErrorOutline,
                     contentDescription = null,
                     Modifier.size(17.dp),
-                    tint = MaterialTheme.colorScheme.onErrorContainer
+                    tint = MaterialTheme.colorScheme.error
                 )
                 Spacer(Modifier.width(7.dp))
                 Text(
                     text = stringResource(R.string.agent_report_limitations),
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.error
                 )
             }
             limitations.forEach { limitation ->
@@ -379,7 +370,7 @@ fun AgentLimitationCard(limitations: List<String>, modifier: Modifier = Modifier
                 AgentMarkdownText(
                     markdown = limitation,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = MaterialTheme.colorScheme.onSurface,
                     listItem = true
                 )
             }

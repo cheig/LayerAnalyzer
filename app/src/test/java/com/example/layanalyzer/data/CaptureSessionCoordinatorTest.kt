@@ -34,6 +34,26 @@ import java.io.File
 
 class CaptureSessionCoordinatorTest {
     @Test
+    fun filterLeasesRestoreAfterTlsOrDecodeAsChangesTheConfigurationVersion() = runBlocking {
+        for (deferred in listOf(false, true)) {
+            val harness = readyHarness(originalFilter = "udp")
+            try {
+                harness.coordinator.bumpAnalysisConfigVersion()
+                val snapshot = harness.agentRepository.createSnapshot(AnalysisScope.CompleteFile).getOrNull()!!
+                assertEquals(2, snapshot.analysisConfigVersion)
+                assertTrue(harness.agentRepository.validateDisplayFilter(snapshot, "tcp").success)
+                if (deferred) harness.agentRepository.beginAgentFilterChain()
+                assertTrue(harness.agentRepository.getStatistics(snapshot).success)
+                if (deferred) harness.agentRepository.endAgentFilterChain()
+                assertEquals("udp", harness.source.getAppliedDisplayFilter())
+                assertTrue(harness.coordinator.snapshotError(snapshot) == null)
+            } finally {
+                harness.close()
+            }
+        }
+    }
+
+    @Test
     fun agentNativeReadsRunOffTheCallerThread() = runBlocking {
         val harness = readyHarness(originalFilter = "")
         try {

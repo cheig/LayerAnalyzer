@@ -1,0 +1,22 @@
+{
+  "source": "synthetic-offline-test-only",
+  "openssl": "OpenSSL 3.0.13 30 Jan 2024",
+  "fixtures": {
+    "tls12": {
+      "tls": "TLSv1.2",
+      "frames": 12,
+      "files": {
+        "capture.pcap": "611619649d73d89e8d6d4fa7e396bfb8d558d250d333617a571b0ffebbabcd30",
+        "session.keys": "427a40626564fcbc8c1fad901d16a8f6d4e9aec73e3ceadfb4c5cc23b9f1cf9b"
+      }
+    },
+    "tls13": {
+      "tls": "TLSv1.3",
+      "frames": 12,
+      "files": {
+        "capture.pcap": "e00647b9f8a4bcff08c2457d2d5a627be9890a07e3145232b7b597329a63f49d",
+        "session.keys": "374b36c94dba7e65d255e5fe4bb6528425551ec1eb1f81ff0f4f452fe1f52fcd"
+      }
+    }
+  }
+}

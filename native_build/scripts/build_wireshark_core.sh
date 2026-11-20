@@ -21,6 +21,8 @@ if [ ! -d "$SRC_DIR" ]; then
     git clone --depth 1 --branch "v$WIRESHARK_VER" https://gitlab.com/wireshark/wireshark.git "wireshark-$WIRESHARK_VER"
 fi
 
+python3 "$SCRIPT_DIR/apply_wireshark_scope_patch.py" --source "$SRC_DIR"
+
 # ================= 1.5 Build Host Lemon (for Cross-Compile) =================
 echo "[INFO] Building Host Lemon..."
 LEMON_BIN="$INSTALL_DIR/bin/lemon"

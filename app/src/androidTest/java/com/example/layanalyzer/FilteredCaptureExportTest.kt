@@ -7,6 +7,9 @@ package com.example.layanalyzer
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.layanalyzer.data.PacketRepository
+import com.example.layanalyzer.data.PacketReassemblyResolver
+import com.example.layanalyzer.model.PacketReassembly
 import org.json.JSONObject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -33,7 +36,7 @@ class FilteredCaptureExportTest {
             ipv4(tcp(message.copyOfRange(64, 128), 165), 6, 6),
             ipv4(tcp(message.copyOfRange(128, message.size), 229), 6, 7)
         )
-        checkExport(packets, listOf(3, 5, 6), "sip", 1)
+        checkExport(packets, listOf(3, 5, 6), "sip", 1, reassemblyProtocol = "tcp")
     }
 
     @Test
@@ -46,7 +49,7 @@ class FilteredCaptureExportTest {
             ipv4(payload.copyOfRange(80, payload.size), 17, 10, 10),
             ipv4(other.copyOfRange(80, other.size), 17, 11, 10)
         )
-        checkExport(packets, listOf(0, 2), "sip.Call-ID == \"export-fragments\"", 1)
+        checkExport(packets, listOf(0, 2), "sip.Call-ID == \"export-fragments\"", 1, reassemblyProtocol = "ip")
     }
 
     @Test
@@ -57,7 +60,7 @@ class FilteredCaptureExportTest {
                 ipv6Fragment(payload.copyOfRange(0, 80), 1),
                 ipv6Fragment(payload.copyOfRange(80, payload.size), 80)
             ),
-            listOf(0, 1), "sip", 1
+            listOf(0, 1), "sip", 1, reassemblyProtocol = "ipv6"
         )
     }
 
@@ -70,7 +73,7 @@ class FilteredCaptureExportTest {
             ipv4(firstSegment.copyOfRange(80, firstSegment.size), 6, 20, 10),
             ipv4(tcp(message.copyOfRange(128, message.size), 229), 6, 21)
         )
-        checkExport(packets, listOf(3, 4, 5), "sip", 1)
+        checkExport(packets, listOf(3, 4, 5), "sip", 1, reassemblyProtocol = "tcp")
     }
 
     @Test
@@ -176,7 +179,7 @@ class FilteredCaptureExportTest {
 
     private fun checkExport(
         packets: List<ByteArray>, expectedIndices: List<Int>, filter: String,
-        visibleCount: Int, subsequentFrame: Int? = null
+        visibleCount: Int, subsequentFrame: Int? = null, reassemblyProtocol: String? = null
     ) {
         val source = File(context.cacheDir, "fragment-export-source.pcap")
         val output = File(context.cacheDir, "fragment-export-result.pcap")
@@ -199,6 +202,10 @@ class FilteredCaptureExportTest {
             val applied = JSONObject(NativeEngine.applyDisplayFilter(session, filter))
             assertTrue(applied.toString(), applied.getBoolean("success"))
             assertEquals("Unexpected visible fixture count", visibleCount, applied.getInt("count"))
+            if (reassemblyProtocol != null) {
+                checkReassemblyNavigation(session, packets.size, expectedIndices, reassemblyProtocol)
+                assertEquals("Navigation must preserve the display filter", visibleCount, NativeEngine.getFilteredFrameCount(session))
+            }
             repeat(2) {
                 val exported = JSONObject(NativeEngine.exportVisibleCapture(session, output.absolutePath))
                 assertTrue(exported.toString(), exported.getBoolean("success"))
@@ -230,6 +237,27 @@ class FilteredCaptureExportTest {
             source.delete()
             output.delete()
         }
+    }
+
+    /** Reuse the synthetic export captures to exercise the real JNI tree schema. */
+    private fun checkReassemblyNavigation(session: Long, count: Int, expectedIndices: List<Int>, protocol: String) {
+        val repository = PacketRepository()
+        fun detail(frame: Long) = repository.parseProtocolNode(
+            JSONObject(NativeEngine.getPacketDetails(session, (frame - 1).toInt()))
+        )
+        val finalFrame = expectedIndices.last().toLong() + 1
+        val root = detail(finalFrame)
+        val group = PacketReassembly.groups(root).single { it.protocol == protocol }
+        val expectedFrames = expectedIndices.map { it.toLong() + 1 }.toSet()
+        assertEquals(expectedFrames, PacketReassemblyResolver(count, ::detail).resolve(finalFrame, root, group))
+        // In the nested IP/TCP fixture, the first TCP segment is itself the IP
+        // reassembly frame, which need not be the first raw capture record.
+        val earlierFrame = group.frames.min()
+        val earlierRoot = detail(earlierFrame)
+        val forward = PacketReassembly.actions(earlierRoot).values.first {
+            it.protocol == protocol && it.reassembledIn == finalFrame
+        }
+        assertEquals(expectedFrames, PacketReassemblyResolver(count, ::detail).resolve(earlierFrame, earlierRoot, forward))
     }
 
     private fun sipMessage(callId: String = "export-fragments", transport: String = "TCP") = (

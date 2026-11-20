@@ -10,6 +10,7 @@ import com.example.layanalyzer.ai.agent.AgentPolicy
 import com.example.layanalyzer.ai.agent.AgentSensitivityPolicy
 import com.example.layanalyzer.ai.audit.isAgentFatal
 import com.example.layanalyzer.ai.cache.AgentToolCache
+import com.example.layanalyzer.ai.privacy.AgentDecryptedContentPolicy
 import com.example.layanalyzer.ai.privacy.AgentPayloadRedactor
 import com.example.layanalyzer.ai.privacy.AgentPrivacyPolicy
 import com.example.layanalyzer.data.AgentAnalysisRepository
@@ -121,14 +122,16 @@ class AgentToolRunner(
 
     private fun redactorFor(
         privacyMode: AgentPrivacyMode,
-        snapshot: AgentCaptureSnapshot
+        snapshot: AgentCaptureSnapshot,
+        allowDecryptedPlaintext: Boolean
     ): AgentPayloadRedactor = synchronized(redactorGuard) {
-        val key = "${privacyMode.name}|${snapshot.captureFingerprint}|${snapshot.agentRunGeneration}"
+        val key = "${privacyMode.name}|${snapshot.captureFingerprint}|" +
+            "${snapshot.agentRunGeneration}|$allowDecryptedPlaintext"
         val existing = redactor
         if (existing != null && redactorKey == key) {
             existing
         } else {
-            AgentPayloadRedactor.of(privacyMode, snapshot).also {
+            AgentPayloadRedactor.of(privacyMode, snapshot, allowDecryptedPlaintext).also {
                 redactorKey = key
                 redactor = it
             }
@@ -573,12 +576,25 @@ class AgentToolRunner(
         // truncation, so the byte budget measures the bytes that will actually
         // be sent, and a trim can never cut an alias in half and leave the
         // fragment of a real value behind.
+        //
+        // TLS-313: `allowDecryptedPlaintext` is the run's explicit content
+        // policy.  It is true only under SelectedPayload with payload allowed,
+        // so enabling capture decryption does not by itself widen what a cloud
+        // model may read.
+        val allowDecryptedPlaintext = AgentDecryptedContentPolicy.allowsDecryptedPlaintext(
+            privacyMode,
+            policy.allowPayload
+        )
+        // A keylog line or a private key is never a tool result, in any mode —
+        // including local-only, where the field redactor below is inert.
+        val scrubbedData = AgentDecryptedContentPolicy.scrubNeverAllowed(result.data)
         val redactedData = AgentPrivacyPolicy.redactIfNeeded(
-            data = result.data,
+            data = scrubbedData,
             sensitivity = definition.sensitivity,
             privacyMode = privacyMode,
             snapshot = snapshot,
-            redactor = redactorFor(privacyMode, snapshot)
+            allowDecryptedPlaintext = allowDecryptedPlaintext,
+            redactor = redactorFor(privacyMode, snapshot, allowDecryptedPlaintext)
         )
 
         // 6b. Structure-first trim, then a real UTF-8 byte measurement.
@@ -639,7 +655,9 @@ class AgentToolRunner(
         if (cacheKey != null && !cacheHit) {
             cache?.put(
                 key = cacheKey,
-                data = result.data,
+                // Never cache a never-allowed value, even if the tool produced
+                // one under an innocuous key.
+                data = scrubbedData,
                 sensitivity = definition.sensitivity,
                 returnedCount = returnedCount,
                 totalCount = result.totalCount,
@@ -754,7 +772,8 @@ class AgentToolRunner(
             normalizedArgumentsHash = argumentsHash,
             nativeBuildMarker = nativeBuildMarker,
             toolVersion = definition.version,
-            scopeKey = "${snapshot.scope.name}|${snapshot.displayFilter}"
+            scopeKey = "${snapshot.scope.name}|${snapshot.displayFilter}" +
+                snapshot.analysisCacheIdentity.takeIf { it.isNotEmpty() }?.let { "|analysis=$it" }.orEmpty()
         )
     }
 

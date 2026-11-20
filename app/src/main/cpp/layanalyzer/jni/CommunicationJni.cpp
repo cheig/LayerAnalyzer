@@ -8,6 +8,7 @@
 #include "layanalyzer/internal/TextUtils.h"
 #include "layanalyzer/session/WiresharkSession.h"
 #include "layanalyzer/projection/ProtocolProjection.h"
+#include "layanalyzer/projection/TextEncoding.h"
 #include "layanalyzer/projection/TreeFieldReader.h"
 
 // Authentication values are intentionally never projected. These are the only
@@ -65,7 +66,7 @@ Java_com_example_layanalyzer_NativeEngine_buildCommunicationAnalysis(
                {"truncated", false}};
   if (!session || !session->wth || !session->epan) {
     root["error"] = "No capture is open.";
-    return new_java_string(env, root.dump());
+    return new_java_string(env, dump_json(root));
   }
 
   const std::vector<std::string> sip_method = {"sip.method", "sip.request-line"};
@@ -222,7 +223,10 @@ Java_com_example_layanalyzer_NativeEngine_buildCommunicationAnalysis(
     packet_info *pinfo = &frame.edt->pi;
     std::string protocol = uppercase_copy(resolve_protocol_label(
         pinfo, safe_col_text(&frame.cinfo, COL_PROTOCOL)));
-    std::string info = safe_col_text(&frame.cinfo, COL_INFO);
+    // P2-1: same GBK hazard as the packet list column -- this text ends up in
+    // the analysis snapshot / exported report, so decode it for display.
+    std::string info = layanalyzer::projection::column_to_display_utf8(
+        safe_col_text(&frame.cinfo, COL_INFO));
     std::string method;
     std::string status;
     std::string call_id;
@@ -654,5 +658,5 @@ Java_com_example_layanalyzer_NativeEngine_buildCommunicationAnalysis(
   root["coreTruncated"] = root["coreTotal"].get<int>() > static_cast<int>(root["coreMessages"].size());
   root["truncated"] = root["sipTruncated"].get<bool>() || root["rtpTruncated"].get<bool>() ||
                       root["rtcpTruncated"].get<bool>() || root["coreTruncated"].get<bool>();
-  return new_java_string(env, root.dump());
+  return new_java_string(env, dump_json(root));
 }
